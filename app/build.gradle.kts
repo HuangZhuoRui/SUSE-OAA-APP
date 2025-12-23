@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -33,14 +35,15 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
-    }
     buildFeatures {
         compose = true
     }
 }
-
+kotlin{
+    compilerOptions{
+        jvmTarget.set(JvmTarget.JVM_11)
+    }
+}
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -59,4 +62,10 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 //    测量窗口的大小，用于适配多设备的比例
     implementation(libs.androidx.compose.material3.window.size.class1)
+//    MD3图标包
+    implementation(libs.androidx.material.icons.extended)
+//    viewmodel相关的库
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+//    导航相关的库
+    implementation(libs.androidx.navigation.compose)
 }
