@@ -61,7 +61,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 //    测量窗口的大小，用于适配多设备的比例
-    implementation(libs.androidx.compose.material3.window.size.class1)
+    implementation(libs.androidx.compose.material3.window.size)
 //    MD3图标包
     implementation(libs.androidx.material.icons.extended)
 //    viewmodel相关的库
