@@ -79,8 +79,9 @@ fun OaaBottomBar(
         containerColor = Color.Transparent,
     ) {
         Surface(
-            shadowElevation = 2.dp,
-            color = MaterialTheme.colorScheme.background,
+            tonalElevation = 2.dp,
+            shadowElevation = 1.dp,
+            color = MaterialTheme.colorScheme.surface,
             modifier = Modifier
                 .padding(10.dp),
             shape = RoundedCornerShape(26.dp)

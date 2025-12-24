@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import com.suseoaa.projectoaa.ui.OaaAPP.OaaApp
+import com.suseoaa.projectoaa.ui.theme.ProjectOAATheme
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
@@ -14,8 +15,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            val windowSizeClass = calculateWindowSizeClass(this)
-            OaaApp(windowSizeClass = windowSizeClass.widthSizeClass)
+            ProjectOAATheme {
+                val windowSizeClass = calculateWindowSizeClass(this)
+                OaaApp(windowSizeClass = windowSizeClass.widthSizeClass)
+            }
         }
     }
 }
