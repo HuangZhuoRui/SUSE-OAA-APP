@@ -3,10 +3,14 @@ package com.suseoaa.projectoaa.ui.OaaAPP
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
@@ -131,33 +135,37 @@ fun OaaNavRail(
     onNavigate: (String) -> Unit
 ) {
     NavigationRail {
-        NavigationRailItem(
-            selected = currentDestination?.hierarchy?.any { it.route == HOME_ROUTE } == true,
-            onClick = { onNavigate(HOME_ROUTE) },
-            icon = { Icon(Icons.Default.Home, contentDescription = "首页") },
-            label = { Text("首页") }
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(0.2f)
+        ) {
+            NavigationRailItem(
+                selected = currentDestination?.hierarchy?.any { it.route == HOME_ROUTE } == true,
+                onClick = { onNavigate(HOME_ROUTE) },
+                icon = { Icon(Icons.Default.Home, contentDescription = "首页") },
+                label = { Text("首页") }
+            )
+            NavigationRailItem(
+                selected = currentDestination?.hierarchy?.any { it.route == COURSE_ROUTE } == true,
+                onClick = { onNavigate(COURSE_ROUTE) },
+                icon = { Icon(Icons.Default.Book, contentDescription = "课程") },
+                label = { Text("课程") }
+            )
 
-        NavigationRailItem(
-            selected = currentDestination?.hierarchy?.any { it.route == COURSE_ROUTE } == true,
-            onClick = { onNavigate(COURSE_ROUTE) },
-            icon = { Icon(Icons.Default.Book, contentDescription = "课程") },
-            label = { Text("课程") }
-        )
+            NavigationRailItem(
+                selected = currentDestination?.hierarchy?.any { it.route == CHAT_ROUTE } == true,
+                onClick = { onNavigate(CHAT_ROUTE) },
+                icon = { Icon(Icons.Default.ChatBubble, contentDescription = "协会日记") },
+                label = { Text("协会日记") }
+            )
 
-        NavigationRailItem(
-            selected = currentDestination?.hierarchy?.any { it.route == CHAT_ROUTE } == true,
-            onClick = { onNavigate(CHAT_ROUTE) },
-            icon = { Icon(Icons.Default.ChatBubble, contentDescription = "协会日记") },
-            label = { Text("协会日记") }
-        )
-
-        NavigationRailItem(
-            selected = currentDestination?.hierarchy?.any { it.route == PERSON_ROUTE } == true,
-            onClick = { onNavigate(PERSON_ROUTE) },
-            icon = { Icon(Icons.Default.Person, contentDescription = "个人") },
-            label = { Text("个人") }
-        )
+            NavigationRailItem(
+                selected = currentDestination?.hierarchy?.any { it.route == PERSON_ROUTE } == true,
+                onClick = { onNavigate(PERSON_ROUTE) },
+                icon = { Icon(Icons.Default.Person, contentDescription = "个人") },
+                label = { Text("个人") }
+            )
+        }
     }
-
 }
