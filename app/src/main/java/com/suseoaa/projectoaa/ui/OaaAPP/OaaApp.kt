@@ -1,5 +1,6 @@
 package com.suseoaa.projectoaa.ui.OaaAPP
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -17,6 +18,9 @@ import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -68,40 +72,52 @@ fun OaaBottomBar(
     currentDestination: NavDestination?,
     onNavigate: (String) -> Unit
 ) {
-    NavigationBar {
-        Row(
+    NavigationBar(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        containerColor = Color.Transparent,
+    ) {
+        Surface(
+            shadowElevation = 2.dp,
+            color = MaterialTheme.colorScheme.background,
             modifier = Modifier
-                .fillMaxWidth()
-                .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp))
-                .padding(8.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(10.dp),
+            shape = RoundedCornerShape(26.dp)
         ) {
-            val selected = currentDestination?.hierarchy?.any { it.route == HOME_ROUTE } == true
-            NavigationRailItem(
-                selected = selected,
-                onClick = { onNavigate(HOME_ROUTE) },
-                icon = { Icon(Icons.Default.Home, contentDescription = "首页") },
-                label = { Text("首页") }
-            )
-            NavigationRailItem(
-                selected = selected,
-                onClick = { onNavigate(COURSE_ROUTE) },
-                icon = { Icon(Icons.Default.Book, contentDescription = "课程") },
-                label = { Text("课程") }
-            )
-            NavigationRailItem(
-                selected = selected,
-                onClick = { onNavigate(CHAT_ROUTE) },
-                icon = { Icon(Icons.Default.ChatBubble, contentDescription = "协会日记") },
-                label = { Text("协会日记") }
-            )
-            NavigationRailItem(
-                selected = selected,
-                onClick = { onNavigate(PERSON_ROUTE) },
-                icon = { Icon(Icons.Default.Person, contentDescription = "个人") },
-                label = { Text("个人") }
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val selected = currentDestination?.hierarchy?.any { it.route == HOME_ROUTE } == true
+                NavigationRailItem(
+                    selected = selected,
+                    onClick = { onNavigate(HOME_ROUTE) },
+                    icon = { Icon(Icons.Default.Home, contentDescription = "首页") },
+                    label = { Text("首页") }
+                )
+                NavigationRailItem(
+                    selected = selected,
+                    onClick = { onNavigate(COURSE_ROUTE) },
+                    icon = { Icon(Icons.Default.Book, contentDescription = "课程") },
+                    label = { Text("课程") }
+                )
+                NavigationRailItem(
+                    selected = selected,
+                    onClick = { onNavigate(CHAT_ROUTE) },
+                    icon = { Icon(Icons.Default.ChatBubble, contentDescription = "协会日记") },
+                    label = { Text("协会日记") }
+                )
+                NavigationRailItem(
+                    selected = selected,
+                    onClick = { onNavigate(PERSON_ROUTE) },
+                    icon = { Icon(Icons.Default.Person, contentDescription = "个人") },
+                    label = { Text("个人") }
+                )
+            }
         }
     }
 }
