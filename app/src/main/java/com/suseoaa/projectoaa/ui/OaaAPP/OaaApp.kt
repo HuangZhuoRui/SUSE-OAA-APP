@@ -131,27 +131,29 @@ fun OaaNavRail(
     onNavigate: (String) -> Unit
 ) {
     NavigationRail {
-        val selected = currentDestination?.hierarchy?.any { it.route == it.route } == true
         NavigationRailItem(
-            selected = selected,
+            selected = currentDestination?.hierarchy?.any { it.route == HOME_ROUTE } == true,
             onClick = { onNavigate(HOME_ROUTE) },
             icon = { Icon(Icons.Default.Home, contentDescription = "首页") },
             label = { Text("首页") }
         )
+
         NavigationRailItem(
-            selected = selected,
+            selected = currentDestination?.hierarchy?.any { it.route == COURSE_ROUTE } == true,
             onClick = { onNavigate(COURSE_ROUTE) },
-            icon = { Icon(Icons.Default.Book, contentDescription = "首页") },
+            icon = { Icon(Icons.Default.Book, contentDescription = "课程") },
             label = { Text("课程") }
         )
+
         NavigationRailItem(
-            selected = selected,
+            selected = currentDestination?.hierarchy?.any { it.route == CHAT_ROUTE } == true,
             onClick = { onNavigate(CHAT_ROUTE) },
-            icon = { Icon(Icons.Default.ChatBubble, contentDescription = "首页") },
+            icon = { Icon(Icons.Default.ChatBubble, contentDescription = "协会日记") },
             label = { Text("协会日记") }
         )
+
         NavigationRailItem(
-            selected = selected,
+            selected = currentDestination?.hierarchy?.any { it.route == PERSON_ROUTE } == true,
             onClick = { onNavigate(PERSON_ROUTE) },
             icon = { Icon(Icons.Default.Person, contentDescription = "个人") },
             label = { Text("个人") }
