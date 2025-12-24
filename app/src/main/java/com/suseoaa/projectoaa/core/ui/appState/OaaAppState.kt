@@ -1,4 +1,4 @@
-package com.suseoaa.projectoaa.ui.AppState
+package com.suseoaa.projectoaa.core.ui.appState
 
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable

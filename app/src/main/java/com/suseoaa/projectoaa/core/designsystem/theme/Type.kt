@@ -1,4 +1,4 @@
-package com.suseoaa.projectoaa.ui.theme
+package com.suseoaa.projectoaa.core.designsystem.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

@@ -1,4 +1,4 @@
-package com.suseoaa.projectoaa
+package com.suseoaa.projectoaa.app
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -6,8 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
-import com.suseoaa.projectoaa.ui.OaaAPP.OaaApp
-import com.suseoaa.projectoaa.ui.theme.ProjectOAATheme
+import com.suseoaa.projectoaa.core.ui.oaaAPP.tabBar.OaaApp
+import com.suseoaa.projectoaa.core.designsystem.theme.ProjectOAATheme
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)

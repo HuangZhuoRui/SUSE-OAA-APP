@@ -1,4 +1,4 @@
-package com.suseoaa.projectoaa.ui.AppNavHost
+package com.suseoaa.projectoaa.core.ui.appNavHost
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier

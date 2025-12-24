@@ -1,16 +1,12 @@
-package com.suseoaa.projectoaa.ui.OaaAPP
+package com.suseoaa.projectoaa.core.ui.oaaAPP.tabBar
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
@@ -22,9 +18,7 @@ import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -32,9 +26,9 @@ import com.suseoaa.projectoaa.feature.home.CHAT_ROUTE
 import com.suseoaa.projectoaa.feature.home.COURSE_ROUTE
 import com.suseoaa.projectoaa.feature.home.HOME_ROUTE
 import com.suseoaa.projectoaa.feature.home.PERSON_ROUTE
-import com.suseoaa.projectoaa.ui.AppNavHost.AppNavHost
-import com.suseoaa.projectoaa.ui.AppState.OaaAppState
-import com.suseoaa.projectoaa.ui.AppState.rememberOaaAppState
+import com.suseoaa.projectoaa.core.ui.appNavHost.AppNavHost
+import com.suseoaa.projectoaa.core.ui.appState.OaaAppState
+import com.suseoaa.projectoaa.core.ui.appState.rememberOaaAppState
 
 @Composable
 fun OaaApp(
@@ -146,6 +140,7 @@ fun OaaNavRail(
                 icon = { Icon(Icons.Default.Home, contentDescription = "首页") },
                 label = { Text("首页") }
             )
+
             NavigationRailItem(
                 selected = currentDestination?.hierarchy?.any { it.route == COURSE_ROUTE } == true,
                 onClick = { onNavigate(COURSE_ROUTE) },
