@@ -4,9 +4,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
+import com.suseoaa.projectoaa.feature.chat.chatScreen
+import com.suseoaa.projectoaa.feature.course.courseScreen
 import com.suseoaa.projectoaa.feature.home.HOME_ROUTE
 import com.suseoaa.projectoaa.feature.home.homeScreen
-import com.suseoaa.projectoaa.feature.person.onNavigateToPerson
+import com.suseoaa.projectoaa.feature.person.navigateToPerson
 import com.suseoaa.projectoaa.feature.person.personScreen
 
 @Composable
@@ -22,7 +24,7 @@ fun AppNavHost(
         // 1. 注册首页
         homeScreen(
             onNavigateToPerson = {
-                navController.onNavigateToPerson()
+                navController.navigateToPerson()
             }
         )
 
@@ -34,5 +36,10 @@ fun AppNavHost(
         )
 
 //        3.注册课程页
+        courseScreen(
+
+        )
+//        4.注册协会日记页
+        chatScreen()
     }
 }

@@ -10,6 +10,12 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navOptions
+import com.suseoaa.projectoaa.feature.chat.CHAT_ROUTE
+import com.suseoaa.projectoaa.feature.chat.navigateToChat
+import com.suseoaa.projectoaa.feature.course.COURSE_ROUTE
+import com.suseoaa.projectoaa.feature.course.navigateToCourse
+import com.suseoaa.projectoaa.feature.person.PERSON_ROUTE
+import com.suseoaa.projectoaa.feature.person.navigateToPerson
 
 @Stable
 class OaaAppState(
@@ -42,6 +48,9 @@ class OaaAppState(
 
         when (destinationRoute) {
             HOME_ROUTE -> navController.navigateToHome(topLevelNavOptions)
+            COURSE_ROUTE -> navController.navigateToCourse()
+            CHAT_ROUTE -> navController.navigateToChat()
+            PERSON_ROUTE -> navController.navigateToPerson()
             // 如果以后有其他 Tab，在这里添加
         }
     }

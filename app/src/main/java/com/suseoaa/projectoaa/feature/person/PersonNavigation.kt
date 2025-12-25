@@ -7,7 +7,7 @@ import androidx.navigation.compose.composable
 
 const val PERSON_ROUTE = "person_route"
 
-fun NavController.onNavigateToPerson(navOptions: NavOptions? = null) {
+fun NavController.navigateToPerson(navOptions: NavOptions? = null) {
     this.navigate(PERSON_ROUTE, navOptions)
 }
 
@@ -15,6 +15,7 @@ fun NavGraphBuilder.personScreen(
     onBackClick: () -> Unit
 ) {
     composable(route = PERSON_ROUTE) {
+        PersonScreen()
         personScreen(onBackClick = onBackClick)
     }
 }
