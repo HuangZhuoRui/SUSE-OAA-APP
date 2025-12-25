@@ -29,7 +29,7 @@ fun NavigationItemForPad(
 ) {
 //    定义背景色，如果未选中则透明，反之则是选中的颜色
     val backgroundColor = if (selected) {
-        MaterialTheme.colorScheme.onPrimaryContainer
+        MaterialTheme.colorScheme.secondaryContainer
     } else {
         Color.Transparent
     }
@@ -42,10 +42,10 @@ fun NavigationItemForPad(
     Surface(
         onClick = onClick,
         color = backgroundColor,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(24.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
+            .padding(vertical = 4.dp, horizontal = 16.dp)
     ) {
         Row(
             modifier = Modifier
