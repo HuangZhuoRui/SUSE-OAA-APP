@@ -13,7 +13,11 @@ fun HomeScreen(
     // 导航事件回调
     onMyClick: () -> Unit
 ) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
         Button(onClick = onMyClick) {
             Text(text = "首页：点击跳转到设置 ->")
         }

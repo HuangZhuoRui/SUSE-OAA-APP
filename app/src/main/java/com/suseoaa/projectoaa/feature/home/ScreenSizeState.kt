@@ -1,4 +1,4 @@
-package com.suseoaa.projectoaa.core.ui.appState
+package com.suseoaa.projectoaa.feature.home
 
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
@@ -10,8 +10,6 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navOptions
-import com.suseoaa.projectoaa.feature.home.HOME_ROUTE
-import com.suseoaa.projectoaa.feature.home.navigateToHome
 
 @Stable
 class OaaAppState(

@@ -6,7 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
-import com.suseoaa.projectoaa.core.ui.oaaAPP.tabBar.OaaApp
+import com.suseoaa.projectoaa.feature.home.OaaApp
 import com.suseoaa.projectoaa.core.designsystem.theme.ProjectOAATheme
 
 class MainActivity : ComponentActivity() {
