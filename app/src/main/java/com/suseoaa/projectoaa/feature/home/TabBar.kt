@@ -23,7 +23,10 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
 import com.suseoaa.projectoaa.app.AppNavHost
+import com.suseoaa.projectoaa.feature.chat.CHAT_ROUTE
+import com.suseoaa.projectoaa.feature.course.COURSE_ROUTE
 import com.suseoaa.projectoaa.feature.home.component.NavigationItemForPad
+import com.suseoaa.projectoaa.feature.person.PERSON_ROUTE
 
 @Composable
 fun OaaApp(

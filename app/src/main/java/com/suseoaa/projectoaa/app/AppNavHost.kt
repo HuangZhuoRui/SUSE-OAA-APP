@@ -6,8 +6,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import com.suseoaa.projectoaa.feature.home.HOME_ROUTE
 import com.suseoaa.projectoaa.feature.home.homeScreen
-import com.suseoaa.projectoaa.feature.my.MyScreen
-import com.suseoaa.projectoaa.feature.my.navigateToMy
+import com.suseoaa.projectoaa.feature.person.onNavigateToPerson
+import com.suseoaa.projectoaa.feature.person.personScreen
 
 @Composable
 fun AppNavHost(
@@ -21,16 +21,18 @@ fun AppNavHost(
     ) {
         // 1. 注册首页
         homeScreen(
-            onNavigateToMy = {
-                navController.navigateToMy()
+            onNavigateToPerson = {
+                navController.onNavigateToPerson()
             }
         )
 
-        // 2. 注册设置页
-        MyScreen(
+        // 2. 注册个人页
+        personScreen(
             onBackClick = {
                 navController.popBackStack()
             }
         )
+
+//        3.注册课程页
     }
 }
