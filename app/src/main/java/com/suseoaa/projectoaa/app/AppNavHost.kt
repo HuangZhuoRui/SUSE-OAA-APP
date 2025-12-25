@@ -1,5 +1,7 @@
 package com.suseoaa.projectoaa.app
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
@@ -19,7 +21,12 @@ fun AppNavHost(
     NavHost(
         navController = navController,
         startDestination = HOME_ROUTE,
-        modifier = modifier
+        modifier = modifier,
+//        修改动画，将原有的渐变动画关闭
+        enterTransition = { EnterTransition.None },
+        exitTransition = { ExitTransition.None },
+        popEnterTransition = { EnterTransition.None },
+        popExitTransition = { ExitTransition.None }
     ) {
         // 1. 注册首页
         homeScreen(
