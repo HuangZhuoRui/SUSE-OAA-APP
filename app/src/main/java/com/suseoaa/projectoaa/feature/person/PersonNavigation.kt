@@ -12,10 +12,8 @@ fun NavController.navigateToPerson(navOptions: NavOptions? = null) {
 }
 
 fun NavGraphBuilder.personScreen(
-    onBackClick: () -> Unit
 ) {
     composable(route = PERSON_ROUTE) {
         PersonScreen()
-        personScreen(onBackClick = onBackClick)
     }
 }

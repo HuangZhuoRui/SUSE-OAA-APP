@@ -19,15 +19,41 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.suseoaa.projectoaa.app.AppNavHost
 import com.suseoaa.projectoaa.feature.chat.CHAT_ROUTE
 import com.suseoaa.projectoaa.feature.course.COURSE_ROUTE
 import com.suseoaa.projectoaa.feature.home.component.NavigationItemForPad
 import com.suseoaa.projectoaa.feature.person.PERSON_ROUTE
 
+//统一定义底部栏信息
+enum class TopLevelDestination(
+    val route: String,
+    val icon: ImageVector,
+    val label: String
+) {
+    HOME(HOME_ROUTE, Icons.Default.Home, "首页"),
+    COURSE(COURSE_ROUTE, Icons.Default.Book, "课程信息"),
+    CHAT(CHAT_ROUTE, Icons.Default.ChatBubble, "协会日记"),
+    PERSON(PERSON_ROUTE, Icons.Default.Person, "个人"),
+}
+fun NavController.navigateToTopLevelDestination(route: String) {
+    this.navigate(route) {
+        // 弹出到起始页 (HOME)，避免返回栈堆积
+        popUpTo(this@navigateToTopLevelDestination.graph.findStartDestination().id) {
+            saveState = true
+        }
+        // 避免在栈顶重复创建同一页面
+        launchSingleTop = true
+        // 恢复之前的状态 (如滚动位置)
+        restoreState = true
+    }
+}
 @Composable
 fun OaaApp(
     windowSizeClass: WindowWidthSizeClass,
@@ -38,7 +64,7 @@ fun OaaApp(
         if (appState.shouldShowNavRail) {
             OaaNavRail(
                 currentDestination = appState.currentDestination,
-                onNavigate = appState::navigateToTopLevelDestination
+                onNavigate = { route -> appState.navController.navigateToTopLevelDestination(route) }
             )
         }
 
@@ -48,7 +74,7 @@ fun OaaApp(
                 if (appState.shouldShowBottomBar) {
                     OaaBottomBar(
                         currentDestination = appState.currentDestination,
-                        onNavigate = appState::navigateToTopLevelDestination
+                        onNavigate = { route -> appState.navController.navigateToTopLevelDestination(route) }
                     )
                 }
             }
@@ -88,33 +114,18 @@ fun OaaBottomBar(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                NavigationRailItem(
-                    selected = currentDestination?.hierarchy?.any { it.route == HOME_ROUTE } == true,
-                    onClick = { onNavigate(HOME_ROUTE) },
-                    icon = { Icon(Icons.Default.Home, contentDescription = "首页") },
-                    label = { Text("首页") }
-                )
+                TopLevelDestination.entries.forEach { destination ->
+                    // 判断当前是否选中
+                    val isSelected =
+                        currentDestination?.hierarchy?.any { it.route == destination.route } == true
 
-                NavigationRailItem(
-                    selected = currentDestination?.hierarchy?.any { it.route == COURSE_ROUTE } == true,
-                    onClick = { onNavigate(COURSE_ROUTE) },
-                    icon = { Icon(Icons.Default.Book, contentDescription = "课程") },
-                    label = { Text("课程") }
-                )
-
-                NavigationRailItem(
-                    selected = currentDestination?.hierarchy?.any { it.route == CHAT_ROUTE } == true,
-                    onClick = { onNavigate(CHAT_ROUTE) },
-                    icon = { Icon(Icons.Default.ChatBubble, contentDescription = "协会日记") },
-                    label = { Text("协会日记") }
-                )
-
-                NavigationRailItem(
-                    selected = currentDestination?.hierarchy?.any { it.route == PERSON_ROUTE } == true,
-                    onClick = { onNavigate(PERSON_ROUTE) },
-                    icon = { Icon(Icons.Default.Person, contentDescription = "个人") },
-                    label = { Text("个人") }
-                )
+                    NavigationRailItem(
+                        selected = isSelected,
+                        onClick = { onNavigate(destination.route) },
+                        icon = { Icon(destination.icon, contentDescription = destination.label) },
+                        label = { Text(destination.label) }
+                    )
+                }
             }
         }
     }
@@ -132,33 +143,17 @@ fun OaaNavRail(
                 .fillMaxHeight()
                 .fillMaxWidth(0.2f)
         ) {
-            NavigationItemForPad(
-                selected = currentDestination?.hierarchy?.any { it.route == HOME_ROUTE } == true,
-                onClick = { onNavigate(HOME_ROUTE) },
-                icon = Icons.Default.Home,
-                label = "首页"
-            )
+            TopLevelDestination.entries.forEach { destination ->
+                val isSelected =
+                    currentDestination?.hierarchy?.any { it.route == destination.route } == true
 
-            NavigationItemForPad(
-                selected = currentDestination?.hierarchy?.any { it.route == COURSE_ROUTE } == true,
-                onClick = { onNavigate(COURSE_ROUTE) },
-                icon = Icons.Default.Book,
-                label = "课程"
-            )
-
-            NavigationItemForPad(
-                selected = currentDestination?.hierarchy?.any { it.route == CHAT_ROUTE } == true,
-                onClick = { onNavigate(CHAT_ROUTE) },
-                icon = Icons.Default.ChatBubble,
-                label = "协会日记"
-            )
-
-            NavigationItemForPad(
-                selected = currentDestination?.hierarchy?.any { it.route == PERSON_ROUTE } == true,
-                onClick = { onNavigate(PERSON_ROUTE) },
-                icon = Icons.Default.Person,
-                label = "个人"
-            )
+                NavigationItemForPad(
+                    selected = isSelected,
+                    onClick = { onNavigate(destination.route) },
+                    icon = destination.icon,
+                    label = destination.label
+                )
+            }
         }
     }
 }

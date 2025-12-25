@@ -14,10 +14,8 @@ fun NavController.navigateToHome(navOptions: NavOptions? = null) {
 }
 
 // 扩展函数：供 NavHost 调用“注册首页”
-fun NavGraphBuilder.homeScreen(
-    onNavigateToPerson: () -> Unit
-) {
+fun NavGraphBuilder.homeScreen() {
     composable(route = HOME_ROUTE) {
-        HomeScreen(onMyClick = onNavigateToPerson)
+        HomeScreen()
     }
 }

@@ -34,26 +34,6 @@ class OaaAppState(
     // 判断是否显示侧边栏 (平板/横屏)
     val shouldShowNavRail: Boolean
         get() = windowSizeClass != WindowWidthSizeClass.Compact
-
-    // 封装顶级页面的跳转逻辑 (避免多层堆栈)
-    fun navigateToTopLevelDestination(destinationRoute: String) {
-        val topLevelNavOptions = navOptions {
-            // 弹出到起始页
-            popUpTo(navController.graph.findStartDestination().id) {
-                saveState = true
-            }
-            launchSingleTop = true
-            restoreState = true
-        }
-
-        when (destinationRoute) {
-            HOME_ROUTE -> navController.navigateToHome(topLevelNavOptions)
-            COURSE_ROUTE -> navController.navigateToCourse()
-            CHAT_ROUTE -> navController.navigateToChat()
-            PERSON_ROUTE -> navController.navigateToPerson()
-            // 如果以后有其他 Tab，在这里添加
-        }
-    }
 }
 
 // 帮助函数：方便在 UI 中创建 AppState

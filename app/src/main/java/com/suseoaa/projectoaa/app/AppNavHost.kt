@@ -29,18 +29,10 @@ fun AppNavHost(
         popExitTransition = { ExitTransition.None }
     ) {
         // 1. 注册首页
-        homeScreen(
-            onNavigateToPerson = {
-                navController.navigateToPerson()
-            }
-        )
+        homeScreen()
 
         // 2. 注册个人页
-        personScreen(
-            onBackClick = {
-                navController.popBackStack()
-            }
-        )
+        personScreen()
 
 //        3.注册课程页
         courseScreen(
