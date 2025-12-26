@@ -32,13 +32,15 @@ class OaaAppState(
     val shouldShowBottomBar: Boolean
         @Composable
         get() = windowSizeClass == WindowWidthSizeClass.Compact
-                && currentDestination?.route != LOGIN_ROUTE // 如果是登录页，这就返回 false
+                // 如果是登录页，这就返回 false
+                && currentDestination?.route != LOGIN_ROUTE
 
     // 判断是否显示侧边栏,平板
     val shouldShowNavRail: Boolean
         @Composable
         get() = windowSizeClass != WindowWidthSizeClass.Compact
-                && currentDestination?.route != LOGIN_ROUTE // 如果是登录页，这就返回 false
+                // 如果是登录页，这就返回 false
+                && currentDestination?.route != LOGIN_ROUTE
 }
 
 // 帮助函数：方便在 UI 中创建 AppState

@@ -64,6 +64,7 @@ dependencies {
     implementation(libs.androidx.compose.material3.window.size)
 //    MD3图标包
     implementation(libs.androidx.material.icons.extended)
+    implementation("androidx.compose.material:material-icons-extended:1.6.0")
 //    viewmodel相关的库
     implementation(libs.androidx.lifecycle.viewmodel.compose)
 //    导航相关的库

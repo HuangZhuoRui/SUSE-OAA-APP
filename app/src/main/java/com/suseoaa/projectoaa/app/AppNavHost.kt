@@ -13,6 +13,7 @@ import com.suseoaa.projectoaa.feature.home.homeScreen
 import com.suseoaa.projectoaa.feature.login.LOGIN_ROUTE
 import com.suseoaa.projectoaa.feature.login.loginScreen
 import com.suseoaa.projectoaa.feature.person.personScreen
+import com.suseoaa.projectoaa.feature.textScreen.testScreen
 
 @Composable
 fun AppNavHost(
@@ -48,5 +49,7 @@ fun AppNavHost(
         courseScreen()
 //        4.注册协会日记页
         chatScreen()
+//        注册测试页
+        testScreen()
     }
 }
