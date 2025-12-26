@@ -13,6 +13,7 @@ import com.suseoaa.projectoaa.feature.home.homeScreen
 import com.suseoaa.projectoaa.feature.login.LOGIN_ROUTE
 import com.suseoaa.projectoaa.feature.login.loginScreen
 import com.suseoaa.projectoaa.feature.person.personScreen
+import com.suseoaa.projectoaa.feature.register.navigateToRegister
 import com.suseoaa.projectoaa.feature.register.registerScreen
 import com.suseoaa.projectoaa.feature.textScreen.testScreen
 
@@ -38,20 +39,30 @@ fun AppNavHost(
                 navController.navigate(HOME_ROUTE) {
                     popUpTo(LOGIN_ROUTE) { inclusive = true }
                 }
+            },
+            onNavigateToRegister = {
+                navController.navigateToRegister()
             }
         )
-        // 1. 注册首页
+        // 注册首页
         homeScreen()
 
-        // 2. 注册个人页
+        // 注册个人页
         personScreen()
 
-//        3.注册课程页
+//        注册课程页
         courseScreen()
-//        4.注册协会日记页
+//        注册协会日记页
         chatScreen()
 //        注册注册页
-        registerScreen()
+        registerScreen(
+            onRegisterSuccess = {
+                navController.popBackStack()
+            },
+            onBackClick = {
+                navController.popBackStack()
+            }
+        )
 //        注册测试页
         testScreen()
     }

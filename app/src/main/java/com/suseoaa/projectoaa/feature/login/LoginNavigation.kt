@@ -13,9 +13,13 @@ fun NavController.navigateToLogin(navOptions: NavOptions? = null) {
 
 //注册登录页
 fun NavGraphBuilder.loginScreen(
-    onLoginSuccess: () -> Unit
+    onLoginSuccess: () -> Unit,
+    onNavigateToRegister: () -> Unit
 ) {
     composable(route = LOGIN_ROUTE) {
-        LoginScreen(onLoginSuccess = onLoginSuccess)
+        LoginScreen(
+            onLoginSuccess = onLoginSuccess,
+            onNavigateToRegister = onNavigateToRegister
+        )
     }
 }

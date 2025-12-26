@@ -44,15 +44,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
+    onNavigateToRegister: () -> Unit,
     viewModel: LoginViewModel = viewModel()
 ) {
     val context = LocalContext.current
-//    定义状态
-//    var account by remember { mutableStateOf("") }
-//    var password by remember { mutableStateOf("") }
     var isPasswordVisible by remember { mutableStateOf(false) }
-//    确保密码不为空时才可以点击登录按钮
-//    val isLoginEnabled = account.isNotBlank() && password.isNotBlank()
 
     Column(
         modifier = Modifier
@@ -124,7 +120,7 @@ fun LoginScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            TextButton(onClick = { /* TODO: 跳转注册 */ }) {
+            TextButton(onClick = onNavigateToRegister) {
                 Text("注册账号")
             }
             TextButton(onClick = { /* TODO: 忘记密码 */ }) {
