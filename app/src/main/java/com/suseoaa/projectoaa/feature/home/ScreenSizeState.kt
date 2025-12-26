@@ -8,13 +8,31 @@ import androidx.navigation.NavDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.suseoaa.projectoaa.feature.chat.CHAT_ROUTE
+import com.suseoaa.projectoaa.feature.course.COURSE_ROUTE
 import com.suseoaa.projectoaa.feature.login.LOGIN_ROUTE
+import com.suseoaa.projectoaa.feature.person.PERSON_ROUTE
+import com.suseoaa.projectoaa.feature.register.REGISTER_ROUTE
 
 @Stable
 class OaaAppState(
     val navController: NavHostController,
     val windowSizeClass: WindowWidthSizeClass
 ) {
+    //    TabBar白名单,手机端
+    private val topLevelDestination = setOf(
+        HOME_ROUTE,
+        COURSE_ROUTE,
+        CHAT_ROUTE,
+        PERSON_ROUTE
+    )
+
+    //TabBar黑名单，平板端
+    private val fullScreenDestination = setOf(
+        LOGIN_ROUTE,
+        REGISTER_ROUTE
+    )
+
     // 获取当前路由，用于高亮导航栏图标
     val currentDestination: NavDestination?
         @Composable get() = navController
@@ -24,15 +42,13 @@ class OaaAppState(
     val shouldShowBottomBar: Boolean
         @Composable
         get() = windowSizeClass == WindowWidthSizeClass.Compact
-                // 如果是登录页，这就返回 false
-                && currentDestination?.route != LOGIN_ROUTE
+                && currentDestination?.route in topLevelDestination
 
     // 判断是否显示侧边栏,平板
     val shouldShowNavRail: Boolean
         @Composable
         get() = windowSizeClass != WindowWidthSizeClass.Compact
-                // 如果是登录页，这就返回 false
-                && currentDestination?.route != LOGIN_ROUTE
+                && currentDestination?.route !in fullScreenDestination
 }
 
 // 帮助函数：方便在 UI 中创建 AppState
