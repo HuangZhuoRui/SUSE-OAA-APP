@@ -1,0 +1,23 @@
+package com.suseoaa.projectoaa.core.network.login
+
+import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
+import com.suseoaa.projectoaa.core.network.BASE_URL
+import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaType
+import retrofit2.Retrofit
+
+object RetrofitClient {
+    //    配置Json解析器
+    private val json = Json {
+        ignoreUnknownKeys = true
+        coerceInputValues = true
+        encodeDefaults = true
+    }
+    val apiService: LoginService by lazy {
+        Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build()
+            .create(LoginService::class.java)
+    }
+}

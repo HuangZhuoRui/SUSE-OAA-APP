@@ -16,6 +16,6 @@ fun NavGraphBuilder.loginScreen(
     onLoginSuccess: () -> Unit
 ) {
     composable(route = LOGIN_ROUTE) {
-        LoginScreen(onLoginClick = onLoginSuccess)
+        LoginScreen(onLoginSuccess = onLoginSuccess)
     }
 }
