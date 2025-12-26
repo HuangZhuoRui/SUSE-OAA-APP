@@ -5,18 +5,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.navigation.NavDestination
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navOptions
-import com.suseoaa.projectoaa.feature.chat.CHAT_ROUTE
-import com.suseoaa.projectoaa.feature.chat.navigateToChat
-import com.suseoaa.projectoaa.feature.course.COURSE_ROUTE
-import com.suseoaa.projectoaa.feature.course.navigateToCourse
 import com.suseoaa.projectoaa.feature.login.LOGIN_ROUTE
-import com.suseoaa.projectoaa.feature.person.PERSON_ROUTE
-import com.suseoaa.projectoaa.feature.person.navigateToPerson
 
 @Stable
 class OaaAppState(

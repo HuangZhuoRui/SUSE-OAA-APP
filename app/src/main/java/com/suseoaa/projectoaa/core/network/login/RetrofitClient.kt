@@ -1,7 +1,7 @@
 package com.suseoaa.projectoaa.core.network.login
 
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
-import com.suseoaa.projectoaa.core.network.BASE_URL
+import com.suseoaa.projectoaa.core.network.BASE_URL_FOR_SUSE_OAA
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import retrofit2.Retrofit
@@ -15,7 +15,7 @@ object RetrofitClient {
     }
     val apiService: LoginService by lazy {
         Retrofit.Builder()
-            .baseUrl(BASE_URL)
+            .baseUrl(BASE_URL_FOR_SUSE_OAA)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
             .create(LoginService::class.java)

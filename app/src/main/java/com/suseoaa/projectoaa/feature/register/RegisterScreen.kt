@@ -1,9 +1,9 @@
-package com.suseoaa.projectoaa.feature.home
+package com.suseoaa.projectoaa.feature.register
 
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 
 @Composable
-fun HomeScreen() {
-    Text("这里是首页")
+fun RegisterScreen(){
+
 }
