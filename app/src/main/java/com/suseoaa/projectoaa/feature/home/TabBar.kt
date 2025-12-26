@@ -44,13 +44,13 @@ enum class TopLevelDestination(
 }
 fun NavController.navigateToTopLevelDestination(route: String) {
     this.navigate(route) {
-        // 弹出到起始页 (HOME)，避免返回栈堆积
+        // 弹出到起始页，避免返回栈堆积
         popUpTo(this@navigateToTopLevelDestination.graph.findStartDestination().id) {
             saveState = true
         }
         // 避免在栈顶重复创建同一页面
         launchSingleTop = true
-        // 恢复之前的状态 (如滚动位置)
+        // 恢复之前的状态,也就是存储页面的状态
         restoreState = true
     }
 }

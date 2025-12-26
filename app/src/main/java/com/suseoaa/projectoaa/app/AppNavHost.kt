@@ -10,7 +10,8 @@ import com.suseoaa.projectoaa.feature.chat.chatScreen
 import com.suseoaa.projectoaa.feature.course.courseScreen
 import com.suseoaa.projectoaa.feature.home.HOME_ROUTE
 import com.suseoaa.projectoaa.feature.home.homeScreen
-import com.suseoaa.projectoaa.feature.person.navigateToPerson
+import com.suseoaa.projectoaa.feature.login.LOGIN_ROUTE
+import com.suseoaa.projectoaa.feature.login.loginScreen
 import com.suseoaa.projectoaa.feature.person.personScreen
 
 @Composable
@@ -20,7 +21,7 @@ fun AppNavHost(
 ) {
     NavHost(
         navController = navController,
-        startDestination = HOME_ROUTE,
+        startDestination = LOGIN_ROUTE,
         modifier = modifier,
 //        修改动画，将原有的渐变动画关闭
         enterTransition = { EnterTransition.None },
@@ -28,6 +29,15 @@ fun AppNavHost(
         popEnterTransition = { EnterTransition.None },
         popExitTransition = { ExitTransition.None }
     ) {
+        loginScreen(
+            onLoginSuccess = {
+                // 登录成功的跳转逻辑：
+                // 跳转到首页，并且把“登录页”从返回栈里弹出去
+                navController.navigate(HOME_ROUTE) {
+                    popUpTo(LOGIN_ROUTE) { inclusive = true }
+                }
+            }
+        )
         // 1. 注册首页
         homeScreen()
 
@@ -35,9 +45,7 @@ fun AppNavHost(
         personScreen()
 
 //        3.注册课程页
-        courseScreen(
-
-        )
+        courseScreen()
 //        4.注册协会日记页
         chatScreen()
     }

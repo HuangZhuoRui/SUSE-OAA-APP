@@ -14,6 +14,7 @@ import com.suseoaa.projectoaa.feature.chat.CHAT_ROUTE
 import com.suseoaa.projectoaa.feature.chat.navigateToChat
 import com.suseoaa.projectoaa.feature.course.COURSE_ROUTE
 import com.suseoaa.projectoaa.feature.course.navigateToCourse
+import com.suseoaa.projectoaa.feature.login.LOGIN_ROUTE
 import com.suseoaa.projectoaa.feature.person.PERSON_ROUTE
 import com.suseoaa.projectoaa.feature.person.navigateToPerson
 
@@ -27,13 +28,17 @@ class OaaAppState(
         @Composable get() = navController
             .currentBackStackEntryAsState().value?.destination
 
-    // 判断是否显示底部栏 (手机竖屏)
+    // 判断是否显示底部栏，手机
     val shouldShowBottomBar: Boolean
+        @Composable
         get() = windowSizeClass == WindowWidthSizeClass.Compact
+                && currentDestination?.route != LOGIN_ROUTE // 如果是登录页，这就返回 false
 
-    // 判断是否显示侧边栏 (平板/横屏)
+    // 判断是否显示侧边栏,平板
     val shouldShowNavRail: Boolean
+        @Composable
         get() = windowSizeClass != WindowWidthSizeClass.Compact
+                && currentDestination?.route != LOGIN_ROUTE // 如果是登录页，这就返回 false
 }
 
 // 帮助函数：方便在 UI 中创建 AppState
