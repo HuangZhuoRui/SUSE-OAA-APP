@@ -1,51 +1,57 @@
 package com.suseoaa.projectoaa.core.database.dao
 
-import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
-import androidx.room.Query
-import androidx.room.Transaction
+import androidx.room.*
 import com.suseoaa.projectoaa.core.database.entity.ClassTimeEntity
+import com.suseoaa.projectoaa.core.database.entity.CourseAccountEntity
 import com.suseoaa.projectoaa.core.database.entity.CourseEntity
-import com.suseoaa.projectoaa.core.database.entity.CourseWithTimes
 import kotlinx.coroutines.flow.Flow
-
 
 @Dao
 interface CourseDao {
-    //    插入课程实体,冲突处理：如果冲突就替换
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertCourse(course: List<CourseEntity>)
 
-    //    插入上课时间
+    // === 账号操作 (保持不变) ===
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertClassTime(times: List<ClassTimeEntity>)
+    suspend fun insertAccount(account: CourseAccountEntity)
 
-    //    删除指定学期的旧数据,只删除获取到的数据，不删除用户自己添加的数据
-    @Transaction
+    @Query("SELECT * FROM course_accounts")
+    fun getAllAccounts(): Flow<List<CourseAccountEntity>>
+
+    @Query("DELETE FROM course_accounts WHERE studentId = :studentId")
+    suspend fun deleteAccount(studentId: String)
+
+    // === 课程操作 (保持不变) ===
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCourse(course: CourseEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertClassTimes(times: List<ClassTimeEntity>)
+
     @Query("DELETE FROM courses WHERE studentId = :studentId AND xnm = :xnm AND xqm = :xqm AND isCustom = 0")
-    suspend fun deleteOldCourses(studentId: String, xnm: String, xqm: String)
+    suspend fun deleteRemoteCoursesByTerm(studentId: String, xnm: String, xqm: String)
 
-    //     查询数据
-    @Transaction
-    @Query("SELECT * FROM courses WHERE studentId = :studentId AND xnm = :xnm AND xqm = :xqm")
-    fun getCourseWithTimes(
-        studentId: String,
-        xnm: String,
-        xqm: String
-    ): Flow<List<CourseWithTimes>>
+    @Query("DELETE FROM courses WHERE studentId = :studentId")
+    suspend fun deleteAllCoursesByStudent(studentId: String)
 
-    //    事务处理,先删除，再插入
     @Transaction
-    suspend fun updateTermCourse(
-        studentId: String,
-        xnm: String,
-        xqm: String,
-        course: List<CourseEntity>,
-        times: List<ClassTimeEntity>
-    ) {
-        deleteOldCourses(studentId, xnm, xqm)
-        insertCourse(course)
-        insertClassTime(times)
+    suspend fun updateTermCourses(studentId: String, xnm: String, xqm: String, courses: List<CourseEntity>, times: List<ClassTimeEntity>) {
+        deleteRemoteCoursesByTerm(studentId, xnm, xqm)
+        courses.forEach { insertCourse(it) }
+        insertClassTimes(times)
     }
+
+    @Transaction
+    suspend fun insertCustomCourse(course: CourseEntity, time: ClassTimeEntity) {
+        insertCourse(course)
+        insertClassTimes(listOf(time))
+    }
+
+    // === [修复] 查询部分 ===
+
+    // 1. 只查课程本体
+    @Query("SELECT * FROM courses WHERE studentId = :studentId AND xnm = :xnm AND xqm = :xqm")
+    fun getCourseEntities(studentId: String, xnm: String, xqm: String): Flow<List<CourseEntity>>
+
+    // 2. 只查课程时间 (注意这里严格限制了 studentId)
+    @Query("SELECT * FROM class_times WHERE studentId = :studentId AND xnm = :xnm AND xqm = :xqm")
+    fun getClassTimeEntities(studentId: String, xnm: String, xqm: String): Flow<List<ClassTimeEntity>>
 }

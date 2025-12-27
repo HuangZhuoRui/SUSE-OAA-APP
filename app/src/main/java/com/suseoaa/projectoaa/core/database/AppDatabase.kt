@@ -1,21 +1,45 @@
 package com.suseoaa.projectoaa.core.database
 
+import android.content.Context
 import androidx.room.Database
+import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.suseoaa.projectoaa.core.database.dao.CourseDao
-import com.suseoaa.projectoaa.core.database.entity.ClassTimeEntity
 import com.suseoaa.projectoaa.core.database.entity.CourseEntity
+import com.suseoaa.projectoaa.core.database.entity.ClassTimeEntity
+import com.suseoaa.projectoaa.core.database.entity.CourseAccountEntity
 
+// 升级数据库版本
 @Database(
     entities = [
         CourseEntity::class,
-        ClassTimeEntity::class
+        ClassTimeEntity::class,
+        CourseAccountEntity::class
     ],
-//    如果数据库结构有更新，要增加这个数字
-    version = 1,
+    version = 6,
     exportSchema = false
 )
-abstract class AppDatabase : RoomDatabase() {
-    //    提供Dao接口
+abstract class CourseDatabase : RoomDatabase() {
     abstract fun courseDao(): CourseDao
+
+    companion object {
+        @Volatile
+        private var INSTANCE: CourseDatabase? = null
+
+        fun getInstance(context: Context): CourseDatabase {
+            return INSTANCE ?: synchronized(this) {
+                INSTANCE ?: buildDatabase(context).also { INSTANCE = it }
+            }
+        }
+
+        private fun buildDatabase(context: Context): CourseDatabase {
+            return Room.databaseBuilder(
+                context.applicationContext,
+                CourseDatabase::class.java,
+                "course_schedule.db"
+            )
+                .fallbackToDestructiveMigration(true) // 允许破坏性迁移
+                .build()
+        }
+    }
 }

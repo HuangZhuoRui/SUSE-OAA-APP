@@ -5,10 +5,22 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import androidx.room.Relation
+/**
+ * 账号信息表
+ */
+@Entity(tableName = "course_accounts")
+data class CourseAccountEntity(
+    @PrimaryKey val studentId: String,
+    val password: String,
+    val name: String,
+    val className: String,
+    val njdmId: String,
+    val major: String
+)
 
-
-//课程基本信息表，主表
+/**
+ * 课程表实体
+ */
 @Entity(
     tableName = "courses",
     primaryKeys = ["studentId", "courseName", "xnm", "xqm", "isCustom"]
@@ -16,17 +28,20 @@ import androidx.room.Relation
 data class CourseEntity(
     val studentId: String,
     val courseName: String,
-    val xnm: String, // 学年 (2024)
-    val xqm: String, // 学期 (3 或 12)
-    val isCustom: Boolean = false, // 是否是用户自己添加的
-    // 选填信息
-    val teacher: String = "", // 老师名字
-    val credit: String = "",  // 学分 (totalHours)
-    val nature: String = "",  // 课程性质 (必修/选修)
-    val category: String = "",// 课程类别
-    val assessment: String = "" // 考核方式 (考试/查)
+    val xnm: String,
+    val xqm: String,
+    val isCustom: Boolean = false,
+    val remoteCourseId: String = "",
+    val nature: String = "",
+    val background: String = "",
+    val category: String = "",
+    val assessment: String = "",
+    val totalHours: String = ""
 )
 
+/**
+ * 课程时间表实体
+ */
 @Entity(
     tableName = "class_times",
     foreignKeys = [
@@ -34,44 +49,34 @@ data class CourseEntity(
             entity = CourseEntity::class,
             parentColumns = ["studentId", "courseName", "xnm", "xqm", "isCustom"],
             childColumns = ["studentId", "courseOwnerName", "xnm", "xqm", "isCustom"],
-            onDelete = ForeignKey.CASCADE // 删了课程，时间表自动删
+            onDelete = ForeignKey.CASCADE
         )
     ],
     indices = [
-        // 加索引，查询更快
         Index("studentId", "courseOwnerName", "xnm", "xqm", "isCustom")
     ]
 )
-//上课时间表，从表
 data class ClassTimeEntity(
-    @PrimaryKey(autoGenerate = true)
-    val uniqueId: Long = 0, // 自增ID
-
-    // 外键关联字段
+    @PrimaryKey(autoGenerate = true) val uniqueId: Long = 0,
     val studentId: String,
-    val courseOwnerName: String, // 对应 CourseEntity 的 courseName
+    val courseOwnerName: String,
     val xnm: String,
     val xqm: String,
     val isCustom: Boolean,
 
-    // 时间地点详情
-    val weekday: Int, // 1-7 (周一到周日)
-    val startNode: Int, // 第几节课开始 (1, 3, 5...)
-    val step: Int,      // 上几节课 (通常是 2)
-    val weeks: String,  // 原始周次字符串 "1-16周"
-    val weeksMask: Long, // 位运算掩码
-    val location: String, // 教室
-    val teacher: String = "" // 如果不同时间段老师不同，这里存
+    val weekday: String = "",
+    val period: String = "",
+    val weeks: String = "",
+    val weeksMask: Long = 0L,
+    val location: String = "",
+    val teacher: String = "",
+    val duration: String = "",
+    val teacherTitle: String = "",
+    val politicalStatus: String = "",
+    val classGroup: String = ""
 )
 
-// 3. 聚合类,给UI显示用的
-// 当你查课表时，你需要“课程信息”+“它所有的上课时间”
 data class CourseWithTimes(
     @Embedded val course: CourseEntity,
-
-    @Relation(
-        parentColumn = "courseName",
-        entityColumn = "courseOwnerName"
-    )
     val times: List<ClassTimeEntity>
 )

@@ -1,5 +1,6 @@
 package com.suseoaa.projectoaa.core.network.course
 
+import com.suseoaa.projectoaa.core.network.model.course.RSAKey
 import okhttp3.Response
 import okhttp3.ResponseBody
 import retrofit2.http.Field
