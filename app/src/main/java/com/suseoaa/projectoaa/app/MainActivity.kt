@@ -5,10 +5,17 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
+import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
+import androidx.compose.runtime.staticCompositionLocalOf
 import com.suseoaa.projectoaa.feature.home.OaaApp
 import com.suseoaa.projectoaa.core.designsystem.theme.ProjectOAATheme
 import dagger.hilt.android.AndroidEntryPoint
+
+
+val LocalWindowSizeClass = staticCompositionLocalOf<WindowSizeClass> {
+    error("No WindowSizeClass provided")
+}
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {

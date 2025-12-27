@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -42,6 +43,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.suseoaa.projectoaa.app.LocalWindowSizeClass
 import com.suseoaa.projectoaa.core.database.entity.ClassTimeEntity
 import com.suseoaa.projectoaa.core.database.entity.CourseAccountEntity
 import com.suseoaa.projectoaa.core.database.entity.CourseWithTimes
@@ -306,13 +308,13 @@ fun CourseListScreen(
                                 DropdownMenuItem(
                                     text = { Text("导入新课表") },
                                     onClick = { menuExpanded = false; showLoginDialog = true })
-                                DropdownMenuItem(
-                                    text = { Text("一键评教") },
-                                    onClick = {
-                                        menuExpanded = false
-                                        viewModel.startOneClickEvaluation()
-                                    }
-                                )
+//                                DropdownMenuItem(
+//                                    text = { Text("一键评教") },
+//                                    onClick = {
+//                                        menuExpanded = false
+//                                        viewModel.startOneClickEvaluation()
+//                                    }
+//                                )
                                 DropdownMenuItem(
                                     text = { Text("添加自定义课程") },
                                     onClick = {
