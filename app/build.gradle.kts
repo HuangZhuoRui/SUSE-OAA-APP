@@ -6,8 +6,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt.android)
 }
-
 android {
     namespace = "com.suseoaa.projectoaa"
     compileSdk {
@@ -80,4 +80,11 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+    // === Hilt 依赖 ===
+    implementation(libs.hilt.android)
+    // 使用 ksp 处理注解 (千万不要用 kapt 或 annotationProcessor)
+    ksp(libs.hilt.compiler)
+
+    // Compose 专用：让你能使用 hiltViewModel()
+    implementation(libs.androidx.hilt.navigation.compose)
 }

@@ -10,7 +10,7 @@ import androidx.room.Relation
 
 //课程基本信息表，主表
 @Entity(
-    tableName = "课程表",
+    tableName = "courses",
     primaryKeys = ["studentId", "courseName", "xnm", "xqm", "isCustom"]
 )
 data class CourseEntity(
