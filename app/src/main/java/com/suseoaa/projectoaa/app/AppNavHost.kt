@@ -15,7 +15,6 @@ import com.suseoaa.projectoaa.feature.login.loginScreen
 import com.suseoaa.projectoaa.feature.person.personScreen
 import com.suseoaa.projectoaa.feature.register.navigateToRegister
 import com.suseoaa.projectoaa.feature.register.registerScreen
-import com.suseoaa.projectoaa.feature.textScreen.testScreen
 
 @Composable
 fun AppNavHost(
@@ -24,7 +23,8 @@ fun AppNavHost(
 ) {
     NavHost(
         navController = navController,
-        startDestination = LOGIN_ROUTE,
+//        此处临时改动，测试完后要改回LOGIN_ROUTE
+        startDestination = HOME_ROUTE,
         modifier = modifier,
 //        修改动画，将原有的渐变动画关闭
         enterTransition = { EnterTransition.None },
@@ -63,7 +63,5 @@ fun AppNavHost(
                 navController.popBackStack()
             }
         )
-//        注册测试页
-        testScreen()
     }
 }
