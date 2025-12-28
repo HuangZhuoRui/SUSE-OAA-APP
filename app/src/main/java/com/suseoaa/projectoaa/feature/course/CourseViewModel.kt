@@ -72,7 +72,22 @@ class CourseListViewModel(application: Application) : AndroidViewModel(applicati
         Triple(account.studentId, xnm, xqm)
     }.flatMapLatest { (studentId, xnm, xqm) ->
         repository.getCourses(studentId, xnm, xqm)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }
+        // [优化1] 使用 Lazily 策略，只要 ViewModel 活着（App不杀），数据就一直保持在内存中，
+        // 切换 Tab 回来时不需要重新查库，真正实现“保留页面内容”的感觉。
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    // [优化2] 预计算所有周的数据。
+    // 当总课程数据变化时，在后台线程一次性把 1-25 周的数据都切分好放入 Map。
+    // 这样 UI 翻页时直接取值，不再进行任何过滤计算，彻底解决翻页卡顿。
+    val weekScheduleMap: StateFlow<Map<Int, List<CourseWithTimes>>> = allCourses
+        .map { list ->
+            (1..25).associateWith { week ->
+                calculateCoursesForWeek(week, list)
+            }
+        }
+        .flowOn(Dispatchers.Default) // 在后台计算
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
 
 
     init {
@@ -92,7 +107,6 @@ class CourseListViewModel(application: Application) : AndroidViewModel(applicati
         _currentAccount.value = account
         generateTermOptions(account.njdmId)
 
-        // [修复] 如果不需要保留选择（例如初次加载或切换用户），则智能选中当前真实日期的学期
         if (!preserveSelection) {
             selectCurrentRealTerm()
         }
@@ -104,7 +118,6 @@ class CourseListViewModel(application: Application) : AndroidViewModel(applicati
         val currentYear = Calendar.getInstance().get(Calendar.YEAR)
         val list = mutableListOf<TermOption>()
 
-        // 生成从入学年份到当前年份+1 的选项
         for (y in startYear..currentYear + 1) {
             list.add(TermOption(y.toString(), "3", "$y-${y + 1} 第1学期"))
             list.add(TermOption(y.toString(), "12", "$y-${y + 1} 第2学期"))
@@ -112,24 +125,17 @@ class CourseListViewModel(application: Application) : AndroidViewModel(applicati
         _termOptions.value = list
     }
 
-    // [新增] 智能选择当前学期的逻辑
     private fun selectCurrentRealTerm() {
         val today = LocalDate.now()
         val currentYear = today.year
         val currentMonth = today.monthValue
 
-        // 简单规则：
-        // 2月-7月 -> 属于上一年的第2学期 (xqm=12, xnm=year-1)
-        // 8月-12月 -> 属于当年的第1学期 (xqm=3, xnm=year)
-        // 1月 -> 属于上一年的第1学期 (xqm=3, xnm=year-1) 寒假通常算在上学期末
-
         val (targetXnm, targetXqm) = when (currentMonth) {
             in 2..7 -> (currentYear - 1).toString() to "12"
             1 -> (currentYear - 1).toString() to "3"
-            else -> currentYear.toString() to "3" // 8-12月
+            else -> currentYear.toString() to "3"
         }
 
-        // 检查生成的选项里有没有这个学期，有这就选中，没有就选最后一个
         val options = _termOptions.value
         val match = options.find { it.xnm == targetXnm && it.xqm == targetXqm }
 
@@ -137,8 +143,6 @@ class CourseListViewModel(application: Application) : AndroidViewModel(applicati
             selectedXnm = match.xnm
             selectedXqm = match.xqm
         } else if (options.isNotEmpty()) {
-            // 兜底：如果没有匹配的（比如入学年份限制），选列表里最新的一个，但排除掉未来的年份（如果可能）
-            // 这里简单选最后一个
             val last = options.last()
             selectedXnm = last.xnm
             selectedXqm = last.xqm
@@ -184,7 +188,17 @@ class CourseListViewModel(application: Application) : AndroidViewModel(applicati
                 uiState = uiState.copy(isLoading = true, statusMessage = "正在登录...")
 
                 val result = withContext(Dispatchers.IO) {
-                    val (loginSuccess, debugInfo) = SchoolSystem.login(username, pass)
+                    // SchoolSystem 的调用保持原样，假设 SchoolSystem 已存在
+                    // 如果这里报错，请确保你有 SchoolSystem 类，或者像之前一样处理
+                    // 这里为了保持逻辑完整，保留调用结构
+                    val (loginSuccess, debugInfo) = try {
+                        // 这里的 SchoolSystem 应该是你项目里的单例对象
+                        // 假设它在 com.suseoaa.projectoaa.feature.course 包下或已导入
+                        com.suseoaa.projectoaa.feature.course.SchoolSystem.login(username, pass)
+                    } catch (e: Exception) {
+                        false to e.message
+                    }
+
                     if (!loginSuccess) return@withContext Triple(
                         null,
                         "登录失败: $debugInfo",
@@ -194,7 +208,7 @@ class CourseListViewModel(application: Application) : AndroidViewModel(applicati
                     uiState =
                         uiState.copy(statusMessage = "正在获取 ${xnm}学年 ${if (xqm == "3") "上" else "下"}学期 课表...")
 
-                    val (parsedData, scheduleDebugInfo) = SchoolSystem.queryScheduleParsed(xnm, xqm)
+                    val (parsedData, scheduleDebugInfo) = com.suseoaa.projectoaa.feature.course.SchoolSystem.queryScheduleParsed(xnm, xqm)
                     if (parsedData == null) return@withContext Triple(
                         null,
                         "解析失败: $scheduleDebugInfo",
@@ -216,16 +230,13 @@ class CourseListViewModel(application: Application) : AndroidViewModel(applicati
                         statusMessage = null
                     )
 
-                    // [修复] 只有当切换了用户时才调用 switchUser，且如果是同一个用户，传入 preserveSelection=true
                     val currentId = _currentAccount.value?.studentId
                     val newAccount = savedAccounts.value.find { it.studentId == username }
 
                     if (newAccount != null) {
                         if (currentId != username) {
-                            // 导入了新用户，切换过去，使用默认学期逻辑
                             switchUser(newAccount, preserveSelection = false)
                         } else {
-                            // 仅仅是刷新当前用户，更新一下账户信息（如姓名），但保留当前选中的学期
                             switchUser(newAccount, preserveSelection = true)
                         }
                     }
@@ -296,7 +307,12 @@ class CourseListViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    // 以前是给 UI 调用的，现在变成 ViewModel 内部的计算函数
     fun getCoursesForWeek(week: Int, allData: List<CourseWithTimes>): List<CourseWithTimes> {
+        return calculateCoursesForWeek(week, allData)
+    }
+
+    private fun calculateCoursesForWeek(week: Int, allData: List<CourseWithTimes>): List<CourseWithTimes> {
         if (allData.isEmpty()) return emptyList()
         return allData.mapNotNull { courseWithTimes ->
             val validTimes = courseWithTimes.times.filter { time ->

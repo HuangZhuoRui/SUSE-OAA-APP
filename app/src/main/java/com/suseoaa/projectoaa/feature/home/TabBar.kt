@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,78 +20,50 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
-import androidx.navigation.NavDestination
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.suseoaa.projectoaa.app.AppNavHost
 import com.suseoaa.projectoaa.feature.chat.CHAT_ROUTE
 import com.suseoaa.projectoaa.feature.course.COURSE_ROUTE
 import com.suseoaa.projectoaa.feature.home.component.NavigationItemForPad
 import com.suseoaa.projectoaa.feature.person.PERSON_ROUTE
 
-//统一定义底部栏信息
-enum class TopLevelDestination(
-    val route: String,
+// 定义 Tab 的顺序和元数据
+enum class MainTab(
+    val index: Int,
     val icon: ImageVector,
     val label: String
 ) {
-    HOME(HOME_ROUTE, Icons.Default.Home, "首页"),
-    COURSE(COURSE_ROUTE, Icons.Default.Book, "课程信息"),
-    CHAT(CHAT_ROUTE, Icons.Default.ChatBubble, "协会日记"),
-    PERSON(PERSON_ROUTE, Icons.Default.Person, "个人"),
-}
-fun NavController.navigateToTopLevelDestination(route: String) {
-    this.navigate(route) {
-        // 弹出到起始页，避免返回栈堆积
-        popUpTo(this@navigateToTopLevelDestination.graph.findStartDestination().id) {
-            saveState = true
-        }
-        // 避免在栈顶重复创建同一页面
-        launchSingleTop = true
-        // 恢复之前的状态,也就是存储页面的状态
-        restoreState = true
+    HOME(0, Icons.Default.Home, "首页"),
+    COURSE(1, Icons.Default.Book, "课程"),
+    CHAT(2, Icons.Default.ChatBubble, "日记"),
+    PERSON(3, Icons.Default.Person, "个人");
+
+    companion object {
+        fun getByIndex(index: Int): MainTab = entries.getOrElse(index) { HOME }
     }
 }
+
+// 这里的 OaaApp 现在变得非常简单，它只负责承载根路由 NavHost
+// Scaffold 和 BottomBar 已经移到了 MainScreen 内部
 @Composable
 fun OaaApp(
     windowSizeClass: WindowWidthSizeClass,
-    appState: OaaAppState = rememberOaaAppState(windowSizeClass)
+    // appState 这里暂时不需要了，因为 NavHost 直接在 AppNavHost 里管理
+    // 如果后续有全局状态，可以加回来
 ) {
-    Row(modifier = Modifier.fillMaxSize()) {
-        // 左侧侧边栏
-        if (appState.shouldShowNavRail) {
-            OaaNavRail(
-                currentDestination = appState.currentDestination,
-                onNavigate = { route -> appState.navController.navigateToTopLevelDestination(route) }
-            )
-        }
+    // 这里的 navController 是整个 App 的根控制器（用于 Login -> Main 的跳转）
+    val navController = androidx.navigation.compose.rememberNavController()
 
-        Scaffold(
-            // 底部导航栏
-            bottomBar = {
-                if (appState.shouldShowBottomBar) {
-                    OaaBottomBar(
-                        currentDestination = appState.currentDestination,
-                        onNavigate = { route -> appState.navController.navigateToTopLevelDestination(route) }
-                    )
-                }
-            }
-        ) { padding ->
-            // 路由容器
-            AppNavHost(
-                navController = appState.navController,
-                modifier = Modifier.padding(padding)
-            )
-        }
-    }
+    AppNavHost(
+        navController = navController,
+        windowSizeClass = windowSizeClass
+    )
 }
 
-//手机端的自适应样式
+// 手机端底部栏：现在接收 selectedIndex
 @Composable
 fun OaaBottomBar(
-    currentDestination: NavDestination?,
-    onNavigate: (String) -> Unit
+    selectedIndex: Int,
+    onNavigate: (Int) -> Unit
 ) {
     NavigationBar(
         modifier = Modifier
@@ -103,8 +74,7 @@ fun OaaBottomBar(
         Surface(
             tonalElevation = 2.dp,
             shadowElevation = 1.dp,
-            modifier = Modifier
-                .padding(10.dp),
+            modifier = Modifier.padding(10.dp),
             shape = RoundedCornerShape(26.dp)
         ) {
             Row(
@@ -114,16 +84,13 @@ fun OaaBottomBar(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TopLevelDestination.entries.forEach { destination ->
-                    // 判断当前是否选中
-                    val isSelected =
-                        currentDestination?.hierarchy?.any { it.route == destination.route } == true
-
+                MainTab.entries.forEach { tab ->
+                    val isSelected = selectedIndex == tab.index
                     NavigationRailItem(
                         selected = isSelected,
-                        onClick = { onNavigate(destination.route) },
-                        icon = { Icon(destination.icon, contentDescription = destination.label) },
-                        label = { Text(destination.label) }
+                        onClick = { onNavigate(tab.index) },
+                        icon = { Icon(tab.icon, contentDescription = tab.label) },
+                        label = { Text(tab.label) }
                     )
                 }
             }
@@ -131,11 +98,11 @@ fun OaaBottomBar(
     }
 }
 
-//平板端的自适应样式
+// 平板端侧边栏：现在接收 selectedIndex
 @Composable
 fun OaaNavRail(
-    currentDestination: NavDestination?,
-    onNavigate: (String) -> Unit
+    selectedIndex: Int,
+    onNavigate: (Int) -> Unit
 ) {
     NavigationRail {
         Column(
@@ -143,15 +110,13 @@ fun OaaNavRail(
                 .fillMaxHeight()
                 .fillMaxWidth(0.2f)
         ) {
-            TopLevelDestination.entries.forEach { destination ->
-                val isSelected =
-                    currentDestination?.hierarchy?.any { it.route == destination.route } == true
-
+            MainTab.entries.forEach { tab ->
+                val isSelected = selectedIndex == tab.index
                 NavigationItemForPad(
                     selected = isSelected,
-                    onClick = { onNavigate(destination.route) },
-                    icon = destination.icon,
-                    label = destination.label
+                    onClick = { onNavigate(tab.index) },
+                    icon = tab.icon,
+                    label = tab.label
                 )
             }
         }

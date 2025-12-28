@@ -7,36 +7,37 @@ import com.suseoaa.projectoaa.core.database.entity.CourseEntity
 import com.suseoaa.projectoaa.core.database.entity.CourseWithTimes
 import com.suseoaa.projectoaa.core.network.model.course.CourseResponseJson
 import com.suseoaa.projectoaa.core.network.model.course.Kb
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 
 class CourseRepository(private val dao: CourseDao) {
 
     val allAccounts: Flow<List<CourseAccountEntity>> = dao.getAllAccounts()
-
+        .flowOn(Dispatchers.IO) // 确保账户读取也在 IO 线程
 
     fun getCourses(studentId: String, xnm: String, xqm: String): Flow<List<CourseWithTimes>> {
         val coursesFlow = dao.getCourseEntities(studentId, xnm, xqm)
         val timesFlow = dao.getClassTimeEntities(studentId, xnm, xqm)
 
         return coursesFlow.combine(timesFlow) { courses, allTimes ->
+            // 这部分数据合并逻辑涉及遍历和过滤，数量多时会阻塞主线程
+            // 现在它将在 IO 线程执行
             courses.map { course ->
-                // 在内存中过滤，确保只包含属于当前课程的时间
-                // 由于 SQL 已经过滤了 studentId, xnm, xqm，这里只需要匹配 courseName 和 isCustom
                 val matchingTimes = allTimes.filter { time ->
                     time.courseOwnerName == course.courseName &&
                             time.isCustom == course.isCustom
                 }
                 CourseWithTimes(course, matchingTimes)
             }
-        }
+        }.flowOn(Dispatchers.IO) // [关键优化] 将整个流的计算调度到 IO 线程
     }
 
     suspend fun deleteAccount(studentId: String) {
         dao.deleteAccount(studentId)
         dao.deleteAllCoursesByStudent(studentId)
     }
-
 
     suspend fun saveCustomCourse(
         studentId: String,

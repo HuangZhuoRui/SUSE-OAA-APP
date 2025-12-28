@@ -1,6 +1,5 @@
 package com.suseoaa.projectoaa.feature.course
 
-
 import android.annotation.SuppressLint
 import android.app.DatePickerDialog
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -14,10 +13,9 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.SecondaryScrollableTabRow
 import androidx.compose.material3.TabRowDefaults.SecondaryIndicator
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
@@ -25,10 +23,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.platform.LocalConfiguration
@@ -42,17 +40,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.zIndex
+import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
+import kotlin.math.roundToInt
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.suseoaa.projectoaa.app.LocalWindowSizeClass
 import com.suseoaa.projectoaa.core.database.entity.ClassTimeEntity
 import com.suseoaa.projectoaa.core.database.entity.CourseAccountEntity
 import com.suseoaa.projectoaa.core.database.entity.CourseWithTimes
-import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.temporal.ChronoUnit
-import kotlin.String
-import kotlin.math.roundToInt
 
 // 课程卡片颜色
 private val CourseColors = listOf(
@@ -121,6 +118,8 @@ private val DateHeaderHeight = 32.dp
 @SuppressLint("ConfigurationScreenWidthHeight")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+// 屏蔽 Hilt 的弃用警告
+@Suppress("DEPRECATION")
 fun CourseScreen(
     viewModel: CourseListViewModel = hiltViewModel(),
     modifier: Modifier = Modifier
@@ -129,6 +128,9 @@ fun CourseScreen(
     val context = LocalContext.current
 
     val allCourses by viewModel.allCourses.collectAsStateWithLifecycle()
+    // [关键优化] 监听预计算好的所有周数据，这是一个 Map，读取时间为 O(1)
+    val weekScheduleMap by viewModel.weekScheduleMap.collectAsStateWithLifecycle()
+
     val startDate by viewModel.semesterStartDate.collectAsStateWithLifecycle()
     val savedAccounts by viewModel.savedAccounts.collectAsStateWithLifecycle()
     val currentAccount by viewModel.currentAccount.collectAsStateWithLifecycle()
@@ -143,9 +145,7 @@ fun CourseScreen(
     }
 
     var selectedCourses by remember {
-        mutableStateOf<List<Pair<CourseWithTimes, ClassTimeEntity>>?>(
-            null
-        )
+        mutableStateOf<List<Pair<CourseWithTimes, ClassTimeEntity>>?>(null)
     }
     var showLoginDialog by remember { mutableStateOf(false) }
     var showAccountDialog by remember { mutableStateOf(false) }
@@ -205,7 +205,7 @@ fun CourseScreen(
                             .fillMaxWidth()
                             .then(
                                 when (windowSizeClass.widthSizeClass) {
-                                    WindowWidthSizeClass.Compact -> Modifier.padding(4.dp)
+                                    WindowWidthSizeClass.Compact -> Modifier.padding(8.dp)
                                     WindowWidthSizeClass.Expanded -> Modifier.statusBarsPadding()
                                     WindowWidthSizeClass.Medium -> Modifier.statusBarsPadding()
                                     else -> Modifier.statusBarsPadding()
@@ -298,20 +298,20 @@ fun CourseScreen(
                         }
                     }
 
-                    ScrollableTabRow(
+                    PrimaryScrollableTabRow(
                         selectedTabIndex = pagerState.currentPage,
                         edgePadding = 16.dp,
                         containerColor = MaterialTheme.colorScheme.surface,
                         contentColor = MaterialTheme.colorScheme.primary,
                         divider = {},
-                        indicator = { tabPositions ->
-                            if (pagerState.currentPage < tabPositions.size) {
+                        indicator = {
+                            if (pagerState.currentPage < 25) {
                                 SecondaryIndicator(
-                                    Modifier
-                                        .tabIndicatorOffset(tabPositions[pagerState.currentPage])
+                                    modifier = Modifier.tabIndicatorOffset(pagerState.currentPage)
                                         .padding(horizontal = 8.dp)
                                         .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)),
-                                    height = 4.dp, color = MaterialTheme.colorScheme.primary
+                                    height = 4.dp,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                             }
                         }
@@ -370,10 +370,9 @@ fun CourseScreen(
                             .fillMaxHeight()
                     ) {
                         CourseScheduleLayout(
-                            allCourses = allCourses,
+                            weekScheduleMap = weekScheduleMap, // 传入预计算的 Map
                             startDate = startDate,
                             pagerState = pagerState,
-                            getCoursesForWeek = viewModel::getCoursesForWeek,
                             dailySchedule = currentDailySchedule,
                             onCourseClick = { selectedCourses = it }
                         )
@@ -442,10 +441,9 @@ fun CourseScreen(
 
 @Composable
 fun CourseScheduleLayout(
-    allCourses: List<CourseWithTimes>,
+    weekScheduleMap: Map<Int, List<CourseWithTimes>>, // 接收 Map
     startDate: LocalDate,
     pagerState: androidx.compose.foundation.pager.PagerState,
-    getCoursesForWeek: (Int, List<CourseWithTimes>) -> List<CourseWithTimes>,
     dailySchedule: List<TimeSlotConfig>,
     onCourseClick: (List<Pair<CourseWithTimes, ClassTimeEntity>>) -> Unit
 ) {
@@ -501,14 +499,11 @@ fun CourseScheduleLayout(
                         pageSpacing = 0.dp
                     ) { page ->
                         val weekIndex = page + 1
-                        val weekStart =
-                            remember(startDate, page) { startDate.plusWeeks(page.toLong()) }
-                        val weekCourses = remember(weekIndex, allCourses) {
-                            getCoursesForWeek(
-                                weekIndex,
-                                allCourses
-                            )
-                        }
+                        val weekStart = remember(startDate, page) { startDate.plusWeeks(page.toLong()) }
+
+                        // [关键优化] 直接从 Map 中取数据，无需 produceState，无需协程切换
+                        // 这里的读取是毫秒级的，不会阻塞主线程，且不会因为 produceState 导致 initialValue 空白闪烁
+                        val weekCourses = weekScheduleMap[weekIndex] ?: emptyList()
 
                         DynamicWeekContent(
                             courses = weekCourses,
@@ -525,14 +520,12 @@ fun CourseScheduleLayout(
     }
 }
 
-// CourseDetailContent
+// ... CourseDetailContent 保持之前的优化 (移除 verticalScroll) ...
 @Composable
 fun CourseDetailContent(
     infoList: List<Pair<CourseWithTimes, ClassTimeEntity>>,
     onClose: () -> Unit
 ) {
-    // 修复：移除 verticalScroll，因为 HorizontalPager 是懒加载组件，
-    // 在无限高度约束（Scrollable Column）中会崩溃。
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -559,7 +552,6 @@ fun CourseDetailContent(
         Spacer(modifier = Modifier.height(16.dp))
         if (infoList.isNotEmpty()) {
             val pagerState = rememberPagerState(pageCount = { infoList.size })
-            // 修复：添加 wrapContentHeight，让 Pager 自适应内容高度
             HorizontalPager(
                 state = pagerState,
                 contentPadding = PaddingValues(horizontal = 4.dp),
@@ -598,6 +590,10 @@ fun CourseDetailContent(
     }
 }
 
+// ... CourseDetailCard, DetailItem, StaticWeekDayHeader, StaticTimeAxis, StaticGridBackground, DynamicWeekContent, DynamicDateRow, HighlightTodayColumn 保持不变 ...
+// 这里为了缩短篇幅未重复列出，但您需要保留它们，或者直接复制上方完整代码块
+
+// 补全中间未列出的部分：
 @Composable
 fun CourseDetailCard(courseData: CourseWithTimes, timeData: ClassTimeEntity) {
     Card(
@@ -860,7 +856,10 @@ fun ScheduleCourseOverlay(
         }.toMap()
     }
 
-    val preparedItems = remember(courses, sectionIndexMap) {
+    // [关键优化] 这里改回 remember，因为 courses 现在已经是 ViewModel 预计算好的“单周数据”，
+    // 列表很短（几十个 item），同步计算完全不会卡。
+    // 使用 produceState 反而会引入一帧的加载延迟，导致闪烁。
+    val preparedGroups = remember(courses, sectionIndexMap) {
         val items = mutableListOf<LayoutItem>()
         courses.forEach { course ->
             course.times.forEach { time ->
@@ -880,19 +879,20 @@ fun ScheduleCourseOverlay(
                 }
             }
         }
-        items.groupBy { it.dayIndex }
+        items.groupBy { it.dayIndex }.mapValues { (_, dayItems) ->
+            dayItems.groupBy { "${it.startIndex}-${it.endIndex}" }
+        }
     }
 
     Layout(content = {
         for (day in 0..6) {
-            val dayItems = preparedItems[day] ?: emptyList()
-            val groups = dayItems.groupBy { "${it.startIndex}-${it.endIndex}" }
-            groups.forEach { (_, groupItems) ->
+            val dayGroups = preparedGroups[day] ?: emptyMap()
+            dayGroups.forEach { (_, groupItems) ->
                 val overlappedData = groupItems.map { it.course to it.time }
                 val item = groupItems.first()
-                // 修复颜色索引可能的负数崩溃问题
                 val index = (item.course.course.courseName.hashCode() and Int.MAX_VALUE) % CourseColors.size
                 val baseColor = CourseColors[index]
+
                 CourseCard(
                     title = item.course.course.courseName,
                     location = item.time.location,
@@ -938,6 +938,7 @@ fun ScheduleCourseOverlay(
     }
 }
 
+// ... (CourseCard, AccountSelectionDialog, LoginDialog, AddCustomCourseDialog, parseWeekday, parsePeriod 保持不变，请确保文件底部有这些函数) ...
 @Composable
 private fun CourseCard(
     title: String,
@@ -949,7 +950,8 @@ private fun CourseCard(
     Card(
         colors = CardDefaults.cardColors(containerColor = color),
         shape = RoundedCornerShape(8.dp),
-        elevation = CardDefaults.cardElevation(2.dp),
+        // [保持优化] 移除阴影以提升性能
+        elevation = CardDefaults.cardElevation(0.dp),
         modifier = modifier.clickable { onClick() }) {
         Column(
             modifier = Modifier
@@ -1087,9 +1089,10 @@ fun AddCustomCourseDialog(
     var location by remember { mutableStateOf("") }
     var teacher by remember { mutableStateOf("") }
     var weeks by remember { mutableStateOf("1-16") }
-    var dayOfWeek by remember { mutableIntStateOf(1) } // 1-7
-    var startNode by remember { mutableIntStateOf(1) } // 1-11
-    var duration by remember { mutableIntStateOf(2) }
+    // 优化：使用 mutableFloatStateOf 来直接配合 Slider，避免 redundant conversion 警告
+    var dayOfWeek by remember { mutableFloatStateOf(1f) } // 1-7
+    var startNode by remember { mutableFloatStateOf(1f) } // 1-11
+    var duration by remember { mutableFloatStateOf(2f) }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -1123,26 +1126,26 @@ fun AddCustomCourseDialog(
                     onValueChange = { weeks = it },
                     label = { Text("周次 (例如 1-16)") })
 
-                Text("星期: 周$dayOfWeek", Modifier.padding(top = 8.dp))
+                Text("星期: 周${dayOfWeek.roundToInt()}", Modifier.padding(top = 8.dp))
                 Slider(
-                    value = dayOfWeek.toFloat(),
-                    onValueChange = { dayOfWeek = it.toInt() },
+                    value = dayOfWeek,
+                    onValueChange = { dayOfWeek = it },
                     valueRange = 1f..7f,
                     steps = 5
                 )
 
-                Text("开始节次: 第${startNode}节")
+                Text("开始节次: 第${startNode.roundToInt()}节")
                 Slider(
-                    value = startNode.toFloat(),
-                    onValueChange = { startNode = it.toInt() },
+                    value = startNode,
+                    onValueChange = { startNode = it },
                     valueRange = 1f..11f,
                     steps = 9
                 )
 
-                Text("持续节数: ${duration}节")
+                Text("持续节数: ${duration.roundToInt()}节")
                 Slider(
-                    value = duration.toFloat(),
-                    onValueChange = { duration = it.toInt() },
+                    value = duration,
+                    onValueChange = { duration = it },
                     valueRange = 1f..4f,
                     steps = 2
                 )
@@ -1155,9 +1158,9 @@ fun AddCustomCourseDialog(
                                 name,
                                 location,
                                 teacher,
-                                dayOfWeek,
-                                startNode,
-                                duration,
+                                dayOfWeek.roundToInt(),
+                                startNode.roundToInt(),
+                                duration.roundToInt(),
                                 weeks
                             )
                         }
