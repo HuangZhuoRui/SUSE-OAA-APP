@@ -40,8 +40,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.zIndex
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import kotlinx.coroutines.launch
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.suseoaa.projectoaa.app.LocalWindowSizeClass
 import com.suseoaa.projectoaa.core.database.entity.ClassTimeEntity
@@ -117,8 +117,6 @@ private val DateHeaderHeight = 32.dp
 @SuppressLint("ConfigurationScreenWidthHeight")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-// 屏蔽 Hilt 的弃用警告
-@Suppress("DEPRECATION")
 fun CourseScreen(
     viewModel: CourseListViewModel = hiltViewModel(),
     modifier: Modifier = Modifier
@@ -234,7 +232,6 @@ fun CourseScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
                                     .clickable { termDropdownExpanded = true }
-                                    .padding(8.dp)
                             ) {
                                 val currentLabel = termOptions.find {
                                     it.xnm == viewModel.selectedXnm && it.xqm == viewModel.selectedXqm
@@ -243,11 +240,15 @@ fun CourseScreen(
                                 Text(
                                     currentLabel,
                                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 18.sp
                                 )
                                 Icon(Icons.Default.ArrowDropDown, null)
                             }
+//                            选择学期
                             DropdownMenu(
+                                modifier = Modifier
+                                    .background(color = MaterialTheme.colorScheme.surface),
                                 expanded = termDropdownExpanded,
                                 onDismissRequest = { termDropdownExpanded = false }
                             ) {
@@ -274,7 +275,8 @@ fun CourseScreen(
                             DropdownMenu(
                                 expanded = menuExpanded,
                                 onDismissRequest = { menuExpanded = false },
-                                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                                modifier = Modifier
+                                    .background(color = MaterialTheme.colorScheme.surface)
                             ) {
                                 DropdownMenuItem(
                                     text = { Text("刷新当前课表") },
@@ -388,7 +390,8 @@ fun CourseScreen(
                             CourseDetailContent(
                                 infoList = selectedCourses!!,
                                 onClose = { selectedCourses = null },
-                                modifier = Modifier.fillMaxHeight()
+                                modifier = Modifier
+                                    .fillMaxHeight()
                             )
                         }
                     }
@@ -405,7 +408,7 @@ fun CourseScreen(
                             .wrapContentHeight(),
                         shape = RoundedCornerShape(24.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                            containerColor = MaterialTheme.colorScheme.background
                         )
                     ) {
                         Box(modifier = Modifier.padding(16.dp)) {
@@ -538,10 +541,12 @@ fun CourseDetailContent(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier
+            .fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -568,7 +573,8 @@ fun CourseDetailContent(
                 contentPadding = PaddingValues(horizontal = 4.dp),
                 pageSpacing = 16.dp,
                 verticalAlignment = Alignment.Top,
-                modifier = Modifier.weight(1f, fill = false)
+                modifier = Modifier
+                    .weight(1f, fill = false)
             ) { page ->
                 val (courseData, timeData) = infoList[page]
                 CourseDetailCard(courseData, timeData)
@@ -603,7 +609,10 @@ fun CourseDetailContent(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun CourseDetailCard(courseData: CourseWithTimes, timeData: ClassTimeEntity) {
+fun CourseDetailCard(
+    courseData: CourseWithTimes,
+    timeData: ClassTimeEntity
+) {
     val details = remember(courseData, timeData) {
         buildList {
             add(DetailInfo(Icons.Default.Book, "课程名称", courseData.course.courseName))
@@ -1046,9 +1055,8 @@ fun AccountSelectionDialog(
     onAdd: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    // [修改] 适配暗黑模式
     AlertDialog(
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        containerColor = MaterialTheme.colorScheme.background,
         tonalElevation = 6.dp,
         onDismissRequest = onDismiss,
         title = { Text("切换用户") },
@@ -1067,6 +1075,7 @@ fun AccountSelectionDialog(
                     ) {
                         Column(
                             modifier = Modifier
+                                .background(color = MaterialTheme.colorScheme.surface)
                                 .padding(12.dp)
                         ) {
                             Row(
@@ -1083,17 +1092,20 @@ fun AccountSelectionDialog(
                                     )
                                 }
                             }
-                            Row(modifier = Modifier.clickable { showPassword = !showPassword }) {
+                            Row(
+                                modifier = Modifier
+                                    .clickable { showPassword = !showPassword }
+                            ) {
                                 Text(
                                     "学号: ${acc.studentId}",
                                     fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.outline
+                                    color = MaterialTheme.colorScheme.onBackground
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 Text(
                                     "密码: ${if (showPassword) acc.password else "******"}",
                                     fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.outline
+                                    color = MaterialTheme.colorScheme.onBackground
                                 )
                             }
                         }
@@ -1116,9 +1128,8 @@ fun AccountSelectionDialog(
 fun LoginDialog(onDismiss: () -> Unit, onConfirm: (String, String) -> Unit) {
     var u by remember { mutableStateOf("") }
     var p by remember { mutableStateOf("") }
-    // [修改] 适配暗黑模式
     AlertDialog(
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = onDismiss,
         title = { Text("导入课表") },
         text = {
@@ -1149,8 +1160,7 @@ fun AddCustomCourseDialog(
         Card(
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth(),
-            // [修改] 适配暗黑模式
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(
                 modifier = Modifier
