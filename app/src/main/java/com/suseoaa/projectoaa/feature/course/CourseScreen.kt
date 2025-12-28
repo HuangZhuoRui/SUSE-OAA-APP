@@ -17,7 +17,6 @@ import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.SecondaryIndicator
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,6 +26,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.platform.LocalConfiguration
@@ -41,17 +41,16 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.temporal.ChronoUnit
-import kotlin.math.roundToInt
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.suseoaa.projectoaa.app.LocalWindowSizeClass
 import com.suseoaa.projectoaa.core.database.entity.ClassTimeEntity
 import com.suseoaa.projectoaa.core.database.entity.CourseAccountEntity
 import com.suseoaa.projectoaa.core.database.entity.CourseWithTimes
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
+import kotlin.math.roundToInt
 
-// 课程卡片颜色
 private val CourseColors = listOf(
     Color(0xFF5C6BC0), Color(0xFFAB47BC), Color(0xFF42A5F5), Color(0xFF26A69A),
     Color(0xFFFFCA28), Color(0xFF9CCC65), Color(0xFF7E57C2), Color(0xFF29B6F6)
@@ -128,7 +127,7 @@ fun CourseScreen(
     val context = LocalContext.current
 
     val allCourses by viewModel.allCourses.collectAsStateWithLifecycle()
-    // [关键优化] 监听预计算好的所有周数据，这是一个 Map，读取时间为 O(1)
+    // 监听预计算好的所有周数据，Map 读取 O(1)
     val weekScheduleMap by viewModel.weekScheduleMap.collectAsStateWithLifecycle()
 
     val startDate by viewModel.semesterStartDate.collectAsStateWithLifecycle()
@@ -370,7 +369,7 @@ fun CourseScreen(
                             .fillMaxHeight()
                     ) {
                         CourseScheduleLayout(
-                            weekScheduleMap = weekScheduleMap, // 传入预计算的 Map
+                            weekScheduleMap = weekScheduleMap,
                             startDate = startDate,
                             pagerState = pagerState,
                             dailySchedule = currentDailySchedule,
@@ -385,24 +384,37 @@ fun CourseScreen(
                                 .background(MaterialTheme.colorScheme.surface)
                                 .padding(16.dp)
                         ) {
-                            CourseDetailContent(selectedCourses!!) { selectedCourses = null }
+                            CourseDetailContent(
+                                infoList = selectedCourses!!,
+                                onClose = { selectedCourses = null },
+                                modifier = Modifier.fillMaxHeight()
+                            )
                         }
                     }
                 }
             }
 
+            // [修改] 手机端使用居中 Dialog 代替 ModalBottomSheet
             if (!isTablet && selectedCourses != null) {
-                val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-                ModalBottomSheet(
-                    onDismissRequest = { selectedCourses = null },
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    sheetState = sheetState
-                ) {
-                    Box(modifier = Modifier.padding(16.dp)) {
-                        CourseDetailContent(selectedCourses!!) { selectedCourses = null }
+                Dialog(onDismissRequest = { selectedCourses = null }) {
+                    // 使用 Card 包裹以获得圆角和背景，适配暗黑模式
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .wrapContentHeight(),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                        )
+                    ) {
+                        Box(modifier = Modifier.padding(16.dp)) {
+                            CourseDetailContent(
+                                infoList = selectedCourses!!,
+                                onClose = { selectedCourses = null },
+                                modifier = Modifier.wrapContentHeight()
+                            )
+                        }
                     }
-                    Spacer(modifier = Modifier.height(32.dp))
                 }
             }
 
@@ -441,7 +453,7 @@ fun CourseScreen(
 
 @Composable
 fun CourseScheduleLayout(
-    weekScheduleMap: Map<Int, List<CourseWithTimes>>, // 接收 Map
+    weekScheduleMap: Map<Int, List<CourseWithTimes>>,
     startDate: LocalDate,
     pagerState: androidx.compose.foundation.pager.PagerState,
     dailySchedule: List<TimeSlotConfig>,
@@ -500,9 +512,6 @@ fun CourseScheduleLayout(
                     ) { page ->
                         val weekIndex = page + 1
                         val weekStart = remember(startDate, page) { startDate.plusWeeks(page.toLong()) }
-
-                        // [关键优化] 直接从 Map 中取数据，无需 produceState，无需协程切换
-                        // 这里的读取是毫秒级的，不会阻塞主线程，且不会因为 produceState 导致 initialValue 空白闪烁
                         val weekCourses = weekScheduleMap[weekIndex] ?: emptyList()
 
                         DynamicWeekContent(
@@ -520,14 +529,14 @@ fun CourseScheduleLayout(
     }
 }
 
-// ... CourseDetailContent 保持之前的优化 (移除 verticalScroll) ...
 @Composable
 fun CourseDetailContent(
     infoList: List<Pair<CourseWithTimes, ClassTimeEntity>>,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -557,7 +566,7 @@ fun CourseDetailContent(
                 contentPadding = PaddingValues(horizontal = 4.dp),
                 pageSpacing = 16.dp,
                 verticalAlignment = Alignment.Top,
-                modifier = Modifier.wrapContentHeight()
+                modifier = Modifier.weight(1f, fill = false)
             ) { page ->
                 val (courseData, timeData) = infoList[page]
                 CourseDetailCard(courseData, timeData)
@@ -586,78 +595,103 @@ fun CourseDetailContent(
                 }
             }
         }
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }
 
-// ... CourseDetailCard, DetailItem, StaticWeekDayHeader, StaticTimeAxis, StaticGridBackground, DynamicWeekContent, DynamicDateRow, HighlightTodayColumn 保持不变 ...
-// 这里为了缩短篇幅未重复列出，但您需要保留它们，或者直接复制上方完整代码块
-
-// 补全中间未列出的部分：
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CourseDetailCard(courseData: CourseWithTimes, timeData: ClassTimeEntity) {
+    val details = remember(courseData, timeData) {
+        buildList {
+            add(DetailInfo(Icons.Default.Book, "课程名称", courseData.course.courseName))
+            if (timeData.location.isNotBlank()) {
+                add(DetailInfo(Icons.Default.Place, "上课地点", timeData.location))
+            }
+            if (timeData.teacher.isNotBlank()) {
+                add(DetailInfo(Icons.Default.Person, "教师", timeData.teacher))
+            }
+            add(DetailInfo(Icons.Default.AccessTime, "时间", "${timeData.weekday} ${timeData.period}"))
+            add(DetailInfo(Icons.Default.DateRange, "周次", timeData.weeks))
+
+            if (!courseData.course.isCustom) {
+                if (courseData.course.assessment.isNotBlank()) {
+                    add(DetailInfo(Icons.AutoMirrored.Filled.Assignment, "考察方式", courseData.course.assessment))
+                }
+                if (timeData.classGroup.isNotBlank()) {
+                    add(DetailInfo(Icons.Default.Group, "上课班级", timeData.classGroup))
+                }
+                if (courseData.course.category.isNotBlank()) {
+                    add(DetailInfo(Icons.Default.Category, "类型", courseData.course.category))
+                }
+            }
+        }
+    }
+
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(2.dp)
+        elevation = CardDefaults.cardElevation(0.dp)
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            DetailItem(Icons.Default.Book, "课程名称", courseData.course.courseName)
-
-            if (timeData.location.isNotBlank()) {
-                HorizontalDivider(Modifier.padding(vertical = 12.dp))
-                DetailItem(Icons.Default.Place, "上课地点", timeData.location)
-            }
-            if (timeData.teacher.isNotBlank()) {
-                HorizontalDivider(Modifier.padding(vertical = 12.dp))
-                DetailItem(Icons.Default.Person, "教师", timeData.teacher)
-            }
-
-            HorizontalDivider(Modifier.padding(vertical = 12.dp))
-            DetailItem(Icons.Default.AccessTime, "时间", "${timeData.weekday} ${timeData.period}")
-
-            HorizontalDivider(Modifier.padding(vertical = 12.dp))
-            DetailItem(Icons.Default.DateRange, "周次", timeData.weeks)
-
-            if (!courseData.course.isCustom) {
-                if (courseData.course.assessment.isNotBlank()) {
-                    HorizontalDivider(Modifier.padding(vertical = 12.dp))
-                    DetailItem(
-                        Icons.AutoMirrored.Filled.Assignment,
-                        "考察方式",
-                        courseData.course.assessment
-                    )
+        Column(
+            modifier = Modifier
+                .padding(12.dp)
+                .fillMaxWidth()
+        ) {
+            // 双排布局
+            val rows = details.chunked(2)
+            rows.forEachIndexed { index, rowItems ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    rowItems.forEach { item ->
+                        Box(modifier = Modifier.weight(1f)) {
+                            DetailItem(item.icon, item.label, item.value)
+                        }
+                    }
+                    if (rowItems.size < 2) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
                 }
-                if (timeData.classGroup.isNotBlank()) {
-                    HorizontalDivider(Modifier.padding(vertical = 12.dp))
-                    DetailItem(Icons.Default.Group, "上课班级", timeData.classGroup)
-                }
-                if (courseData.course.category.isNotBlank()) {
-                    HorizontalDivider(Modifier.padding(vertical = 12.dp))
-                    DetailItem(Icons.Default.Category, "类型", courseData.course.category)
+                if (index < rows.size - 1) {
+                    Spacer(modifier = Modifier.height(12.dp))
                 }
             }
         }
     }
 }
 
+// 辅助数据类
+data class DetailInfo(
+    val icon: ImageVector,
+    val label: String,
+    val value: String
+)
+
 @Composable
 fun DetailItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     label: String,
     value: String
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
-        Spacer(modifier = Modifier.width(16.dp))
+    Row(verticalAlignment = Alignment.Top) {
+        Icon(
+            icon,
+            null,
+            modifier = Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.width(8.dp))
         Column {
-            Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
-                if (value.isBlank()) "无" else value,
-                fontSize = 16.sp,
+                value.ifBlank { "无" },
+                fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                lineHeight = 18.sp
             )
         }
     }
@@ -856,9 +890,6 @@ fun ScheduleCourseOverlay(
         }.toMap()
     }
 
-    // [关键优化] 这里改回 remember，因为 courses 现在已经是 ViewModel 预计算好的“单周数据”，
-    // 列表很短（几十个 item），同步计算完全不会卡。
-    // 使用 produceState 反而会引入一帧的加载延迟，导致闪烁。
     val preparedGroups = remember(courses, sectionIndexMap) {
         val items = mutableListOf<LayoutItem>()
         courses.forEach { course ->
@@ -938,7 +969,6 @@ fun ScheduleCourseOverlay(
     }
 }
 
-// ... (CourseCard, AccountSelectionDialog, LoginDialog, AddCustomCourseDialog, parseWeekday, parsePeriod 保持不变，请确保文件底部有这些函数) ...
 @Composable
 private fun CourseCard(
     title: String,
@@ -950,7 +980,6 @@ private fun CourseCard(
     Card(
         colors = CardDefaults.cardColors(containerColor = color),
         shape = RoundedCornerShape(8.dp),
-        // [保持优化] 移除阴影以提升性能
         elevation = CardDefaults.cardElevation(0.dp),
         modifier = modifier.clickable { onClick() }) {
         Column(
@@ -996,8 +1025,9 @@ fun AccountSelectionDialog(
     onAdd: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    // [修改] 适配暗黑模式
     AlertDialog(
-        containerColor = Color(0xFFFFFFFF),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 6.dp,
         onDismissRequest = onDismiss,
         title = { Text("切换用户") },
@@ -1011,7 +1041,7 @@ fun AccountSelectionDialog(
                             .padding(vertical = 4.dp)
                             .clickable { onSelect(acc) },
                         colors = if (acc.studentId == currentId) CardDefaults.cardColors(
-                            containerColor = Color(0xD7FFFFFF)
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
                         ) else CardDefaults.cardColors()
                     ) {
                         Column(
@@ -1065,8 +1095,9 @@ fun AccountSelectionDialog(
 fun LoginDialog(onDismiss: () -> Unit, onConfirm: (String, String) -> Unit) {
     var u by remember { mutableStateOf("") }
     var p by remember { mutableStateOf("") }
+    // [修改] 适配暗黑模式
     AlertDialog(
-        containerColor = Color(0xFFFFFFFF),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         onDismissRequest = onDismiss,
         title = { Text("导入课表") },
         text = {
@@ -1089,20 +1120,19 @@ fun AddCustomCourseDialog(
     var location by remember { mutableStateOf("") }
     var teacher by remember { mutableStateOf("") }
     var weeks by remember { mutableStateOf("1-16") }
-    // 优化：使用 mutableFloatStateOf 来直接配合 Slider，避免 redundant conversion 警告
-    var dayOfWeek by remember { mutableFloatStateOf(1f) } // 1-7
-    var startNode by remember { mutableFloatStateOf(1f) } // 1-11
+    var dayOfWeek by remember { mutableFloatStateOf(1f) }
+    var startNode by remember { mutableFloatStateOf(1f) }
     var duration by remember { mutableFloatStateOf(2f) }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(16.dp),
-            modifier = Modifier
-                .fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            // [修改] 适配暗黑模式
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
         ) {
             Column(
                 modifier = Modifier
-                    .background(color = Color(0xFFFFFFFF))
                     .padding(16.dp)
                     .verticalScroll(rememberScrollState())
             ) {

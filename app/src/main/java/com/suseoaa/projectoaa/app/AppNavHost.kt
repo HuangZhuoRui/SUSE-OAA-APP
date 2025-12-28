@@ -18,7 +18,7 @@ import com.suseoaa.projectoaa.feature.register.registerScreen
 @Composable
 fun AppNavHost(
     navController: NavHostController,
-    windowSizeClass: WindowWidthSizeClass, // 需要传进来给 MainScreen 用
+    windowSizeClass: WindowWidthSizeClass,
     modifier: Modifier = Modifier
 ) {
     NavHost(

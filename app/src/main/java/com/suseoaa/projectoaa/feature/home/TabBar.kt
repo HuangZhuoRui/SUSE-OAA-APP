@@ -41,14 +41,9 @@ enum class MainTab(
         fun getByIndex(index: Int): MainTab = entries.getOrElse(index) { HOME }
     }
 }
-
-// 这里的 OaaApp 现在变得非常简单，它只负责承载根路由 NavHost
-// Scaffold 和 BottomBar 已经移到了 MainScreen 内部
 @Composable
 fun OaaApp(
     windowSizeClass: WindowWidthSizeClass,
-    // appState 这里暂时不需要了，因为 NavHost 直接在 AppNavHost 里管理
-    // 如果后续有全局状态，可以加回来
 ) {
     // 这里的 navController 是整个 App 的根控制器（用于 Login -> Main 的跳转）
     val navController = androidx.navigation.compose.rememberNavController()
