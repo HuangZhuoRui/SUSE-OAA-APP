@@ -2,149 +2,197 @@ package com.suseoaa.projectoaa.feature.course
 
 import com.suseoaa.projectoaa.core.database.dao.CourseDao
 import com.suseoaa.projectoaa.core.database.entity.ClassTimeEntity
+import com.suseoaa.projectoaa.core.database.entity.CourseAccountEntity
 import com.suseoaa.projectoaa.core.database.entity.CourseEntity
 import com.suseoaa.projectoaa.core.database.entity.CourseWithTimes
-import com.suseoaa.projectoaa.core.network.model.CourseResponse
-import kotlinx.coroutines.Dispatchers
+import com.suseoaa.projectoaa.core.network.model.course.CourseResponseJson
+import com.suseoaa.projectoaa.core.network.model.course.Kb
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.withContext
-import javax.inject.Inject
-import javax.inject.Singleton
+import kotlinx.coroutines.flow.combine
 
-@Singleton
-class CourseRepository @Inject constructor(
-    private val dao: CourseDao
-) {
-    //    获取课表
-    fun getCourseFlow(studentId: String, xnm: String, xqm: String): Flow<List<CourseWithTimes>> {
-        return dao.getCourseWithTimes(studentId, xnm, xqm)
+class CourseRepository(private val dao: CourseDao) {
+
+    val allAccounts: Flow<List<CourseAccountEntity>> = dao.getAllAccounts()
+
+
+    fun getCourses(studentId: String, xnm: String, xqm: String): Flow<List<CourseWithTimes>> {
+        val coursesFlow = dao.getCourseEntities(studentId, xnm, xqm)
+        val timesFlow = dao.getClassTimeEntities(studentId, xnm, xqm)
+
+        return coursesFlow.combine(timesFlow) { courses, allTimes ->
+            courses.map { course ->
+                // 在内存中过滤，确保只包含属于当前课程的时间
+                // 由于 SQL 已经过滤了 studentId, xnm, xqm，这里只需要匹配 courseName 和 isCustom
+                val matchingTimes = allTimes.filter { time ->
+                    time.courseOwnerName == course.courseName &&
+                            time.isCustom == course.isCustom
+                }
+                CourseWithTimes(course, matchingTimes)
+            }
+        }
     }
 
-    suspend fun updateCourseData(studentId: String, response: CourseResponse) = withContext(
-        Dispatchers.Default
+    suspend fun deleteAccount(studentId: String) {
+        dao.deleteAccount(studentId)
+        dao.deleteAllCoursesByStudent(studentId)
+    }
+
+
+    suspend fun saveCustomCourse(
+        studentId: String,
+        xnm: String,
+        xqm: String,
+        name: String,
+        location: String,
+        teacher: String,
+        weekday: String,
+        startNode: Int,
+        duration: Int,
+        weeks: String
     ) {
-        val rawList = response.kbList
-        if (rawList.isEmpty()) return@withContext
+        val course = CourseEntity(
+            studentId = studentId,
+            courseName = name,
+            xnm = xnm,
+            xqm = xqm,
+            isCustom = true,
+            background = "",
+        )
+        val periodStr = "$startNode-${startNode + duration - 1}"
+        val mask = parseWeeksToMask(weeks)
 
-//        获取学年学期
-        val xnm = response.xsxx.xNM
-        val xqm = response.xsxx.xQM
+        val time = ClassTimeEntity(
+            studentId = studentId,
+            courseOwnerName = name,
+            xnm = xnm,
+            xqm = xqm,
+            isCustom = true,
+            weekday = weekday,
+            period = periodStr,
+            weeks = weeks,
+            weeksMask = mask,
+            location = location,
+            teacher = teacher,
+            duration = duration.toString()
+        )
+        dao.insertCustomCourse(course, time)
+    }
 
-//        按照课程名称归类
-        val groupedMap = rawList.filter { it.kcmc.isNotBlank() }
-            .groupBy { it.kcmc }
+    suspend fun saveFromResponse(studentId: String, password: String, resp: CourseResponseJson) {
+        val xsxx = resp.xsxx
+        val xnm = xsxx?.xNM ?: "2024"
+        val xqm = xsxx?.xQM ?: "3"
+
+        if (xsxx != null) {
+            val account = CourseAccountEntity(
+                studentId = studentId,
+                password = password,
+                name = xsxx.xM ?: "未知姓名",
+                className = xsxx.bJMC ?: "未知班级",
+                njdmId = xsxx.nJDMID ?: xnm,
+                major = xsxx.zYMC ?: ""
+            )
+            dao.insertAccount(account)
+        }
+
+        val rawList = resp.kbList ?: emptyList()
+        val validList = rawList.filterNotNull().filter { !it.courseName.isNullOrBlank() }
+        val groups: Map<String, List<Kb>> = validList.groupBy { it.courseName!! }
 
         val courses = mutableListOf<CourseEntity>()
-        val classTimes = mutableListOf<ClassTimeEntity>()
+        val allTimes = mutableListOf<ClassTimeEntity>()
 
-//        遍历每一门课
-        for ((courseName, kbList) in groupedMap) {
-            val info = kbList.first()
+        for ((courseName, list) in groups) {
+            val infoSource = list.find { !it.courseId.isNullOrBlank() } ?: list.first()
 
-            val courseEntity = CourseEntity(
+            val course = CourseEntity(
                 studentId = studentId,
-                courseName = courseName, // kcmc -> 课程名
+                courseName = courseName,
                 xnm = xnm,
                 xqm = xqm,
                 isCustom = false,
-                // 字段映射
-                teacher = info.xm,         // xm -> 教师姓名
-                credit = info.xf,          // xf -> 学分
-                assessment = info.khfsmc,  // khfsmc -> 考核方式
-                nature = info.kcxz         // kcxz -> 课程性质
+                remoteCourseId = infoSource.courseId ?: "",
+                nature = infoSource.nature ?: "",
+                background = infoSource.background ?: "",
+                category = infoSource.category ?: "",
+                assessment = infoSource.assessment ?: "",
+                totalHours = infoSource.totalHours ?: ""
             )
-            courses.add(courseEntity)
+            courses.add(course)
 
-            //        获取这门课所有的上课时间
-            for (kb in kbList) {
-//                解析周次
-                val mask = parseWeeksToMask(kb.zcd)
-//                解析节次
-                val (startNode, step) = parsePeriod(kb.jcs)
-
-                val timeEntity = ClassTimeEntity(
+            val times = list.map { kb ->
+                val mask = parseWeeksToMask(kb.weeks ?: "")
+                ClassTimeEntity(
                     studentId = studentId,
-                    courseOwnerName = courseName, // 外键：关联回上面的 courseEntity
+                    courseOwnerName = courseName,
                     xnm = xnm,
                     xqm = xqm,
                     isCustom = false,
-                    // === 字段映射 ===
-                    weekday = kb.xqj.toIntOrNull() ?: 1, // xqj -> 星期几 (1-7)
-                    startNode = startNode,
-                    step = step,
-                    location = kb.cdmc,    // cdmc -> 教室
-                    weeks = kb.zcd,        // zcd -> 原始周次文本
-                    weeksMask = mask       // 计算后的二进制位
+                    weekday = kb.dayOfWeek ?: "",
+                    period = kb.period ?: "",
+                    weeks = kb.weeks ?: "全周",
+                    weeksMask = mask,
+                    location = kb.location ?: "",
+                    teacher = kb.teacher ?: "",
+                    teacherTitle = kb.teacherTitle ?: "",
+                    politicalStatus = kb.politicalStatus ?: "",
+                    classGroup = kb.classGroup ?: ""
                 )
-                classTimes.add(timeEntity)
             }
+            allTimes.addAll(times)
         }
-        dao.updateTermCourse(studentId, xnm, xqm, courses, classTimes)
+
+        dao.updateTermCourses(studentId, xnm, xqm, courses, allTimes)
     }
 
-    // 工具函数区
-
-    // 1. 解析节次：把 "1-2节" 解析成 (start=1, step=2)
-    // 或者是 "3-5节" -> (start=3, step=3)
-    private fun parsePeriod(raw: String): Pair<Int, Int> {
-        // 去掉“节”字
-        val clean = raw.replace("节", "")
-
-        if (clean.contains("-")) {
-            val parts = clean.split("-")
-            val start = parts[0].toIntOrNull() ?: 1
-            val end = parts[1].toIntOrNull() ?: start
-            return start to (end - start + 1) // 长度 = 结束 - 开始 + 1
-        }
-        // 如果只有一个数字 "1"
-        return (clean.toIntOrNull() ?: 1) to 1
-    }
-
-    // 2. 解析周次：把 "1-16周(单)" 解析成 Long 类型的位掩码
-    // 这是最核心的算法！
-    private fun parseWeeksToMask(raw: String): Long {
+    internal fun parseWeeksToMask(raw: String): Long {
         if (raw.isBlank()) return 0L
         var mask = 0L
+        try {
+            val normalized = raw
+                .replace("，", ",")
+                .replace("；", ",")
+                .replace(";", ",")
+                .replace("、", ",")
+                .replace("\n", ",")
+                .replace(Regex("\\s+"), ",")
+                .replace(Regex(",+"), ",")
 
-        // 预处理：统一符号
-        val normalized = raw.replace("，", ",").replace(";", ",")
-        val isOdd = raw.contains("单") // 是否只含单周
-        val isEven = raw.contains("双") // 是否只含双周
+            val parts = normalized.split(',')
+            for (part in parts) {
+                if (part.isBlank()) continue
+                val isOdd = part.contains("单")
+                val isEven = part.contains("双")
+                val cleanPart = part.replace(Regex("[^0-9-]"), "")
+                if (cleanPart.isBlank()) continue
 
-        // 分割多段周次 (比如 "1-8周,10-16周")
-        val parts = normalized.split(",")
-        for (part in parts) {
-            // 提取纯数字部分 (比如 "1-16")
-            val cleanPart = part.filter { it.isDigit() || it == '-' }
-            if (cleanPart.isBlank()) continue
-
-            if (cleanPart.contains("-")) {
-                // 处理区间 "1-16"
-                val range = cleanPart.split("-")
-                val start = range[0].toIntOrNull() ?: 1
-                val end = range.getOrNull(1)?.toIntOrNull() ?: start
-
-                // 循环把每一周都“打卡”到 mask 上
-                for (w in start..end) {
-                    if (shouldInclude(w, isOdd, isEven)) {
-                        mask = mask or (1L shl (w - 1)) // 核心位运算：把第 w 位设为 1
+                if (cleanPart.contains("-")) {
+                    val rangeParts = cleanPart.split('-')
+                    if (rangeParts.size >= 2) {
+                        val start = rangeParts[0].toIntOrNull()
+                        val end = rangeParts[1].toIntOrNull()
+                        if (start != null && end != null) {
+                            val range = if (start <= end) start..end else end..start
+                            for (w in range) {
+                                if (shouldInclude(w, isOdd, isEven)) mask = mask or (1L shl (w - 1))
+                            }
+                        }
+                    }
+                } else {
+                    val w = cleanPart.toIntOrNull()
+                    if (w != null && shouldInclude(w, isOdd, isEven)) {
+                        mask = mask or (1L shl (w - 1))
                     }
                 }
-            } else {
-                // 处理单点 "3"
-                val w = cleanPart.toIntOrNull()
-                if (w != null && shouldInclude(w, isOdd, isEven)) {
-                    mask = mask or (1L shl (w - 1))
-                }
             }
-        }
+        } catch (e: Exception) { e.printStackTrace() }
         return mask
     }
 
-    // 辅助判断：这一周是否符合单双周要求
     private fun shouldInclude(week: Int, isOdd: Boolean, isEven: Boolean): Boolean {
-        if (isOdd && week % 2 == 0) return false // 要单周，但这是双周 -> 扔掉
-        if (isEven && week % 2 != 0) return false // 要双周，但这是单周 -> 扔掉
+        if (week !in 1..63) return false
+        if (isOdd && !isEven && week % 2 == 0) return false
+        if (isEven && !isOdd && week % 2 != 0) return false
         return true
     }
 }

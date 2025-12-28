@@ -56,7 +56,6 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.material3)
-    implementation(libs.maps)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -68,7 +67,7 @@ dependencies {
     implementation(libs.androidx.compose.material3.window.size)
 //    MD3图标包
     implementation(libs.androidx.material.icons.extended)
-    implementation("androidx.compose.material:material-icons-extended:1.6.0")
+    implementation(libs.androidx.compose.material.icons.extended)
 //    viewmodel相关的库
     implementation(libs.androidx.lifecycle.viewmodel.compose)
 //    导航相关的库
@@ -84,9 +83,11 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     // === Hilt 依赖 ===
     implementation(libs.hilt.android)
-    // 使用 ksp 处理注解 (千万不要用 kapt 或 annotationProcessor)
+    // 使用 ksp 处理注解
     ksp(libs.hilt.compiler)
 
     // Compose 专用：让你能使用 hiltViewModel()
     implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.volley)
+    implementation(libs.play.services.maps)
 }

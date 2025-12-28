@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material3.*
+import androidx.compose.material3.SecondaryScrollableTabRow
 import androidx.compose.material3.TabRowDefaults.SecondaryIndicator
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
@@ -120,8 +121,9 @@ private val DateHeaderHeight = 32.dp
 @SuppressLint("ConfigurationScreenWidthHeight")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CourseListScreen(
-    viewModel: CourseListViewModel = hiltViewModel()
+fun CourseScreen(
+    viewModel: CourseListViewModel = hiltViewModel(),
+    modifier: Modifier = Modifier
 ) {
     val windowSizeClass = LocalWindowSizeClass.current
     val context = LocalContext.current
@@ -189,33 +191,6 @@ fun CourseListScreen(
         )
     }
 
-    // [修改] 监听评教日志，使用 Dialog 显示完整日志，而不是 Toast
-    var evaluationLogDialogContent by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(uiState.evaluationLog) {
-        uiState.evaluationLog?.let { log ->
-            evaluationLogDialogContent = log
-            viewModel.clearEvaluationLog()
-        }
-    }
-
-    if (evaluationLogDialogContent != null) {
-        AlertDialog(
-            onDismissRequest = { evaluationLogDialogContent = null },
-            title = { Text("评教结果") },
-            text = {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    Text(evaluationLogDialogContent ?: "")
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { evaluationLogDialogContent = null }) {
-                    Text("关闭")
-                }
-            }
-        )
-    }
-
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -230,7 +205,7 @@ fun CourseListScreen(
                             .fillMaxWidth()
                             .then(
                                 when (windowSizeClass.widthSizeClass) {
-                                    WindowWidthSizeClass.Compact -> Modifier.padding(8.dp)
+                                    WindowWidthSizeClass.Compact -> Modifier.padding(4.dp)
                                     WindowWidthSizeClass.Expanded -> Modifier.statusBarsPadding()
                                     WindowWidthSizeClass.Medium -> Modifier.statusBarsPadding()
                                     else -> Modifier.statusBarsPadding()
@@ -308,13 +283,6 @@ fun CourseListScreen(
                                 DropdownMenuItem(
                                     text = { Text("导入新课表") },
                                     onClick = { menuExpanded = false; showLoginDialog = true })
-//                                DropdownMenuItem(
-//                                    text = { Text("一键评教") },
-//                                    onClick = {
-//                                        menuExpanded = false
-//                                        viewModel.startOneClickEvaluation()
-//                                    }
-//                                )
                                 DropdownMenuItem(
                                     text = { Text("添加自定义课程") },
                                     onClick = {
@@ -425,7 +393,6 @@ fun CourseListScreen(
             }
 
             if (!isTablet && selectedCourses != null) {
-                // [修复] 添加 skipPartiallyExpanded = true，确保打开时直接显示全部内容，不需要再上滑
                 val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
                 ModalBottomSheet(
@@ -564,10 +531,10 @@ fun CourseDetailContent(
     infoList: List<Pair<CourseWithTimes, ClassTimeEntity>>,
     onClose: () -> Unit
 ) {
+    // 修复：移除 verticalScroll，因为 HorizontalPager 是懒加载组件，
+    // 在无限高度约束（Scrollable Column）中会崩溃。
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -592,11 +559,13 @@ fun CourseDetailContent(
         Spacer(modifier = Modifier.height(16.dp))
         if (infoList.isNotEmpty()) {
             val pagerState = rememberPagerState(pageCount = { infoList.size })
+            // 修复：添加 wrapContentHeight，让 Pager 自适应内容高度
             HorizontalPager(
                 state = pagerState,
                 contentPadding = PaddingValues(horizontal = 4.dp),
                 pageSpacing = 16.dp,
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.Top,
+                modifier = Modifier.wrapContentHeight()
             ) { page ->
                 val (courseData, timeData) = infoList[page]
                 CourseDetailCard(courseData, timeData)
@@ -921,8 +890,9 @@ fun ScheduleCourseOverlay(
             groups.forEach { (_, groupItems) ->
                 val overlappedData = groupItems.map { it.course to it.time }
                 val item = groupItems.first()
-                val baseColor =
-                    CourseColors[kotlin.math.abs(item.course.course.courseName.hashCode()) % CourseColors.size]
+                // 修复颜色索引可能的负数崩溃问题
+                val index = (item.course.course.courseName.hashCode() and Int.MAX_VALUE) % CourseColors.size
+                val baseColor = CourseColors[index]
                 CourseCard(
                     title = item.course.course.courseName,
                     location = item.time.location,
@@ -968,7 +938,6 @@ fun ScheduleCourseOverlay(
     }
 }
 
-// ... (CourseCard, AccountSelectionDialog, LoginDialog, AddCustomCourseDialog, parseWeekday, parsePeriod 保持不变) ...
 @Composable
 private fun CourseCard(
     title: String,

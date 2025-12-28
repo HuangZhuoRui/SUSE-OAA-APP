@@ -19,7 +19,6 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import java.util.Calendar
 import androidx.core.content.edit
-import com.google.android.apps.gmm.map.util.jni.NativeHelper
 import com.suseoaa.projectoaa.core.database.CourseDatabase
 import com.suseoaa.projectoaa.core.database.entity.CourseAccountEntity
 import com.suseoaa.projectoaa.core.database.entity.CourseWithTimes
@@ -244,11 +243,6 @@ class CourseListViewModel(application: Application) : AndroidViewModel(applicati
             }
         }
     }
-    // 用于在 UI 关闭弹窗后清除日志状态
-    fun clearEvaluationLog() {
-        uiState = uiState.copy(evaluationLog = null)
-    }
-    // ========================
 
     fun addCustomCourse(
         name: String,
@@ -314,11 +308,9 @@ class CourseListViewModel(application: Application) : AndroidViewModel(applicati
     }
 }
 
-// 更新 State，增加 evaluationLog 用于展示详细日志
 data class CourseListUiState(
     val isLoading: Boolean = false,
     val successMessage: String? = null,
     val errorMessage: String? = null,
-    val statusMessage: String? = null,
-    val evaluationLog: String? = null // [新增] 用于存储评教结果日志
+    val statusMessage: String? = null
 )
