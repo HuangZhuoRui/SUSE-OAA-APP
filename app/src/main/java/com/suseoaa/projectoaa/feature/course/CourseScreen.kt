@@ -306,7 +306,8 @@ fun CourseScreen(
                         indicator = {
                             if (pagerState.currentPage < 25) {
                                 SecondaryIndicator(
-                                    modifier = Modifier.tabIndicatorOffset(pagerState.currentPage)
+                                    modifier = Modifier
+                                        .tabIndicatorOffset(pagerState.currentPage)
                                         .padding(horizontal = 8.dp)
                                         .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)),
                                     height = 4.dp,
@@ -511,7 +512,8 @@ fun CourseScheduleLayout(
                         pageSpacing = 0.dp
                     ) { page ->
                         val weekIndex = page + 1
-                        val weekStart = remember(startDate, page) { startDate.plusWeeks(page.toLong()) }
+                        val weekStart =
+                            remember(startDate, page) { startDate.plusWeeks(page.toLong()) }
                         val weekCourses = weekScheduleMap[weekIndex] ?: emptyList()
 
                         DynamicWeekContent(
@@ -611,15 +613,33 @@ fun CourseDetailCard(courseData: CourseWithTimes, timeData: ClassTimeEntity) {
             if (timeData.teacher.isNotBlank()) {
                 add(DetailInfo(Icons.Default.Person, "教师", timeData.teacher))
             }
-            add(DetailInfo(Icons.Default.AccessTime, "时间", "${timeData.weekday} ${timeData.period}"))
+            add(
+                DetailInfo(
+                    Icons.Default.AccessTime,
+                    "时间",
+                    "${timeData.weekday} ${timeData.period}"
+                )
+            )
             add(DetailInfo(Icons.Default.DateRange, "周次", timeData.weeks))
 
             if (!courseData.course.isCustom) {
                 if (courseData.course.assessment.isNotBlank()) {
-                    add(DetailInfo(Icons.AutoMirrored.Filled.Assignment, "考察方式", courseData.course.assessment))
+                    add(
+                        DetailInfo(
+                            Icons.AutoMirrored.Filled.Assignment,
+                            "考察方式",
+                            courseData.course.assessment
+                        )
+                    )
                 }
                 if (timeData.classGroup.isNotBlank()) {
-                    add(DetailInfo(Icons.Default.Group, "上课班级", timeData.classGroup))
+                    add(
+                        DetailInfo(
+                            Icons.Default.Group,
+                            "上课班级",
+                            timeData.classGroup.replace(";", "\n")
+                        )
+                    )
                 }
                 if (courseData.course.category.isNotBlank()) {
                     add(DetailInfo(Icons.Default.Category, "类型", courseData.course.category))
@@ -921,7 +941,8 @@ fun ScheduleCourseOverlay(
             dayGroups.forEach { (_, groupItems) ->
                 val overlappedData = groupItems.map { it.course to it.time }
                 val item = groupItems.first()
-                val index = (item.course.course.courseName.hashCode() and Int.MAX_VALUE) % CourseColors.size
+                val index =
+                    (item.course.course.courseName.hashCode() and Int.MAX_VALUE) % CourseColors.size
                 val baseColor = CourseColors[index]
 
                 CourseCard(
