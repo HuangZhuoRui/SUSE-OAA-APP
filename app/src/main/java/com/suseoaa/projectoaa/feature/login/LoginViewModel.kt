@@ -19,7 +19,7 @@ class LoginViewModel : ViewModel() {
 
     //   登录方法
     fun login(onSuccess: (String) -> Unit, onError: (String) -> Unit) {
-        if (account.isBlank() || password.isBlank()) {
+        if (listOf(account, password).any { it.isBlank() }) {
             onError("账号或密码不能为空,$account,$password")
             return
         }
@@ -35,7 +35,8 @@ class LoginViewModel : ViewModel() {
                     onError(response.message)
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+//                在控制台打印错误信息
+//                e.printStackTrace()
                 onError("网络请求失败:${e.message}")
             } finally {
                 isLoading = false

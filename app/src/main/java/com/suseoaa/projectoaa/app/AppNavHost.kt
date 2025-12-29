@@ -25,7 +25,7 @@ fun AppNavHost(
         navController = navController,
         // 这里根据你的需求，如果是已登录状态，可以设为 MAIN_SCREEN_ROUTE
         // 如果需要先登录，设为 LOGIN_ROUTE
-        startDestination = MAIN_SCREEN_ROUTE,
+        startDestination = LOGIN_ROUTE,
         modifier = modifier,
         enterTransition = { EnterTransition.None },
         exitTransition = { ExitTransition.None },
