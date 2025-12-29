@@ -239,9 +239,8 @@ fun CourseScreen(
 
                                 Text(
                                     currentLabel,
-                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Medium),
                                     color = MaterialTheme.colorScheme.onSurface,
-                                    fontSize = 18.sp
                                 )
                                 Icon(Icons.Default.ArrowDropDown, null)
                             }

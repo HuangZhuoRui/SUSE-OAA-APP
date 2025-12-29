@@ -1,21 +1,17 @@
-package com.suseoaa.projectoaa.core.network.login
-
+package com.suseoaa.projectoaa.core.network.model.register
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class LoginResponse(
+data class RegisterResponse(
     @SerialName("code")
-    val code: Int,
+    val code: String,
     @SerialName("data")
-    val `data`: Data? = null,
+    val `data`: Data,
     @SerialName("message")
     val message: String
 ) {
     @Serializable
-    data class Data(
-        @SerialName("token")
-        val token: String
-    )
+    class Data
 }

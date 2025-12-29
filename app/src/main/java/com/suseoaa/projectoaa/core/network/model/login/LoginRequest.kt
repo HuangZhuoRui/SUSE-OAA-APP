@@ -1,4 +1,4 @@
-package com.suseoaa.projectoaa.core.network.login
+package com.suseoaa.projectoaa.core.network.model.login
 
 import kotlinx.serialization.Serializable
 

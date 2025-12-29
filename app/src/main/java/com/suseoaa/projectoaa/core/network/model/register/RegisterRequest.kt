@@ -1,5 +1,4 @@
-package com.suseoaa.projectoaa.core.network.register
-
+package com.suseoaa.projectoaa.core.network.model.register
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

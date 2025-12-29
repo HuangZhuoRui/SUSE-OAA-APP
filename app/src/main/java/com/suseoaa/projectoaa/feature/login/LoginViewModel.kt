@@ -5,8 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewModelScope
-import com.suseoaa.projectoaa.core.network.login.LoginRequest
-import com.suseoaa.projectoaa.core.network.login.RetrofitClient
+import com.suseoaa.projectoaa.core.network.model.login.LoginRequest
+import com.suseoaa.projectoaa.core.network.login.LoginClient
 import kotlinx.coroutines.launch
 
 class LoginViewModel : ViewModel() {
@@ -27,7 +27,7 @@ class LoginViewModel : ViewModel() {
             isLoading = true
             try {
                 val request = LoginRequest(username = account, password = password)
-                val response = RetrofitClient.apiService.login(request)
+                val response = LoginClient.apiService.login(request)
                 if (response.code == 200 && response.data?.token != null) {
                     val token = response.data.token
                     onSuccess(token)
