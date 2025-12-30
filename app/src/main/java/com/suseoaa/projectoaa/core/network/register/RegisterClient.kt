@@ -13,6 +13,7 @@ object RegisterClient {
         ignoreUnknownKeys = true
         coerceInputValues = true
         encodeDefaults = true
+        isLenient = true
     }
     val apiService: RegisterService by lazy {
         Retrofit.Builder()

@@ -49,9 +49,6 @@ fun AppNavHost(
         registerScreen(
             onRegisterSuccess = {
                 navController.popBackStack()
-            },
-            onBackClick = {
-                navController.popBackStack()
             }
         )
 
