@@ -53,4 +53,37 @@ object HtmlParser {
 
         return emptyList()
     }
+
+    // 数据类用于返回解析结果
+    data class GradeDetail(
+        val regular: String = "",
+        val final: String = ""
+    )
+
+    // 解析成绩详情 HTML
+    fun parseGradeDetail(html: String): GradeDetail {
+        val doc = Jsoup.parse(html)
+        // 成绩通常在 id 为 subtab 的表格中
+        val rows = doc.select("table#subtab tbody tr")
+
+        var regular = ""
+        var finalScore = ""
+
+        for (row in rows) {
+            val cols = row.select("td")
+            if (cols.size >= 3) {
+                // 第一列是标题（如：【 平时 】），去除特殊符号
+                val title = cols[0].text().replace("【", "").replace("】", "").trim()
+                // 第三列是分数
+                val score = cols[2].text().trim()
+
+                when {
+                    title.contains("平时") -> regular = score
+                    // 期末、补考、或者总评外的其他主要成绩都视为期末部分
+                    title.contains("期末") || title.contains("补考") -> finalScore = score
+                }
+            }
+        }
+        return GradeDetail(regular, finalScore)
+    }
 }

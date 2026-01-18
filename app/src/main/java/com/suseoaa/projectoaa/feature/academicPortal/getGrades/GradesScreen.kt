@@ -56,7 +56,6 @@ fun GradesScreen(
         Scaffold(
             modifier = Modifier
                 .sharedBounds(
-                    // 【关键修改】统一Key：academic_grades_card
                     sharedContentState = rememberSharedContentState(key = "academic_grades_card"),
                     animatedVisibilityScope = animatedVisibilityScope,
                     boundsTransform = AcademicSharedTransitionSpec,
@@ -134,7 +133,6 @@ fun GradesScreen(
     }
 }
 
-// --- 以下组件保持不变 (SelectOption, FilterButton, GradeItemCard, LabelValueText) ---
 @Composable
 fun SelectOption(
     selectedYear: String,
@@ -242,6 +240,7 @@ fun GradeItemCard(item: GradeEntity) {
                 .padding(16.dp)
                 .fillMaxWidth()
         ) {
+            // 第一行：课程名 和 总成绩
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -260,7 +259,10 @@ fun GradeItemCard(item: GradeEntity) {
                     fontWeight = FontWeight.Bold
                 )
             }
+
             Spacer(modifier = Modifier.height(8.dp))
+
+            // 第二行：学分、绩点、类型、考核
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -274,15 +276,47 @@ fun GradeItemCard(item: GradeEntity) {
                     LabelValueText("考核", item.examType)
                 }
             }
+
+            // 第三行：分割线 + 详情 (平时/期末)
+            // 只有当详情数据有值时才显示，或者默认显示 '-'
+            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 4.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // 平时成绩
+                LabelValueText(
+                    "平时",
+                    item.regularScore.ifBlank { "-" }
+                )
+                // 期末成绩
+                LabelValueText(
+                    "期末",
+                    item.finalScore.ifBlank { "-" }
+                )
+            }
         }
     }
 }
 
 @Composable
 fun LabelValueText(label: String, value: String?) {
-    Text(
-        text = "$label: $value",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = "$label: ",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value ?: "-",
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
 }

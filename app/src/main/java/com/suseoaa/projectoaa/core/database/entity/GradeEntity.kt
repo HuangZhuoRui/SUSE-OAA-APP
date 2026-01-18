@@ -25,6 +25,7 @@ data class GradeEntity(
     val courseId: String,       // 课程号 (kch_id 或 kch)
 
     // --- 展示数据 ---
+    val jxbId: String = "",
     val courseName: String,     // 课程名 (kcmc)
     val score: String,          // 成绩 (cj)
     val credit: String,         // 学分 (xf)
@@ -34,5 +35,9 @@ data class GradeEntity(
     val courseType: String,     // 课程性质 (kcxzmc，如"专业基础必修")
     val examType: String,       // 考核方式 (khfsmc，如"考试")
     val teacher: String,        // 教师 (jsxm 或 cjbdczr)
-    val examNature: String      // 考试性质 (ksxz，如"正常考试")
+    val examNature: String,      // 考试性质 (ksxz，如"正常考试")
+
+    // --- 详细成绩字段 ---
+    val regularScore: String = "", // 平时成绩
+    val finalScore: String = ""    // 期末成绩 (或补考成绩)
 )
