@@ -109,12 +109,10 @@ class SchoolGradeRepository @Inject constructor(
             }
 
             // 3. 并发获取每一科的详情
-            // 使用 Semaphore 限制同时并发请求数为 3，防止被服务器封IP
             val requestSemaphore = Semaphore(3)
 
             val finalEntities = tempEntities.map { entity ->
                 async {
-                    // 如果没有 jxbId，没法查，直接返回原对象
                     if (entity.jxbId.isBlank()) return@async entity
 
                     requestSemaphore.withPermit {
@@ -128,20 +126,22 @@ class SchoolGradeRepository @Inject constructor(
                             if (detailResp.isSuccessful) {
                                 val html = detailResp.body()?.string() ?: ""
                                 val detail = HtmlParser.parseGradeDetail(html)
-                                // 返回填充了平时分和期末分的新对象
+
+                                // 同时保存成绩和比例
                                 return@withPermit entity.copy(
                                     regularScore = detail.regular,
-                                    finalScore = detail.final
+                                    regularRatio = detail.regularRatio, // 保存平时比例
+                                    finalScore = detail.final,
+                                    finalRatio = detail.finalRatio      // 保存期末比例
                                 )
                             }
                         } catch (e: Exception) {
                             e.printStackTrace()
                         }
-                        // 如果请求失败，返回原对象（不带详情）
                         entity
                     }
                 }
-            }.awaitAll() // 等待所有请求完成
+            }.awaitAll()
 
             // 4. 一次性保存到数据库
             gradeDao.updateGrades(account.studentId, year, semester, finalEntities)

@@ -25,7 +25,7 @@ import com.suseoaa.projectoaa.core.database.entity.MessageCacheEntity
         ExamCacheEntity::class,
         MessageCacheEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 abstract class CourseDatabase : RoomDatabase() {
@@ -37,16 +37,20 @@ abstract class CourseDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: CourseDatabase? = null
 
-        // 定义迁移策略：从版本 10 升级到 11
         val MIGRATION_10_11 = object : Migration(10, 11) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // SQLite 不支持一次添加多列，需要分三条执行
-                // 添加 jxbId 列，默认值为空字符串
                 db.execSQL("ALTER TABLE grades ADD COLUMN jxbId TEXT NOT NULL DEFAULT ''")
-                // 添加 regularScore 列
                 db.execSQL("ALTER TABLE grades ADD COLUMN regularScore TEXT NOT NULL DEFAULT ''")
-                // 添加 finalScore 列
                 db.execSQL("ALTER TABLE grades ADD COLUMN finalScore TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 添加 regularRatio 列
+                db.execSQL("ALTER TABLE grades ADD COLUMN regularRatio TEXT NOT NULL DEFAULT ''")
+                // 添加 finalRatio 列
+                db.execSQL("ALTER TABLE grades ADD COLUMN finalRatio TEXT NOT NULL DEFAULT ''")
             }
         }
 
@@ -62,8 +66,9 @@ abstract class CourseDatabase : RoomDatabase() {
                 CourseDatabase::class.java,
                 "course_schedule.db"
             )
-                .addMigrations(MIGRATION_10_11) // 注册迁移脚本
-                .fallbackToDestructiveMigration(false) // 禁止破坏性迁移(防止数据被删)
+                // 注册所有迁移脚本
+                .addMigrations(MIGRATION_10_11, MIGRATION_11_12)
+                .fallbackToDestructiveMigration(false)
                 .build()
         }
     }

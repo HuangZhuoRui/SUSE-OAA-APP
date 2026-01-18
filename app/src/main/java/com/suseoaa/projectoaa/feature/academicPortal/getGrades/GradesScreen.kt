@@ -262,7 +262,7 @@ fun GradeItemCard(item: GradeEntity) {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 第二行：学分、绩点、类型、考核
+            // 第二行：学分等信息
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -277,8 +277,7 @@ fun GradeItemCard(item: GradeEntity) {
                 }
             }
 
-            // 第三行：分割线 + 详情 (平时/期末)
-            // 只有当详情数据有值时才显示，或者默认显示 '-'
+            // 第三行：分割线 + 详情
             Spacer(modifier = Modifier.height(8.dp))
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 4.dp),
@@ -289,15 +288,20 @@ fun GradeItemCard(item: GradeEntity) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // 平时成绩
+                // 平时成绩 + 比例
+                val regularLabel =
+                    if (item.regularRatio.isNotBlank()) "平时(${item.regularRatio})" else "平时"
                 LabelValueText(
-                    "平时",
-                    item.regularScore.ifBlank { "-" }
+                    label = regularLabel,
+                    value = item.regularScore.ifBlank { "-" }
                 )
-                // 期末成绩
+
+                // 期末成绩 + 比例
+                val finalLabel =
+                    if (item.finalRatio.isNotBlank()) "期末(${item.finalRatio})" else "期末"
                 LabelValueText(
-                    "期末",
-                    item.finalScore.ifBlank { "-" }
+                    label = finalLabel,
+                    value = item.finalScore.ifBlank { "-" }
                 )
             }
         }
