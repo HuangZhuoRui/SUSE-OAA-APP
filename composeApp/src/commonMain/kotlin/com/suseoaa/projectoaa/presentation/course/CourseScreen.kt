@@ -1375,13 +1375,12 @@ fun AddCustomCourseDialog(
             shape = RoundedCornerShape(24.dp),
             modifier = Modifier
                 .fillMaxWidth(0.92f)
-                .wrapContentHeight(),
+                .fillMaxHeight(0.9f),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Column(
-                modifier = Modifier
-                    .verticalScroll(rememberScrollState())
+                modifier = Modifier.fillMaxSize()
             ) {
                 // 标题区域
                 Box(
@@ -1413,7 +1412,12 @@ fun AddCustomCourseDialog(
                     }
                 }
 
-                Column(modifier = Modifier.padding(20.dp)) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(20.dp)
+                ) {
                     // 基本信息卡片
                     Card(
                         colors = CardDefaults.cardColors(
@@ -1649,12 +1653,18 @@ fun AddCustomCourseDialog(
                             )
                         }
                     }
-
-                    Spacer(Modifier.height(20.dp))
-
-                    // 操作按钮
+                }
+                
+                // 底部按钮区域 - 固定在底部
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surface,
+                    shadowElevation = 8.dp
+                ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         OutlinedButton(
