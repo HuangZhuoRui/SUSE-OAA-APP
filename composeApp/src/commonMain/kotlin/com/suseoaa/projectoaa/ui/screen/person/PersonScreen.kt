@@ -36,6 +36,7 @@ import com.suseoaa.projectoaa.presentation.update.AppUpdateViewModel
 import com.suseoaa.projectoaa.presentation.update.UpdateEvent
 import com.suseoaa.projectoaa.ui.component.UpdateDialog
 import com.suseoaa.projectoaa.ui.theme.*
+import com.suseoaa.projectoaa.util.pickImageForAvatar
 import kotlinx.coroutines.flow.collectLatest
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -69,6 +70,9 @@ fun PersonScreen(
     var showUpdateDialog by remember { mutableStateOf(false) }
     var isManualUpdateCheck by remember { mutableStateOf(false) }
     val updateUiState by updateViewModel.uiState.collectAsState()
+    
+    // 头像选择对话框状态
+    var showAvatarDialog by remember { mutableStateOf(false) }
 
     // 监听登出
     LaunchedEffect(uiState.isLoggedOut) {
@@ -124,6 +128,16 @@ fun PersonScreen(
             onDismiss = { showUpdateDialog = false },
             isManualCheck = isManualUpdateCheck
         )
+    }
+    
+    // 头像选择
+    if (showAvatarDialog) {
+        pickImageForAvatar { imageData ->
+            if (imageData != null) {
+                viewModel.uploadAvatar(imageData)
+            }
+            showAvatarDialog = false
+        }
     }
 
     Scaffold(
@@ -188,7 +202,7 @@ fun PersonScreen(
                         UserInfoCard(
                             userInfo = uiState.userInfo,
                             onLogout = { viewModel.logout() },
-                            onAvatarClick = { /* TODO: 选择头像 */ },
+                            onAvatarClick = { showAvatarDialog = true },
                             onEditInfo = { username, name ->
                                 viewModel.updateInfo(username, name)
                             }
@@ -263,46 +277,51 @@ fun UserInfoCard(
             ) {
                 // 头像区域
                 Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .clickable { onAvatarClick() }
+                    modifier = Modifier.size(64.dp)
                 ) {
-                    if (userInfo?.avatar.isNullOrBlank()) {
-                        // 无头像时显示默认图标
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape)
-                                .background(SoftBlueWait)
-                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.Person,
-                                contentDescription = null,
-                                tint = ElectricBlue,
-                                modifier = Modifier.size(32.dp)
+                    // 头像主体
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape)
+                            .clickable { onAvatarClick() }
+                    ) {
+                        if (userInfo?.avatar.isNullOrBlank()) {
+                            // 无头像时显示默认图标
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(SoftBlueWait)
+                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = ElectricBlue,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                        } else {
+                            // 有头像时加载图片
+                            AsyncImage(
+                                model = userInfo.avatar,
+                                contentDescription = "用户头像",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(SoftBlueWait)
+                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
                             )
                         }
-                    } else {
-                        // 有头像时加载图片
-                        AsyncImage(
-                            model = userInfo.avatar,
-                            contentDescription = "用户头像",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape)
-                                .background(SoftBlueWait)
-                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
-                        )
                     }
-                    // 编辑图标提示
+                    
+                    // 编辑图标提示 - 放在头像外层
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = null,
                         modifier = Modifier
-                            .size(20.dp)
+                            .size(24.dp)
                             .align(Alignment.BottomEnd)
                             .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
                             .padding(4.dp),
