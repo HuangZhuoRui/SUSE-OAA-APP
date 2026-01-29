@@ -383,6 +383,24 @@ class CourseViewModel(
             statusMessage = null
         )
     }
+    
+    /**
+     * 删除课程
+     */
+    fun deleteCourse(courseName: String) {
+        viewModelScope.launch {
+            currentAccount.value?.let { account ->
+                localRepository.deleteCourse(
+                    studentId = account.studentId,
+                    courseName = courseName,
+                    xnm = selectedXnm.value,
+                    xqm = selectedXqm.value,
+                    isCustom = true // 目前只支持删除自定义课程
+                )
+                _uiState.value = _uiState.value.copy(successMessage = "已删除: $courseName")
+            }
+        }
+    }
 
     // ==================== 私有方法 ====================
 
