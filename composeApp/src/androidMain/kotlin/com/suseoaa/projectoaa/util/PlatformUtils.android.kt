@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -13,14 +12,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
-
-@Composable
-actual fun showToast(message: String) {
-    val context = LocalContext.current
-    LaunchedEffect(message) {
-        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-    }
-}
 
 @Composable
 actual fun pickImageForAvatar(onImagePicked: (ByteArray?) -> Unit) {

@@ -37,6 +37,7 @@ import com.suseoaa.projectoaa.presentation.update.UpdateEvent
 import com.suseoaa.projectoaa.ui.component.UpdateDialog
 import com.suseoaa.projectoaa.ui.theme.*
 import com.suseoaa.projectoaa.util.pickImageForAvatar
+import com.suseoaa.projectoaa.util.showToast
 import kotlinx.coroutines.flow.collectLatest
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -104,11 +105,10 @@ fun PersonScreen(
         }
     }
 
-    // Snackbar
-    val snackbarHostState = remember { SnackbarHostState() }
-    LaunchedEffect(uiState.message) {
-        uiState.message?.let { message ->
-            snackbarHostState.showSnackbar(message)
+    // 显示提示
+    uiState.message?.let { message ->
+        showToast(message)
+        LaunchedEffect(message) {
             viewModel.clearMessage()
         }
     }
@@ -142,8 +142,7 @@ fun PersonScreen(
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         val isDarkTheme = isSystemInDarkTheme()
         val gradientColors = if (isDarkTheme) DarkGradientColors else LightGradientColors
