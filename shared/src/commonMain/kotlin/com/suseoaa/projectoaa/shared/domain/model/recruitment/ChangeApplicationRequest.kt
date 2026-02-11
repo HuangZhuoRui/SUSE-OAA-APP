@@ -5,11 +5,9 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class Data(
-    @SerialName("adjustment")
-    val adjustment: Int,
-    @SerialName("avator")
-    val avator: String,
+data class ChangeApplicationRequest(
+    @SerialName("adjustiment")
+    val adjustiment: Int,
     @SerialName("birthday")
     val birthday: String,
     @SerialName("choice1")
@@ -18,16 +16,12 @@ data class Data(
     val choice2: String,
     @SerialName("class")
     val classX: String,
-    @SerialName("created_at")
-    val createdAt: String,
     @SerialName("experience")
     val experience: String,
     @SerialName("gender")
     val gender: String,
     @SerialName("major")
     val major: String,
-    @SerialName("name")
-    val name: String,
     @SerialName("phone")
     val phone: String,
     @SerialName("politic_stance")
@@ -39,9 +33,5 @@ data class Data(
     @SerialName("role1")
     val role1: String,
     @SerialName("role2")
-    val role2: String,
-    @SerialName("status")
-    val status: String,
-    @SerialName("student_id")
-    val studentId: String
+    val role2: String
 )

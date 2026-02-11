@@ -30,6 +30,8 @@ data class SubmitApplicationRequest(
     val qq: String,
     @SerialName("reason")
     val reason: String,
-    @SerialName("role")
-    val role: String
+    @SerialName("role1")
+    val role1: String,
+    @SerialName("role2")
+    val role2: String
 )
