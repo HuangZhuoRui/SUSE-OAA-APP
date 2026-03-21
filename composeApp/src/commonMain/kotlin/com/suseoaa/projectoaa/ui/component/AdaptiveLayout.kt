@@ -63,9 +63,15 @@ data class AdaptiveLayoutConfig(
          * 根据屏幕宽度计算布局配置
          */
         fun calculate(screenWidth: Dp, screenHeight: Dp): AdaptiveLayoutConfig {
-            val windowSizeClass = classifyWindowSizeClass(screenWidth)
+            val classifiedWindowSizeClass = classifyWindowSizeClass(screenWidth)
+            val isTabletFormFactor = isTabletFormFactorDevice()
+            val windowSizeClass = if (isTabletFormFactor && classifiedWindowSizeClass == WindowSizeClass.COMPACT) {
+                WindowSizeClass.MEDIUM
+            } else {
+                classifiedWindowSizeClass
+            }
 
-            val isTablet = windowSizeClass != WindowSizeClass.COMPACT
+            val isTablet = windowSizeClass != WindowSizeClass.COMPACT || isTabletFormFactor
             val isLandscape = screenWidth > screenHeight
 
             // 平板横屏时使用侧边导航
@@ -130,6 +136,11 @@ fun classifyWindowSizeClass(screenWidth: Dp): WindowSizeClass = when {
  * 判断是否为紧凑布局（手机优先布局）。
  */
 fun AdaptiveLayoutConfig.useCompactLayout(): Boolean = windowSizeClass == WindowSizeClass.COMPACT
+
+/**
+ * 平台设备形态判断（例如 iPad / Android 平板）。
+ */
+expect fun isTabletFormFactorDevice(): Boolean
 
 /**
  * 统一判断是否走平板布局。
