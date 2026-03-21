@@ -37,6 +37,8 @@ import com.suseoaa.projectoaa.presentation.exam.ExamUiItem
 import com.suseoaa.projectoaa.presentation.exam.ExamUiState
 import com.suseoaa.projectoaa.presentation.exam.ExamViewModel
 import com.suseoaa.projectoaa.presentation.exam.SemesterOption
+import com.suseoaa.projectoaa.ui.component.AdaptiveLayout
+import com.suseoaa.projectoaa.ui.component.useTabletLayout
 import com.suseoaa.projectoaa.ui.theme.*
 import com.suseoaa.projectoaa.util.ToastManager
 import com.suseoaa.projectoaa.util.getExamCountDown
@@ -137,12 +139,12 @@ fun ExamInfoScreen(
         },
         containerColor = backgroundColor
     ) { padding ->
-        BoxWithConstraints(
+        AdaptiveLayout(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-        ) {
-            val isTablet = maxWidth > 600.dp
+        ) { adaptiveLayoutConfig ->
+            val isTablet = adaptiveLayoutConfig.useTabletLayout()
 
             if (isTablet) {
                 // 平板布局：左侧筛选面板，右侧内容

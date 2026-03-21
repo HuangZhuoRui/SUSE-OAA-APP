@@ -36,6 +36,7 @@ import com.suseoaa.projectoaa.shared.domain.model.teachingplan.MajorOption
 import com.suseoaa.projectoaa.presentation.teachingplan.CourseInfoViewModel
 import com.suseoaa.projectoaa.ui.component.AdaptiveLayout
 import com.suseoaa.projectoaa.ui.component.getListColumns
+import com.suseoaa.projectoaa.ui.component.useTabletLayout
 import com.suseoaa.projectoaa.util.ToastManager
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -81,14 +82,13 @@ fun CourseInfoScreen(
             )
         }
     ) { padding ->
-        // 使用 BoxWithConstraints 检测屏幕宽度以适配平板
-        BoxWithConstraints(
+        AdaptiveLayout(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .background(MaterialTheme.colorScheme.background)
-        ) {
-            val isTablet = maxWidth > 600.dp
+        ) { adaptiveLayoutConfig ->
+            val isTablet = adaptiveLayoutConfig.useTabletLayout()
             val horizontalPadding = if (isTablet) 24.dp else 0.dp
 
             // 错误提示 - 使用 Toast
