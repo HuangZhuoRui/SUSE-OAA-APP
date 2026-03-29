@@ -1,156 +1,27 @@
-package com.suseoaa.projectoaa.ui.screen.gpa
+import os
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import com.suseoaa.projectoaa.ui.component.AdaptiveLayout
-import com.suseoaa.projectoaa.ui.component.getListColumns
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.suseoaa.projectoaa.shared.data.repository.GpaCourseWrapper
-import com.suseoaa.projectoaa.presentation.gpa.GpaViewModel
-import com.suseoaa.projectoaa.ui.animation.sharedBoundsTransition
-import com.suseoaa.projectoaa.presentation.gpa.FilterType
-import com.suseoaa.projectoaa.presentation.gpa.SortOrder
-import com.suseoaa.projectoaa.ui.component.BackButton
-import org.koin.compose.viewmodel.koinViewModel
-import kotlin.math.pow
-import kotlin.math.round
+file_path = "composeApp/src/commonMain/kotlin/com/suseoaa/projectoaa/ui/screen/gpa/GpaScreen.kt"
 
-@Immutable
-private data class GpaCourseUiModel(
-    val courseId: String,
-    val termCode: String,
-    val courseName: String,
-    val isDegreeCourse: Boolean,
-    val isGradeLevel: Boolean,
-    val isPassOnly: Boolean,
-    val creditText: String,
-    val displayScore: String,
-    val displayGpa: String
-)
+with open(file_path, "r") as f:
+    content = f.read()
 
-private fun Double.toFixed(decimals: Int): String {
-    val factor = 10.0.pow(decimals)
-    val rounded = round(this * factor) / factor
-    val raw = rounded.toString().split(".")
-    return if (raw.size == 1) {
-        "${raw[0]}.${"0".repeat(decimals)}"
-    } else {
-        val decimalsPart = raw[1].padEnd(decimals, '0').take(decimals)
-        "${raw[0]}.$decimalsPart"
-    }
-}
+missing_imports = [
+    "import androidx.compose.foundation.background",
+    "import androidx.compose.foundation.BorderStroke",
+    "import androidx.compose.foundation.shape.RoundedCornerShape",
+    "import androidx.compose.material.icons.filled.Edit",
+    "import androidx.compose.material.icons.filled.Info"
+]
 
-private fun GpaCourseWrapper.toUiModel(): GpaCourseUiModel {
-    return GpaCourseUiModel(
-        courseId = originalEntity.courseId,
-        termCode = "${originalEntity.xnm}_${originalEntity.xqm}",
-        courseName = originalEntity.courseName,
-        isDegreeCourse = isDegreeCourse,
-        isGradeLevel = isGradeLevel,
-        isPassOnly = isPassOnly,
-        creditText = credit.toFixed(1),
-        displayScore = displayScore,
-        displayGpa = displayGpa
-    )
-}
+for imp in missing_imports:
+    if imp not in content:
+        content = content.replace("import androidx.compose.foundation.layout.*", f"{imp}\nimport androidx.compose.foundation.layout.*")
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun GpaScreen(
-    onBack: () -> Unit,
-    viewModel: GpaViewModel = koinViewModel()
-) {
-    val uiState by viewModel.uiState.collectAsState()
-
-    LaunchedEffect(Unit) {
-        if (uiState.courseList.isEmpty()) {
-            viewModel.loadData()
-        }
-    }
-
-    Scaffold(
-        modifier = Modifier.sharedBoundsTransition("gpa"),
-        topBar = {
-            TopAppBar(
-                title = { Text("绩点计算") },
-                navigationIcon = {
-                    BackButton(
-                        onClick = onBack,
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
-                }
-            )
-        }
-    ) { padding ->
-        Box(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-        ) {
-            when {
-                uiState.isLoading -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                }
-
-                uiState.errorMessage != null -> {
-                    Column(
-                        modifier = Modifier.align(Alignment.Center),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            uiState.errorMessage ?: "发生错误",
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(onClick = { viewModel.loadData() }) {
-                            Text("重试")
-                        }
-                    }
-                }
-
-                else -> {
-                    GpaContent(
-                        courseList = uiState.courseList,
-                        totalGpa = uiState.totalGpa,
-                        totalCredits = uiState.totalCredits,
-                        degreeGpa = uiState.degreeGpa,
-                        degreeCredits = uiState.degreeCredits,
-                        sortOrder = uiState.sortOrder,
-                        filterType = uiState.filterType,
-                        onSortOrderChange = { viewModel.setSortOrder(it) },
-                        onFilterTypeChange = { viewModel.setFilterType(it) },
-                        onScoreChange = { courseId, score ->
-                            viewModel.updateSimulatedScoreByCourseId(courseId, score)
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun GpaContent(
-    courseList: List<GpaCourseWrapper>,
+target_idx = content.find("@Composable\nprivate fun GpaContent(")
+if target_idx != -1:
+    new_content = content[:target_idx] + """@Composable
+fun GpaContent(
+    courseList: List<CourseRaw>,
     totalGpa: String,
     totalCredits: String,
     degreeGpa: String,
@@ -200,7 +71,7 @@ private fun GpaContent(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 0.dp),
+                .padding(horizontal = 16.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -210,17 +81,13 @@ private fun GpaContent(
                     selected = filterType == FilterType.ALL,
                     onClick = { onFilterTypeChange(FilterType.ALL) },
                     label = { Text("全部") },
-                    leadingIcon = if (filterType == FilterType.ALL) {
-                        { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
-                    } else null
+                    shape = RoundedCornerShape(16.dp)
                 )
                 FilterChip(
                     selected = filterType == FilterType.DEGREE_ONLY,
                     onClick = { onFilterTypeChange(FilterType.DEGREE_ONLY) },
                     label = { Text("学位课") },
-                    leadingIcon = if (filterType == FilterType.DEGREE_ONLY) {
-                        { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
-                    } else null
+                    shape = RoundedCornerShape(16.dp)
                 )
             }
 
@@ -230,25 +97,42 @@ private fun GpaContent(
                     val newOrder = if (sortOrder == SortOrder.DESCENDING)
                         SortOrder.ASCENDING else SortOrder.DESCENDING
                     onSortOrderChange(newOrder)
-                }
+                },
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
             ) {
+                Text(
+                    text = if (sortOrder == SortOrder.DESCENDING) "分从高到低" else "分从低到高",
+                    style = MaterialTheme.typography.labelLarge
+                )
+                Spacer(Modifier.width(4.dp))
                 Icon(
                     imageVector = if (sortOrder == SortOrder.DESCENDING)
                         Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp)
                 )
-                Spacer(Modifier.width(4.dp))
-                Text(if (sortOrder == SortOrder.DESCENDING) "从高到低" else "从低到高")
             }
         }
-
-        Text(
-            "点击课程修改成绩进行模拟",
-            style = MaterialTheme.typography.bodySmall,
-            color = Color.Gray,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-        )
+        
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                "点击课程可修改成绩进行重修、补考等模拟",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            )
+        }
 
         // 3. 课程列表
         val navBarHeight = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -263,8 +147,8 @@ private fun GpaContent(
                         bottom = 16.dp + navBarHeight,
                         top = 8.dp
                     ),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(
@@ -299,7 +183,7 @@ fun StatItem(label: String, gpa: String, credit: String) {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
-            text = "共 " + credit + " 学分",
+            text = f"共 {credit} 学分",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
         )
@@ -439,55 +323,56 @@ fun EditScoreDialog(
     )
 
     AlertDialog(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = onDismiss,
         title = { Text("修改模拟成绩") },
         text = {
             Column {
-                // 等级制成绩快捷选择
-                Text(
-                    "等级制成绩 (点击选择):",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    gradeOptions.forEach { (grade, score) ->
-                        FilterChip(
-                            selected = selectedGrade == grade,
-                            onClick = {
-                                selectedGrade = grade
-                                text = score
-                            },
-                            label = { Text(grade, fontSize = 12.sp) },
-                            modifier = Modifier.weight(1f)
-                        )
+                if (isGradeLevel) {
+                    Text(
+                        "等级制成绩 (点击选择):",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        gradeOptions.forEach { (grade, score) ->
+                            FilterChip(
+                                selected = selectedGrade == grade,
+                                onClick = {
+                                    selectedGrade = grade
+                                    text = score
+                                },
+                                label = { Text(grade, fontSize = 12.sp) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
                 Text(
-                    "或直接输入分数:",
+                    text = "或直接输入分数:",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
                 OutlinedTextField(
                     value = text,
                     onValueChange = {
-                        if (it.length <= 3) {
+                        if (it.length <= 4) {
                             text = it
-                            selectedGrade = null  // 清除等级选择
+                            selectedGrade = null
                         }
                     },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     label = { Text("分数 (0-100)") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
                 )
             }
         },
@@ -503,3 +388,12 @@ fun EditScoreDialog(
         }
     )
 }
+"""
+    # Fix the f-string issue in Kotlin code representation
+    new_content = new_content.replace('f"共 {credit} 学分"', '"共 ${credit} 学分"')
+    
+    with open(file_path, "w") as f:
+        f.write(new_content)
+    print("Successfully updated")
+else:
+    print("Error finding GpaContent")
