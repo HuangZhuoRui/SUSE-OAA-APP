@@ -213,8 +213,8 @@ fun HomeWithDrawer(
                         )
                     }
 
-                    val validRoles = listOf("干事", "副部长", "部长", "会长", "开发者")
-                    if (userInfo != null && userInfo.role in validRoles) {
+                    val invalidRoles = listOf("会员", "普通成员", "")
+                    if (userInfo != null && userInfo.role !in invalidRoles) {
                         item {
                             FeatureCard(
                                 name = "用户管理",
