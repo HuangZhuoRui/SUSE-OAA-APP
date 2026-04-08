@@ -1,0 +1,457 @@
+openapi: 3.0.1
+info:
+  title: 默认模块
+  description: ''
+  version: 1.0.0
+tags: []
+paths:
+  /application/create:
+    post:
+      summary: 提交申请表
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          description: ''
+          required: false
+          example: '{{Authorization}}'
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                choice1:
+                  type: string
+                choice2:
+                  type: string
+                experience:
+                  type: string
+                phone:
+                  type: string
+                gender:
+                  type: string
+                major:
+                  type: string
+                class:
+                  type: string
+                birthday:
+                  type: string
+                qq:
+                  type: string
+                politic_stance:
+                  type: string
+                adjustiment:
+                  type: integer
+                role1:
+                  type: string
+                role2:
+                  type: string
+              required:
+                - reason
+                - choice1
+                - choice2
+                - experience
+                - phone
+                - gender
+                - major
+                - class
+                - birthday
+                - qq
+                - politic_stance
+                - adjustiment
+                - role1
+                - role2
+            example: "{\r\n    \"reason\":\"试试就逝世\",\r\n    \"choice1\":\"组织宣传部\",\r\n    \"choice2\":\"项目实践部\",\r\n    \"experience\":\"无\",\r\n    \"phone\":\"18780732003\",\r\n    \"gender\":\"男\",\r\n    \"major\":\"软件工程\",\r\n    \"class\":\"245班\",\r\n    \"birthday\":\"2006-02-03\",\r\n    \"qq\":\"2824920336\",\r\n    \"politic_stance\":\"团员\",\r\n    \"adjustiment\":0,\r\n    \"role1\":\"干事\",\r\n    \"role2\":\"部长\",\r\n\r\n}"
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+          headers: {}
+      security: []
+  /application/get:
+    get:
+      summary: 获取申请表
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          description: ''
+          required: false
+          example: '{{Authorization}}'
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+            example: ''
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                        reason:
+                          type: string
+                        choice1:
+                          type: string
+                        choice2:
+                          type: string
+                        experience:
+                          type: string
+                        phone:
+                          type: string
+                        gender:
+                          type: string
+                        major:
+                          type: string
+                        class:
+                          type: string
+                        birthday:
+                          type: string
+                        qq:
+                          type: string
+                        politic_stance:
+                          type: string
+                        adjustment:
+                          type: integer
+                  message:
+                    type: string
+                required:
+                  - data
+                  - message
+              example:
+                code: 200
+                data:
+                  - name: 樊明智
+                    reason: 试试就逝世
+                    choice1: 算法竞赛部
+                    choice2: 项目实践部
+                    experience: 无
+                    phone: '18780732003'
+                    gender: 男
+                    major: 软件工程
+                    class: 245班
+                    birthday: '2006-02-03'
+                    qq: '2824920336'
+                    politic_stance: 党员
+                    adjustment: 0
+                    studentid: '24171040202'
+                  - name: 李华
+                    reason: 试试就逝世
+                    choice1: 组织宣传部
+                    choice2: 项目实践部
+                    experience: 无
+                    phone: '18780732003'
+                    gender: 男
+                    major: 软件工程
+                    class: 245班
+                    birthday: '2006-02-03'
+                    qq: '2824920336'
+                    politic_stance: 团员
+                    adjustment: 0
+                    studentid: '24171040203'
+                  - name: 李华
+                    reason: 试试就逝世
+                    choice1: 组织宣传部
+                    choice2: 项目实践部
+                    experience: 无
+                    phone: '18780732003'
+                    gender: 男
+                    major: 软件工程
+                    class: 245班
+                    birthday: '2006-02-03'
+                    qq: '2824920336'
+                    politic_stance: 团员
+                    adjustment: 0
+                    studentid: ''
+                  - name: 李华
+                    reason: 试试就逝世
+                    choice1: 组织宣传部
+                    choice2: 项目实践部
+                    experience: 无
+                    phone: '18780732003'
+                    gender: 男
+                    major: 软件工程
+                    class: 245班
+                    birthday: '2006-02-03'
+                    qq: '2824920336'
+                    politic_stance: 团员
+                    adjustment: 0
+                    studentid: ''
+                  - name: 李华
+                    reason: 试试就逝世
+                    choice1: 组织宣传部
+                    choice2: 项目实践部
+                    experience: 无
+                    phone: '18780732003'
+                    gender: 男
+                    major: 软件工程
+                    class: 245班
+                    birthday: '2006-02-03'
+                    qq: '2824920336'
+                    politic_stance: 团员
+                    adjustment: 0
+                    studentid: ''
+                  - name: 李华
+                    reason: 试试就逝世
+                    choice1: 组织宣传部
+                    choice2: 项目实践部
+                    experience: 无
+                    phone: '18780732003'
+                    gender: 男
+                    major: 软件工程
+                    class: 245班
+                    birthday: '2006-02-03'
+                    qq: '2824920336'
+                    politic_stance: 团员
+                    adjustment: 0
+                    studentid: ''
+                  - name: 李华
+                    reason: 试试就逝世
+                    choice1: 组织宣传部
+                    choice2: 项目实践部
+                    experience: 无
+                    phone: '18780732003'
+                    gender: 男
+                    major: 软件工程
+                    class: 245班
+                    birthday: '2006-02-03'
+                    qq: '2824920336'
+                    politic_stance: 团员
+                    adjustment: 0
+                    studentid: ''
+                  - name: 李华
+                    reason: 试试就逝世
+                    choice1: 组织宣传部
+                    choice2: 项目实践部
+                    experience: 无
+                    phone: '18780732003'
+                    gender: 男
+                    major: 软件工程
+                    class: 245班
+                    birthday: '2006-02-03'
+                    qq: '2824920336'
+                    politic_stance: 团员
+                    adjustment: 0
+                    studentid: ''
+                  - name: fwj
+                    reason: '2131231232133213'
+                    choice1: 算法竞赛部
+                    choice2: 项目实践部
+                    experience: '32132312321321'
+                    phone: '19150064646'
+                    gender: 男
+                    major: '123'
+                    class: '213'
+                    birthday: 2025-11-3
+                    qq: '32312321'
+                    politic_stance: '21321'
+                    adjustment: 0
+                    studentid: ''
+                  - name: 李华
+                    reason: 试试就逝世
+                    choice1: 组织宣传部
+                    choice2: 项目实践部
+                    experience: 无
+                    phone: '18780732003'
+                    gender: 男
+                    major: 软件工程
+                    class: 245班
+                    birthday: '2006-02-03'
+                    qq: '2824920336'
+                    politic_stance: 团员
+                    adjustment: 0
+                    studentid: ''
+                message: 查询成功共有10条申请
+          headers: {}
+      security: []
+  /application/update:
+    post:
+      summary: 修改申请表
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          description: ''
+          required: false
+          example: '{{Authorization}}'
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+            example:
+              reason: 试试就逝世
+              choice1: 秘书处
+              choice2: 项目实践部
+              experience: 无
+              phone: '18780732003'
+              gender: 男
+              major: 软件工程
+              class: 245班
+              birthday: '2006-02-03'
+              qq: '2824920336'
+              politic_stance: 团员
+              role1: 部长
+              role2: 副部长
+              adjustiment: 0
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+          headers: {}
+      security: []
+  /application/uploadimg:
+    post:
+      summary: 上传申请表头像
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          description: ''
+          required: false
+          example: '{{Authorization}}'
+          schema:
+            type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                Image:
+                  example: file://C:\Users\Starry\Desktop\杂七杂八\照片\头像.jpg
+                  type: string
+                  format: binary
+            examples: {}
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+          headers: {}
+      security: []
+  /application/updatetime:
+    post:
+      summary: 修改申请表的上传时间
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          description: ''
+          required: false
+          example: '{{Authorization}}'
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+            example:
+              starttime: '2008-01-02 15:04:05'
+              endtime: '2028-01-02 15:04:05'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+          headers: {}
+      security: []
+  /application/changestatus:
+    post:
+      summary: 更改状态
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          description: ''
+          required: false
+          example: '{{Authorization}}'
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+            example:
+              studentid:
+                - '24101010301'
+                - '24101010302'
+                - '24101010328'
+                - '24101010329'
+              status:
+                - 录取第1志愿
+                - 录取第2志愿
+                - 调剂到秘书处部门副部长职位
+                - 未通过
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+          headers: {}
+      security: []
+components:
+  schemas: {}
+  responses: {}
+  securitySchemes: {}
+servers: []
+security: []
