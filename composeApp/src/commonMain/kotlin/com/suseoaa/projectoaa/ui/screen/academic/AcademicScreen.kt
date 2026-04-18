@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
@@ -44,6 +45,7 @@ import com.suseoaa.projectoaa.ui.theme.*
 import com.suseoaa.projectoaa.util.getExamCountDown
 import kotlinx.datetime.*
 import org.koin.compose.viewmodel.koinViewModel
+import kotlin.collections.listOf
 
 data class PortalFunction(
     val title: String,
@@ -86,6 +88,7 @@ fun AcademicScreen(
         }
     }
 
+    val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
     val functions = listOf(
         PortalFunction(
             "成绩查询",
@@ -116,6 +119,12 @@ fun AcademicScreen(
             Icons.Default.DateRange,
             "academicStatus",
             Color(0xFF9C27B0)
+        ),
+        PortalFunction(
+            "教务系统",
+            Icons.AutoMirrored.Filled.ExitToApp,
+            "jwgl",
+            Color(0xFF1976D2)
         )
     )
 
@@ -199,6 +208,7 @@ fun AcademicScreen(
                                 "studyRequirement" -> onNavigateToStudyRequirement()
                                 "courseInfo" -> onNavigateToCourseInfo()
                                 "academicStatus" -> onNavigateToAcademicStatus()
+                                "jwgl" -> uriHandler.openUri("https://jwgl.suse.edu.cn/xtgl/login_slogin.html")
                             }
                         }
                     )
@@ -912,23 +922,30 @@ fun ExamRowItem(exam: ExamUiState) {
 /**
  * 功能按钮卡片
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FunctionCard(
     function: PortalFunction,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
+    Card(
         onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        color = function.color.copy(alpha = 0.1f),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 4.dp,
+            hoveredElevation = 8.dp
+        ),
         modifier = modifier
             .fillMaxWidth()
             .height(80.dp)
             .sharedBoundsTransition(function.route)
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
