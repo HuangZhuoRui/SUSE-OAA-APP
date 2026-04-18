@@ -101,6 +101,9 @@ fun UpdateScreen(
                             allReleases = allReleases,
                             isChecking = uiState.isChecking,
                             downloadingReleaseTag = uiState.downloadingReleaseTag,
+                            downloadedReleaseTag = uiState.downloadedReleaseTag,
+                            isDownloading = uiState.isDownloading,
+                            downloadProgress = uiState.downloadProgress,
                             viewModel = viewModel
                         )
                     }
@@ -145,6 +148,9 @@ fun UpdateScreen(
                                     release = release,
                                     isCurrentVersion = getAppVersionName() == release.tagName.removePrefix("v"),
                                     downloadingReleaseTag = uiState.downloadingReleaseTag,
+                                    downloadedReleaseTag = uiState.downloadedReleaseTag,
+                                    isDownloading = uiState.isDownloading,
+                                    downloadProgress = uiState.downloadProgress,
                                     viewModel = viewModel
                                 )
                             }
@@ -275,6 +281,9 @@ fun ReleaseHistorySection(
     allReleases: List<GithubRelease>,
     isChecking: Boolean,
     downloadingReleaseTag: String?,
+    downloadedReleaseTag: String?,
+    isDownloading: Boolean,
+    downloadProgress: Int,
     viewModel: AppUpdateViewModel
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -309,6 +318,9 @@ fun ReleaseHistorySection(
                         release = release,
                         isCurrentVersion = getAppVersionName() == release.tagName.removePrefix("v"),
                         downloadingReleaseTag = downloadingReleaseTag,
+                        downloadedReleaseTag = downloadedReleaseTag,
+                        isDownloading = isDownloading,
+                        downloadProgress = downloadProgress,
                         viewModel = viewModel
                     )
                 }
@@ -322,9 +334,14 @@ fun ReleaseCard(
     release: GithubRelease,
     isCurrentVersion: Boolean,
     downloadingReleaseTag: String?,
+    downloadedReleaseTag: String?,
+    isDownloading: Boolean,
+    downloadProgress: Int,
     viewModel: AppUpdateViewModel
 ) {
     val isThisReleaseDownloading = downloadingReleaseTag == release.tagName
+    val isThisReleaseReadyToInstall =
+        downloadedReleaseTag == release.tagName && !isDownloading && downloadProgress >= 100
 
     Card(
         shape = RoundedCornerShape(28.dp),
@@ -386,7 +403,19 @@ fun ReleaseCard(
                 val apkAsset = release.assets.firstOrNull { it.name.endsWith(".apk") }
                 if (apkAsset != null) {
                     Spacer(modifier = Modifier.height(28.dp))
-                    if (isThisReleaseDownloading) {
+                    if (isThisReleaseReadyToInstall) {
+                        Button(
+                            onClick = { viewModel.installDownloadedApk() },
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                            shape = CircleShape,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        ) {
+                            Text("安装更新", fontWeight = FontWeight.Bold)
+                        }
+                    } else if (isThisReleaseDownloading) {
                         OutlinedButton(
                             onClick = { viewModel.cancelDownload() },
                             modifier = Modifier.fillMaxWidth().height(50.dp),
