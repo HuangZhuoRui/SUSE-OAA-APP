@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -31,6 +32,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.graphics.Color
+import coil3.compose.AsyncImage
+import com.suseoaa.projectoaa.presentation.MainViewModel
+import com.suseoaa.projectoaa.shared.data.local.BackgroundPageIds
 import com.suseoaa.projectoaa.ui.component.AdaptiveLayout
 import com.suseoaa.projectoaa.ui.component.AdaptiveLayoutConfig
 import com.suseoaa.projectoaa.ui.screen.academic.AcademicScreen
@@ -38,12 +42,14 @@ import com.suseoaa.projectoaa.presentation.course.CourseScreen
 import com.suseoaa.projectoaa.ui.screen.home.HomeScreen
 import com.suseoaa.projectoaa.ui.screen.person.PersonScreen
 import com.suseoaa.projectoaa.ui.theme.*
+import com.suseoaa.projectoaa.util.decodeBackgroundImage
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.launch
+import org.koin.compose.viewmodel.koinViewModel
 import kotlin.math.roundToInt
 
 // 定义 Tab 的顺序和元数据
@@ -77,16 +83,19 @@ fun MainScreen(
     onNavigateToRecruitment: () -> Unit = {},
     onNavigateToUserQuery: () -> Unit = {},
     onNavigateToUpdate: () -> Unit = {},
+    mainViewModel: MainViewModel = koinViewModel(),
     modifier: Modifier = Modifier
 ) {
     // 使用 rememberSaveable 保持 Tab 状态，页面返回时不会丢失
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    val appBackgroundImages by mainViewModel.appBackgroundImages.collectAsState()
 
     AdaptiveLayout { config ->
         if (config.useSideNavigation) {
             // 平板横屏：使用侧边导航栏布局
             TabletLandscapeLayout(
                 config = config,
+                appBackgroundImages = appBackgroundImages,
                 selectedTab = selectedTab,
                 onTabChange = { selectedTab = it },
                 onNavigateToLogin = onNavigateToLogin,
@@ -107,6 +116,7 @@ fun MainScreen(
         } else {
             // 手机或平板竖屏：使用底部导航栏布局
             PhoneLayout(
+                appBackgroundImages = appBackgroundImages,
                 selectedTab = selectedTab,
                 onTabChange = { selectedTab = it },
                 onNavigateToLogin = onNavigateToLogin,
@@ -134,6 +144,7 @@ fun MainScreen(
 @Composable
 private fun TabletLandscapeLayout(
     config: AdaptiveLayoutConfig,
+    appBackgroundImages: Map<String, String?>,
     selectedTab: Int,
     onTabChange: (Int) -> Unit,
     onNavigateToLogin: () -> Unit,
@@ -180,44 +191,49 @@ private fun TabletLandscapeLayout(
             ),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-            // 使用 key 保持状态，而非销毁重建
-            when (selectedTab) {
-                0 -> key("home") {
-                    HomeScreen(
-                        onNavigateToDetail = onNavigateToDepartmentDetail,
-                        bottomBarHeight = 0.dp,
-                        onNavigateToRecruitment = onNavigateToRecruitment,
-                        onNavigateToUserQuery = onNavigateToUserQuery
-                    )
-                }
+            MainPageBackground(
+                encodedImage = resolveBackgroundImage(appBackgroundImages, selectedTab),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                // 使用 key 保持状态，而非销毁重建
+                when (selectedTab) {
+                    0 -> key("home") {
+                        HomeScreen(
+                            onNavigateToDetail = onNavigateToDepartmentDetail,
+                            bottomBarHeight = 0.dp,
+                            onNavigateToRecruitment = onNavigateToRecruitment,
+                            onNavigateToUserQuery = onNavigateToUserQuery
+                        )
+                    }
 
-                1 -> key("course") {
-                    CourseScreen(
-                        onNavigateToLogin = onNavigateToLogin,
-                        bottomBarHeight = 0.dp
-                    )
-                }
+                    1 -> key("course") {
+                        CourseScreen(
+                            onNavigateToLogin = onNavigateToLogin,
+                            bottomBarHeight = 0.dp
+                        )
+                    }
 
-                2 -> key("academic") {
-                    AcademicScreen(
-                        onNavigateToGrades = onNavigateToGrades,
-                        onNavigateToGpa = onNavigateToGpa,
-                        onNavigateToExams = onNavigateToExams,
-                        onNavigateToStudyRequirement = onNavigateToStudyRequirement,
-                        onNavigateToCourseInfo = onNavigateToCourseInfo,
-                        onNavigateToAcademicStatus = onNavigateToAcademicStatus,
-                        bottomBarHeight = 0.dp
-                    )
-                }
+                    2 -> key("academic") {
+                        AcademicScreen(
+                            onNavigateToGrades = onNavigateToGrades,
+                            onNavigateToGpa = onNavigateToGpa,
+                            onNavigateToExams = onNavigateToExams,
+                            onNavigateToStudyRequirement = onNavigateToStudyRequirement,
+                            onNavigateToCourseInfo = onNavigateToCourseInfo,
+                            onNavigateToAcademicStatus = onNavigateToAcademicStatus,
+                            bottomBarHeight = 0.dp
+                        )
+                    }
 
-                3 -> key("person") {
-                    PersonScreen(
-                        onNavigateToLogin = onNavigateToLogin,
-                        onNavigateToChangePassword = onNavigateToChangePassword,
-                        onNavigateToCheckin = onNavigateToCheckin,
-                        onNavigateToUpdate = onNavigateToUpdate,
-                        bottomBarHeight = 0.dp
-                    )
+                    3 -> key("person") {
+                        PersonScreen(
+                            onNavigateToLogin = onNavigateToLogin,
+                            onNavigateToChangePassword = onNavigateToChangePassword,
+                            onNavigateToCheckin = onNavigateToCheckin,
+                            onNavigateToUpdate = onNavigateToUpdate,
+                            bottomBarHeight = 0.dp
+                        )
+                    }
                 }
             }
         }
@@ -229,6 +245,7 @@ private fun TabletLandscapeLayout(
  */
 @Composable
 private fun PhoneLayout(
+    appBackgroundImages: Map<String, String?>,
     selectedTab: Int,
     onTabChange: (Int) -> Unit,
     onNavigateToLogin: () -> Unit,
@@ -347,7 +364,8 @@ private fun PhoneLayout(
                 .hazeSource(state = hazeState),
             beyondViewportPageCount = 2,
         ) { page ->
-            Box(
+            MainPageBackground(
+                encodedImage = resolveBackgroundImage(appBackgroundImages, page),
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer { clip = true }
@@ -433,6 +451,8 @@ private fun PhoneLayout(
             },
             onNavigate = { index ->
                 isIndicatorDragging = false
+                // 点击导航时立即释放拖拽残留覆盖态，避免指示器停留在旧位置。
+                dragIndicatorProgress = null
                 if (selectedTab != index) {
                     onTabChange(index)
                 }
@@ -444,6 +464,51 @@ private fun PhoneLayout(
                     bottomBarHeightPx = coordinates.size.height
                 }
         )
+    }
+}
+
+private fun resolveBackgroundImage(
+    appBackgroundImages: Map<String, String?>,
+    tabIndex: Int
+): String? {
+    return if (tabIndex == MainTab.COURSE.index) {
+        appBackgroundImages[BackgroundPageIds.COURSE]
+    } else {
+        null
+    }
+}
+
+@Composable
+private fun MainPageBackground(
+    encodedImage: String?,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    val imageBytes = remember(encodedImage) { decodeBackgroundImage(encodedImage) }
+    val isDarkTheme = isSystemInDarkTheme()
+    val scrimAlpha = if (isDarkTheme) 0.38f else 0.24f
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        if (imageBytes != null) {
+            AsyncImage(
+                model = imageBytes,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.matchParentSize()
+            )
+
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(MaterialTheme.colorScheme.background.copy(alpha = scrimAlpha))
+            )
+        }
+
+        content()
     }
 }
 
