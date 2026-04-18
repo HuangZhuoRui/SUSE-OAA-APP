@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import com.suseoaa.projectoaa.ui.component.AdaptiveLayout
 import com.suseoaa.projectoaa.ui.component.getListColumns
 import androidx.compose.foundation.shape.CircleShape
@@ -23,10 +24,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -154,8 +158,30 @@ fun PersonScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         val isDarkTheme = isSystemInDarkTheme()
+        val backgroundColor = MaterialTheme.colorScheme.background
         val gradientColors = if (isDarkTheme) DarkGradientColors else LightGradientColors
         val headerTextColor = if (isDarkTheme) Color.White else Color.Black
+        val gridState = rememberLazyGridState()
+        val density = LocalDensity.current
+        val backgroundEffectRangePx = with(density) { (HeaderHeight - 80.dp).toPx() }
+
+        val backgroundProgress by remember(gridState, backgroundEffectRangePx) {
+            derivedStateOf {
+                val scrolledPx = when {
+                    gridState.firstVisibleItemIndex > 0 -> backgroundEffectRangePx
+                    else -> gridState.firstVisibleItemScrollOffset.toFloat()
+                }.coerceIn(0f, backgroundEffectRangePx)
+
+                if (backgroundEffectRangePx <= 0f) 0f
+                else (scrolledPx / backgroundEffectRangePx).coerceIn(0f, 1f)
+            }
+        }
+
+        val backgroundBlur = (backgroundProgress * 24f).dp
+        val backgroundOverlayAlpha = backgroundProgress
+        val headerTextScale = 1f - (backgroundProgress * 0.14f)
+        val headerTextAlpha = 1f - (backgroundProgress * 0.25f)
+        val headerTextTranslationY = with(density) { (-18.dp).toPx() } * backgroundProgress
 
         Box(modifier = Modifier.fillMaxSize()) {
             // 底层：动态背景
@@ -163,14 +189,35 @@ fun PersonScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(HeaderHeight)
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = gradientColors + MaterialTheme.colorScheme.background
-                        )
-                    ),
+                    .background(color = Color.Transparent),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = gradientColors + backgroundColor
+                            )
+                        )
+                        .blur(backgroundBlur)
+                )
+
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(backgroundColor.copy(alpha = backgroundOverlayAlpha))
+                )
+
+                Column(
+                    modifier = Modifier.graphicsLayer {
+                        scaleX = headerTextScale
+                        scaleY = headerTextScale
+                        alpha = headerTextAlpha
+                        translationY = headerTextTranslationY
+                    },
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     Text(
                         text = "青蟹",
                         style = MaterialTheme.typography.displayMedium,
@@ -191,6 +238,7 @@ fun PersonScreen(
             } else {
                 AdaptiveLayout { config ->
                     LazyVerticalGrid(
+                        state = gridState,
                         columns = GridCells.Fixed(config.getListColumns()),
                         contentPadding = PaddingValues(
                             top = 16.dp + statusBarHeight,
