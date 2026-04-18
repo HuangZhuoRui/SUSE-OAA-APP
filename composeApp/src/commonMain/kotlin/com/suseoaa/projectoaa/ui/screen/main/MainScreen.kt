@@ -31,7 +31,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.times
 import com.suseoaa.projectoaa.ui.component.AdaptiveLayout
 import com.suseoaa.projectoaa.ui.component.AdaptiveLayoutConfig
 import com.suseoaa.projectoaa.ui.screen.academic.AcademicScreen
@@ -42,8 +41,8 @@ import com.suseoaa.projectoaa.ui.theme.*
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.haze
-import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -287,8 +286,13 @@ private fun PhoneLayout(
                 while (rawFraction < 1f) {
                     val nowNanos = withFrameNanos { it }
                     val elapsedMs = ((nowNanos - startNanos) / 1_000_000f)
-                    rawFraction = if (durationMillis <= 0) 1f else (elapsedMs / durationMillis).coerceIn(0f, 1f)
-                    val easedFraction = androidx.compose.animation.core.FastOutSlowInEasing.transform(rawFraction)
+                    rawFraction =
+                        if (durationMillis <= 0) 1f else (elapsedMs / durationMillis).coerceIn(
+                            0f,
+                            1f
+                        )
+                    val easedFraction =
+                        androidx.compose.animation.core.FastOutSlowInEasing.transform(rawFraction)
 
                     val progress = startProgress + (targetProgress - startProgress) * easedFraction
                     val page = progress.roundToInt().coerceIn(0, maxIndex)
@@ -311,7 +315,10 @@ private fun PhoneLayout(
         isIndicatorDragging
     ) {
         val pinnedProgress = dragIndicatorProgress ?: return@LaunchedEffect
-        if (!isIndicatorDragging && !pagerState.isScrollInProgress && kotlin.math.abs(tabIndicatorProgress - pinnedProgress) < 0.001f) {
+        if (!isIndicatorDragging && !pagerState.isScrollInProgress && kotlin.math.abs(
+                tabIndicatorProgress - pinnedProgress
+            ) < 0.001f
+        ) {
             dragIndicatorProgress = null
         }
     }
@@ -337,7 +344,7 @@ private fun PhoneLayout(
             state = pagerState,
             modifier = Modifier
                 .fillMaxSize()
-                .haze(state = hazeState),
+                .hazeSource(state = hazeState),
             beyondViewportPageCount = 2,
         ) { page ->
             Box(
@@ -415,7 +422,10 @@ private fun PhoneLayout(
 
                     if (targetIndex != selectedTab) {
                         onTabChange(targetIndex)
-                    } else if (!pagerState.isScrollInProgress && kotlin.math.abs(tabIndicatorProgress - targetProgress) < 0.001f) {
+                    } else if (!pagerState.isScrollInProgress && kotlin.math.abs(
+                            tabIndicatorProgress - targetProgress
+                        ) < 0.001f
+                    ) {
                         // 已在目标页且对齐完成，立即交回给 Pager 进度驱动
                         dragIndicatorProgress = null
                     }
@@ -543,7 +553,7 @@ fun OaaBottomBar(
             .navigationBarsPadding()
             .padding(horizontal = 48.dp, vertical = 12.dp)
             .clip(RoundedCornerShape(36.dp))
-            .hazeChild(
+            .hazeEffect(
                 state = hazeState,
                 style = HazeStyle(
                     backgroundColor = hazeBackground,

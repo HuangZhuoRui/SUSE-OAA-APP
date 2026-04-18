@@ -670,7 +670,7 @@ class CourseViewModel(
     }
 
     private fun generateTermOptions(njdmId: String) {
-        val currentYear = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).year
+        val currentYear = com.suseoaa.projectoaa.shared.util.OaaClock.now().toLocalDateTime(TimeZone.currentSystemDefault()).year
         val startYear = njdmId.take(4).toIntOrNull() ?: (currentYear - 4)
 
         val options = mutableListOf<TermOption>()
@@ -682,7 +682,7 @@ class CourseViewModel(
     }
 
     private fun calculateCurrentRealTerm(): Pair<String, String> {
-        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+        val now = com.suseoaa.projectoaa.shared.util.OaaClock.now().toLocalDateTime(TimeZone.currentSystemDefault())
         val month = now.monthNumber
         val year = now.year
 

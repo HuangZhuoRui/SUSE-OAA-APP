@@ -11,7 +11,6 @@ import com.suseoaa.projectoaa.shared.data.repository.CheckinRepository
 import com.suseoaa.projectoaa.shared.data.repository.QrCodeCheckinRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.datetime.Clock
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.plus
@@ -37,6 +36,7 @@ enum class AccountFilterType {
 /**
  * 652打卡 UI 状态
  */
+@Suppress("ArrayInDataClass")
 data class CheckinUiState(
     val accounts: List<CheckinAccountData> = emptyList(),
     val accountFilter: AccountFilterType = AccountFilterType.ALL,  // 账号筛选
@@ -1056,9 +1056,9 @@ class CheckinViewModel(
             }
 
             // 保存账号
-            val now = Clock.System.now()
+            val now = com.suseoaa.projectoaa.shared.util.OaaClock.now()
                 .toLocalDateTime(TimeZone.of("Asia/Shanghai"))
-            val expireTime = "${now.date.plus(kotlinx.datetime.DatePeriod(days = 7))} ${now.time}"
+            val expireTime = "${now.date.plus(DatePeriod(days = 7))} ${now.time}"
 
             val result = qrCodeRepository.saveQrCodeAccount(
                 studentId = studentId,
@@ -1376,6 +1376,7 @@ class CheckinViewModel(
     /**
      * 隐藏扫码对话框
      */
+    @Suppress("unused")
     fun hideQrCodeDialog() {
         // 取消轮询
         scanPollingJob?.cancel()
@@ -1447,6 +1448,7 @@ class CheckinViewModel(
     /**
      * 刷新二维码
      */
+    @Suppress("unused")
     fun refreshQrCode() {
         // 取消轮询
         scanPollingJob?.cancel()
@@ -1466,6 +1468,7 @@ class CheckinViewModel(
      * 确认扫码登录并添加账号
      * 扫码成功后自动获取用户信息，用户可以直接确认添加
      */
+    @Suppress("unused")
     fun confirmQrCodeLogin(
         studentId: String,
         name: String,
@@ -1494,7 +1497,7 @@ class CheckinViewModel(
             }
 
             // 创建扫码登录账号
-            val now = Clock.System.now()
+            val now = com.suseoaa.projectoaa.shared.util.OaaClock.now()
                 .toLocalDateTime(TimeZone.of("Asia/Shanghai"))
             val expireTime = "${now.date.plus(DatePeriod(days = 7))} ${now.time}"
 
@@ -1557,13 +1560,14 @@ class CheckinViewModel(
     /**
      * WebView 重新登录成功后处理
      */
+    @Suppress("unused")
     fun onReloginSuccess(cookies: Map<String, String>) {
         val account = _uiState.value.currentCheckingAccount ?: return
         viewModelScope.launch {
             val cookieString = cookies.entries.joinToString("; ") { "${it.key}=${it.value}" }
-            val now = Clock.System.now()
+            val now = com.suseoaa.projectoaa.shared.util.OaaClock.now()
                 .toLocalDateTime(TimeZone.of("Asia/Shanghai"))
-            val expireTime = "${now.date.plus(kotlinx.datetime.DatePeriod(days = 7))} ${now.time}"
+            val expireTime = "${now.date.plus(DatePeriod(days = 7))} ${now.time}"
 
             val result = passwordRepository.updateSession(account.id, cookieString, expireTime)
             if (result.isSuccess) {
@@ -1586,6 +1590,7 @@ class CheckinViewModel(
     /**
      * 更新账号的 Session（重新扫码登录后）
      */
+    @Suppress("unused")
     fun updateAccountSession(sessionToken: String, sessionExpireTime: String) {
         val account = _uiState.value.currentCheckingAccount ?: return
         viewModelScope.launch {
@@ -1613,6 +1618,7 @@ class CheckinViewModel(
     /**
      * 更新签到地点
      */
+    @Suppress("unused")
     fun updateLocation(accountId: Long, locationName: String) {
         viewModelScope.launch {
             val result = passwordRepository.updateLocation(accountId, locationName)

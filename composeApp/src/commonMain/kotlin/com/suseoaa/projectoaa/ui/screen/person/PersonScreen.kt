@@ -21,13 +21,11 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -43,7 +41,6 @@ import com.suseoaa.projectoaa.ui.theme.*
 import com.suseoaa.projectoaa.util.pickImageForAvatar
 import com.suseoaa.projectoaa.util.showToast
 import kotlinx.coroutines.flow.collectLatest
-import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
 
 private val HeaderHeight = 320.dp
@@ -255,6 +252,7 @@ fun PersonScreen(
                                     updateUiState.isChecking -> "正在检查..."
                                     updateUiState.hasUpdate && updateUiState.latestRelease != null ->
                                         "发现新版本 ${updateUiState.latestRelease!!.tagName}"
+
                                     else -> "当前已经是最新版本了"
                                 },
                                 modifier = Modifier.sharedBoundsTransition("update"),
@@ -316,9 +314,9 @@ fun UserInfoCard(
 
     if (showEditDialog && userInfo != null) {
         EditInfoDialog(
-            initialUsername = userInfo.username ?: "",
-            initialName = userInfo.name ?: "",
-            initialEmail = userInfo.email ?: "",
+            initialUsername = userInfo.username,
+            initialName = userInfo.name,
+            initialEmail = userInfo.email,
             onDismiss = { showEditDialog = false },
             onConfirm = { username, name, email ->
                 onEditInfo(username, name, email)
@@ -636,7 +634,8 @@ fun AppInfoCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = if (!isUnlocked) {
                     Modifier.clickable {
-                        val currentTime = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+                        val currentTime =
+                            com.suseoaa.projectoaa.shared.util.OaaClock.now().toEpochMilliseconds()
                         // 如果距上次点击超过超时时间，重置计数
                         if (currentTime - lastClickTime > resetTimeoutMs) {
                             clickCount = 1
