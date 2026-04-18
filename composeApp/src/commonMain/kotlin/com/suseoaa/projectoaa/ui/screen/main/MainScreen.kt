@@ -456,12 +456,12 @@ fun OaaNavigationRail(
     onNavigate: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isDarkTheme = isSystemInDarkTheme()
-    val cardBackgroundColor = if (isDarkTheme) NightSurface else OxygenWhite
-    val selectedBgColor = if (isDarkTheme) NightContainer else SoftBlueWait
-    val primaryColor = if (isDarkTheme) NightBlue else ElectricBlue
-    val textColor = if (isDarkTheme) Color.White else InkBlack
-    val subtextColor = if (isDarkTheme) Color.White.copy(alpha = 0.6f) else InkGrey
+    val colorScheme = MaterialTheme.colorScheme
+    val cardBackgroundColor = colorScheme.surface
+    val selectedBgColor = colorScheme.secondaryContainer
+    val brandColor = colorScheme.primary
+    val selectedContentColor = colorScheme.onSecondaryContainer
+    val unselectedContentColor = colorScheme.onSurfaceVariant
 
     Card(
         modifier = modifier.width(120.dp),
@@ -480,7 +480,7 @@ fun OaaNavigationRail(
                 text = "青蟹",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = primaryColor,
+                color = brandColor,
                 modifier = Modifier.padding(bottom = 28.dp)
             )
 
@@ -505,14 +505,14 @@ fun OaaNavigationRail(
                             tab.icon,
                             contentDescription = tab.label,
                             modifier = Modifier.size(26.dp),
-                            tint = if (isSelected) primaryColor else subtextColor
+                            tint = if (isSelected) selectedContentColor else unselectedContentColor
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = tab.label,
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                            color = if (isSelected) primaryColor else subtextColor
+                            color = if (isSelected) selectedContentColor else unselectedContentColor
                         )
                     }
                 }
@@ -534,19 +534,15 @@ fun OaaBottomBar(
     hazeState: HazeState,
     modifier: Modifier = Modifier
 ) {
-    val isDarkTheme = isSystemInDarkTheme()
-    val selectedTint = if (isDarkTheme) NightBlue else ElectricBlue
-    val unselectedTint = if (isDarkTheme) Color.White.copy(alpha = 0.64f) else InkGrey
-    val barOverlay =
-        if (isDarkTheme) NightSurface.copy(alpha = 0.82f) else Color.White.copy(alpha = 0.8f)
-    val indicatorColor =
-        if (isDarkTheme) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.65f)
-    val hazeBackground =
-        if (isDarkTheme) NightSurface.copy(alpha = 0.58f) else Color.White.copy(alpha = 0.58f)
-    val hazeTintColor =
-        if (isDarkTheme) NightSurface.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.88f)
-    val outlineColor =
-        if (isDarkTheme) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.5f)
+    val colorScheme = MaterialTheme.colorScheme
+    val selectedTint = colorScheme.onSecondaryContainer
+    val unselectedTint = colorScheme.onSurfaceVariant.copy(alpha = 0.9f)
+    val barOverlay = colorScheme.surface.copy(alpha = 0.82f)
+    val indicatorColor = colorScheme.secondaryContainer.copy(alpha = 0.95f)
+    val hazeSurface = colorScheme.surfaceColorAtElevation(3.dp)
+    val hazeBackground = hazeSurface.copy(alpha = 0.58f)
+    val hazeTintColor = hazeSurface.copy(alpha = 0.86f)
+    val outlineColor = colorScheme.outlineVariant.copy(alpha = 0.8f)
 
     Surface(
         modifier = modifier
