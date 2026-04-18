@@ -79,7 +79,7 @@ actual class AppUpdateRepository(
                 .filter { it.tagName != latestRelease.tagName }
                 .mapNotNull { release ->
                     val body = release.body.trim()
-                    if (body.isBlank()) null else "### ${release.tagName}\n$body"
+                    if (body.isBlank()) null else body
                 }
 
             if (missedBodies.isEmpty()) {
@@ -90,10 +90,10 @@ actual class AppUpdateRepository(
             val mergedBody = buildString {
                 if (latestBody.isNotBlank()) {
                     append(latestBody)
-                    append("\n\n")
+                    if (missedBodies.isNotEmpty()) {
+                        append("\n\n")
+                    }
                 }
-                append("---\n\n")
-                append("以下为你当前版本之后的历史更新内容：\n\n")
                 append(missedBodies.joinToString("\n\n"))
             }
 

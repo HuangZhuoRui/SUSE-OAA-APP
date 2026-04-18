@@ -99,6 +99,7 @@ fun UpdateScreen(
                     ) {
                         ReleaseHistorySection(
                             allReleases = allReleases,
+                            latestRelease = uiState.latestRelease,
                             isChecking = uiState.isChecking,
                             downloadingReleaseTag = uiState.downloadingReleaseTag,
                             downloadedReleaseTag = uiState.downloadedReleaseTag,
@@ -143,9 +144,17 @@ fun UpdateScreen(
                         }
                     } else {
                         items(allReleases) { release ->
+                            val isLatestRelease = uiState.latestRelease?.tagName == release.tagName
+                            val releaseForDisplay =
+                                if (isLatestRelease)
+                                    uiState.latestRelease!!
+                                else
+                                    release
+
                             Box(modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)) {
                                 ReleaseCard(
-                                    release = release,
+                                    release = releaseForDisplay,
+                                    isLatestRelease = isLatestRelease,
                                     isCurrentVersion = getAppVersionName() == release.tagName.removePrefix("v"),
                                     downloadingReleaseTag = uiState.downloadingReleaseTag,
                                     downloadedReleaseTag = uiState.downloadedReleaseTag,
@@ -279,6 +288,7 @@ fun HeroVersionSection(hasUpdate: Boolean, latestRelease: GithubRelease?, isTabl
 @Composable
 fun ReleaseHistorySection(
     allReleases: List<GithubRelease>,
+    latestRelease: GithubRelease?,
     isChecking: Boolean,
     downloadingReleaseTag: String?,
     downloadedReleaseTag: String?,
@@ -314,8 +324,16 @@ fun ReleaseHistorySection(
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(allReleases) { release ->
+                    val isLatestRelease = latestRelease?.tagName == release.tagName
+                    val releaseForDisplay =
+                        if (isLatestRelease)
+                            latestRelease
+                        else
+                            release
+
                     ReleaseCard(
-                        release = release,
+                        release = releaseForDisplay,
+                        isLatestRelease = isLatestRelease,
                         isCurrentVersion = getAppVersionName() == release.tagName.removePrefix("v"),
                         downloadingReleaseTag = downloadingReleaseTag,
                         downloadedReleaseTag = downloadedReleaseTag,
@@ -332,6 +350,7 @@ fun ReleaseHistorySection(
 @Composable
 fun ReleaseCard(
     release: GithubRelease,
+    isLatestRelease: Boolean,
     isCurrentVersion: Boolean,
     downloadingReleaseTag: String?,
     downloadedReleaseTag: String?,
@@ -367,7 +386,10 @@ fun ReleaseCard(
             ) {
                 Text(
                     text = release.tagName,
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = if (isLatestRelease)
+                        MaterialTheme.typography.headlineMedium
+                    else
+                        MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onSurface,
                     letterSpacing = 0.5.sp

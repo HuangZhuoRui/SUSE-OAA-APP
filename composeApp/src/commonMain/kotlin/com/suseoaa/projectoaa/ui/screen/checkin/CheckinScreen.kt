@@ -356,6 +356,7 @@ fun CheckinScreen(
             maskedPhone = uiState.smsMaskedPhone,
             isSendingSms = uiState.isSendingSmsCode,
             isVerifying = uiState.isVerifyingSmsCode,
+            smsResendCountdownSeconds = uiState.smsResendCountdownSeconds,
             onSendSms = { viewModel.sendSmsCode() },
             onSubmit = { smsCode -> viewModel.submitSmsCodeAndCheckin(smsCode) },
             onDismiss = { viewModel.cancelSmsVerification() }
@@ -1164,6 +1165,7 @@ private fun SmsVerificationDialog(
     maskedPhone: String?,
     isSendingSms: Boolean,
     isVerifying: Boolean,
+    smsResendCountdownSeconds: Int,
     onSendSms: () -> Unit,
     onSubmit: (String) -> Unit,
     onDismiss: () -> Unit
@@ -1193,17 +1195,11 @@ private fun SmsVerificationDialog(
 
                 Button(
                     onClick = onSendSms,
-                    enabled = !isSendingSms && !isVerifying,
+                    enabled = smsResendCountdownSeconds == 0 && !isSendingSms && !isVerifying,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    if (isSendingSms) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("发送中...")
+                    if (smsResendCountdownSeconds > 0) {
+                        Text("${smsResendCountdownSeconds}秒后重发")
                     } else {
                         Text("发送短信验证码")
                     }

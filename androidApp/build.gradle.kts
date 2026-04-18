@@ -36,12 +36,6 @@ extensions.configure<ApplicationExtension>("android") {
 
     buildTypes {
         debug {
-            isMinifyEnabled = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro",
-                project(":composeApp").file("proguard-rules.pro")
-            )
             signingConfig = signingConfigs.getByName("release")
         }
 

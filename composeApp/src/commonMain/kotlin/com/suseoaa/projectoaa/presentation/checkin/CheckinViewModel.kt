@@ -68,6 +68,7 @@ data class CheckinUiState(
     val smsMaskedPhone: String? = null,
     val isSendingSmsCode: Boolean = false,
     val isVerifyingSmsCode: Boolean = false,
+    val smsResendCountdownSeconds: Int = 0,
     // 扫码登录对话框状态
     val showQrCodeDialog: Boolean = false,
     val qrCodeImage: String? = null,         // 二维码图片 (Base64)
@@ -119,6 +120,13 @@ class CheckinViewModel(
 
     // 轮询扫码状态的 Job
     private var scanPollingJob: Job? = null
+
+    // 短信验证码重发倒计时 Job
+    private var smsResendCountdownJob: Job? = null
+
+    private companion object {
+        const val SMS_RESEND_COUNTDOWN_SECONDS = 30
+    }
 
     // 记录当前cookieStorage中已登录的密码账号学号，避免重复登录
     private var loggedInPasswordStudentId: String? = null
@@ -620,6 +628,7 @@ class CheckinViewModel(
         account: CheckinAccountData,
         entry: PasswordLoginEntry
     ) {
+        stopSmsResendCountdown()
         currentPasswordLoginEntry = entry
         _uiState.update {
             it.copy(
@@ -633,6 +642,7 @@ class CheckinViewModel(
                 smsMaskedPhone = passwordRepository.getPendingSmsMaskedPhone(),
                 isSendingSmsCode = false,
                 isVerifyingSmsCode = false,
+                smsResendCountdownSeconds = 0,
                 errorMessage = null
             )
         }
@@ -787,26 +797,40 @@ class CheckinViewModel(
     }
 
     fun sendSmsCode() {
+        val state = _uiState.value
+        if (state.isVerifyingSmsCode || state.isSendingSmsCode || state.smsResendCountdownSeconds > 0) {
+            return
+        }
+
+        startSmsResendCountdown()
+
         viewModelScope.launch {
             _uiState.update { it.copy(isSendingSmsCode = true) }
 
             val result = passwordRepository.sendSmsCodeForPendingLogin()
-            if (result.isSuccess) {
-                _uiState.update {
-                    it.copy(
-                        isSendingSmsCode = false,
-                        successMessage = "短信验证码已发送，请注意查收"
-                    )
-                }
-            } else {
-                _uiState.update {
-                    it.copy(
-                        isSendingSmsCode = false,
-                        errorMessage = result.exceptionOrNull()?.message ?: "短信发送失败"
-                    )
-                }
+            if (result.isFailure) {
+                println("[SmsVerification] sendSmsCode failed: ${result.exceptionOrNull()?.message}")
+            }
+
+            _uiState.update { it.copy(isSendingSmsCode = false) }
+        }
+    }
+
+    private fun startSmsResendCountdown() {
+        stopSmsResendCountdown()
+        _uiState.update { it.copy(smsResendCountdownSeconds = SMS_RESEND_COUNTDOWN_SECONDS) }
+
+        smsResendCountdownJob = viewModelScope.launch {
+            for (remaining in (SMS_RESEND_COUNTDOWN_SECONDS - 1) downTo 0) {
+                delay(1000)
+                _uiState.update { it.copy(smsResendCountdownSeconds = remaining) }
             }
         }
+    }
+
+    private fun stopSmsResendCountdown() {
+        smsResendCountdownJob?.cancel()
+        smsResendCountdownJob = null
     }
 
     fun submitSmsCodeAndCheckin(smsCode: String) {
@@ -833,11 +857,13 @@ class CheckinViewModel(
             loggedInPasswordStudentId = account.studentId
 
             if (currentPasswordLoginEntry == PasswordLoginEntry.TASKS) {
+                stopSmsResendCountdown()
                 _uiState.update {
                     it.copy(
                         isVerifyingSmsCode = false,
                         showSmsDialog = false,
                         smsMaskedPhone = null,
+                        smsResendCountdownSeconds = 0,
                         currentCheckingAccount = null,
                         successMessage = "登录成功，正在加载任务列表..."
                     )
@@ -854,11 +880,13 @@ class CheckinViewModel(
                 is CheckinResult.Failed -> checkinResult.error
             }
 
+            stopSmsResendCountdown()
             _uiState.update {
                 it.copy(
                     isVerifyingSmsCode = false,
                     showSmsDialog = false,
                     smsMaskedPhone = null,
+                    smsResendCountdownSeconds = 0,
                     currentCheckingAccount = null,
                     successMessage = if (checkinResult is CheckinResult.Failed) null else message,
                     errorMessage = if (checkinResult is CheckinResult.Failed) message else null
@@ -870,6 +898,7 @@ class CheckinViewModel(
 
     fun cancelSmsVerification() {
         passwordRepository.clearPendingSmsChallenge()
+        stopSmsResendCountdown()
         val fromTasks = currentPasswordLoginEntry == PasswordLoginEntry.TASKS
         _uiState.update {
             it.copy(
@@ -877,6 +906,7 @@ class CheckinViewModel(
                 smsMaskedPhone = null,
                 isSendingSmsCode = false,
                 isVerifyingSmsCode = false,
+                smsResendCountdownSeconds = 0,
                 currentCheckingAccount = null,
                 isLoadingTasks = false,
                 selectedAccount = if (fromTasks) null else it.selectedAccount,
@@ -894,6 +924,7 @@ class CheckinViewModel(
      */
     fun cancelCheckin() {
         passwordRepository.clearPendingSmsChallenge()
+        stopSmsResendCountdown()
         val fromTasks = currentPasswordLoginEntry == PasswordLoginEntry.TASKS
         _uiState.update {
             it.copy(
@@ -906,6 +937,7 @@ class CheckinViewModel(
                 smsMaskedPhone = null,
                 isSendingSmsCode = false,
                 isVerifyingSmsCode = false,
+                smsResendCountdownSeconds = 0,
                 isLoadingTasks = false,
                 selectedAccount = if (fromTasks) null else it.selectedAccount,
                 pendingTasks = if (fromTasks) emptyList() else it.pendingTasks,
@@ -1629,5 +1661,11 @@ class CheckinViewModel(
                 _uiState.update { it.copy(errorMessage = "更新失败: ${result.exceptionOrNull()?.message}") }
             }
         }
+    }
+
+    override fun onCleared() {
+        scanPollingJob?.cancel()
+        stopSmsResendCountdown()
+        super.onCleared()
     }
 }
