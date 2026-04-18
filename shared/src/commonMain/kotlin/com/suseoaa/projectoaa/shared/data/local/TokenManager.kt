@@ -28,6 +28,9 @@ object PreferencesKeys {
     // 设置
     val THEME_MODE = stringPreferencesKey("theme_mode")
     val DYNAMIC_COLOR_ENABLED = booleanPreferencesKey("dynamic_color_enabled")
+    val DYNAMIC_COLOR_PALETTE = stringPreferencesKey("dynamic_color_palette")
+    val DYNAMIC_COLOR_PALETTE_LIGHT = stringPreferencesKey("dynamic_color_palette_light")
+    val DYNAMIC_COLOR_PALETTE_DARK = stringPreferencesKey("dynamic_color_palette_dark")
 
     // 更新弹窗版本追踪
     val UPDATE_DIALOG_SHOWN_VERSION = stringPreferencesKey("update_dialog_shown_version")
@@ -144,6 +147,20 @@ class TokenManager(private val dataStore: DataStore<Preferences>) {
         preferences[PreferencesKeys.DYNAMIC_COLOR_ENABLED] ?: false
     }
 
+    val dynamicColorPaletteFlow: Flow<String?> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.DYNAMIC_COLOR_PALETTE]
+    }
+
+    val dynamicColorPaletteLightFlow: Flow<String?> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.DYNAMIC_COLOR_PALETTE_LIGHT]
+            ?: preferences[PreferencesKeys.DYNAMIC_COLOR_PALETTE]
+    }
+
+    val dynamicColorPaletteDarkFlow: Flow<String?> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.DYNAMIC_COLOR_PALETTE_DARK]
+            ?: preferences[PreferencesKeys.DYNAMIC_COLOR_PALETTE]
+    }
+
     suspend fun saveThemeMode(mode: String) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.THEME_MODE] = mode
@@ -153,6 +170,52 @@ class TokenManager(private val dataStore: DataStore<Preferences>) {
     suspend fun saveDynamicColorEnabled(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.DYNAMIC_COLOR_ENABLED] = enabled
+        }
+    }
+
+    suspend fun saveDynamicColorPalette(colorHex: String?) {
+        dataStore.edit { preferences ->
+            if (colorHex.isNullOrBlank()) {
+                preferences.remove(PreferencesKeys.DYNAMIC_COLOR_PALETTE)
+            } else {
+                preferences[PreferencesKeys.DYNAMIC_COLOR_PALETTE] = colorHex
+            }
+        }
+    }
+
+    suspend fun saveDynamicColorPaletteLight(colorHex: String?) {
+        dataStore.edit { preferences ->
+            if (colorHex.isNullOrBlank()) {
+                preferences.remove(PreferencesKeys.DYNAMIC_COLOR_PALETTE_LIGHT)
+            } else {
+                preferences[PreferencesKeys.DYNAMIC_COLOR_PALETTE_LIGHT] = colorHex
+            }
+        }
+    }
+
+    suspend fun saveDynamicColorPaletteDark(colorHex: String?) {
+        dataStore.edit { preferences ->
+            if (colorHex.isNullOrBlank()) {
+                preferences.remove(PreferencesKeys.DYNAMIC_COLOR_PALETTE_DARK)
+            } else {
+                preferences[PreferencesKeys.DYNAMIC_COLOR_PALETTE_DARK] = colorHex
+            }
+        }
+    }
+
+    suspend fun saveDynamicColorPalettes(lightColorHex: String?, darkColorHex: String?) {
+        dataStore.edit { preferences ->
+            if (lightColorHex.isNullOrBlank()) {
+                preferences.remove(PreferencesKeys.DYNAMIC_COLOR_PALETTE_LIGHT)
+            } else {
+                preferences[PreferencesKeys.DYNAMIC_COLOR_PALETTE_LIGHT] = lightColorHex
+            }
+
+            if (darkColorHex.isNullOrBlank()) {
+                preferences.remove(PreferencesKeys.DYNAMIC_COLOR_PALETTE_DARK)
+            } else {
+                preferences[PreferencesKeys.DYNAMIC_COLOR_PALETTE_DARK] = darkColorHex
+            }
         }
     }
 

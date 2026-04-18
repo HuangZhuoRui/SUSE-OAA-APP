@@ -41,4 +41,18 @@ class MainViewModel(
             started = SharingStarted.Eagerly,
             initialValue = false
         )
+
+    val dynamicPaletteLightColorHex: StateFlow<String?> = tokenManager.dynamicColorPaletteLightFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = null
+        )
+
+    val dynamicPaletteDarkColorHex: StateFlow<String?> = tokenManager.dynamicColorPaletteDarkFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = null
+        )
 }
