@@ -335,7 +335,7 @@ private fun PhoneLayout(
     }
 
     // 通过测量获取 BottomBar 的实际高度
-    var bottomBarHeightPx by remember { mutableIntStateOf(0) }
+    var bottomBarHeightPx by rememberSaveable { mutableIntStateOf(0) }
     val bottomBarHeight: Dp = with(density) { bottomBarHeightPx.toDp() }
     val displayedIndicatorProgress = dragIndicatorProgress ?: tabIndicatorProgress
 
