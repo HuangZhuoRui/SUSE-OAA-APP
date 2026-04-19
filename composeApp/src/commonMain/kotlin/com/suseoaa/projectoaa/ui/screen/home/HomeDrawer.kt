@@ -36,6 +36,8 @@ import kotlin.math.roundToInt
 @Composable
 fun HomeWithDrawer(
     userInfo: PersonData?,
+    isExpanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
     onNavigateToRecruitment: () -> Unit,
     onNavigateToUserQuery: () -> Unit,
     bottomBarHeight: Dp = 0.dp,
@@ -49,9 +51,6 @@ fun HomeWithDrawer(
     // 1.声明Haze状态对象，它是连接背景与抽屉的桥梁
     val hazeState = remember { HazeState() }
 
-    // 使用Boolean持久化由于Animatable取代带来的纯物理状态
-    var isExpanded by rememberSaveable { mutableStateOf(false) }
-
     // Animatable：完全不受任何坐标轴范围钳制的物理弹簧机制！
     val offsetYAnim = remember { Animatable(0f) }
     var isInitialized by remember { mutableStateOf(false) }
@@ -60,7 +59,7 @@ fun HomeWithDrawer(
     val collapsedOffset = maxPx - peekPx
     val dragRange = (collapsedOffset - expandedOffset).coerceAtLeast(1f)
 
-    LaunchedEffect(maxPx, peekPx) {
+    LaunchedEffect(maxPx, peekPx, isExpanded) {
         if (maxPx > 0f) {
             val target = if (isExpanded) expandedOffset else collapsedOffset
             if (!isInitialized) {
@@ -102,7 +101,10 @@ fun HomeWithDrawer(
                 if (current < collapsedOffset - dragRange * 0.5f) expandedOffset else collapsedOffset
             }
 
-            isExpanded = (target == expandedOffset)
+            val nextExpanded = target == expandedOffset
+            if (nextExpanded != isExpanded) {
+                onExpandedChange(nextExpanded)
+            }
 
             // 直接将用户挥动的强劲初始动能(velocity)带入动画！没有任何墙限制进度！
             offsetYAnim.animateTo(
@@ -234,7 +236,10 @@ fun HomeWithDrawer(
                             icon = Icons.Default.GroupAdd,
                             color = MaterialTheme.colorScheme.surface,
                             onColor = MaterialTheme.colorScheme.primary,
-                            onClick = onNavigateToRecruitment,
+                            onClick = {
+                                onExpandedChange(true)
+                                onNavigateToRecruitment()
+                            },
                             sharedBoundKey = "recruitment_feature"
                         )
                     }
@@ -247,7 +252,10 @@ fun HomeWithDrawer(
                                 icon = Icons.Default.ManageAccounts,
                                 color = MaterialTheme.colorScheme.surface,
                                 onColor = MaterialTheme.colorScheme.primary,
-                                onClick = onNavigateToUserQuery,
+                                onClick = {
+                                    onExpandedChange(true)
+                                    onNavigateToUserQuery()
+                                },
                                 sharedBoundKey = "user_management_feature"
                             )
                         }

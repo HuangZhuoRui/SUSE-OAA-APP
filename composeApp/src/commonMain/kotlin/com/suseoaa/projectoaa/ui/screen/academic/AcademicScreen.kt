@@ -41,6 +41,7 @@ import com.suseoaa.projectoaa.shared.data.repository.MessageCacheEntity
 import com.suseoaa.projectoaa.presentation.academic.AcademicViewModel
 import com.suseoaa.projectoaa.presentation.academic.ExamUiState
 import com.suseoaa.projectoaa.ui.animation.sharedBoundsTransition
+import com.suseoaa.projectoaa.ui.component.LocalMainTabVisible
 import com.suseoaa.projectoaa.ui.theme.*
 import com.suseoaa.projectoaa.util.getExamCountDown
 import kotlinx.datetime.*
@@ -66,6 +67,7 @@ fun AcademicScreen(
     bottomBarHeight: Dp = 0.dp,
     viewModel: AcademicViewModel = koinViewModel()
 ) {
+    val isMainTabVisible = LocalMainTabVisible.current
     val uiState by viewModel.uiState.collectAsState()
     val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
@@ -81,10 +83,12 @@ fun AcademicScreen(
     }
 
     // 错峰加载策略 - 数据为空时自动刷新
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(800)
-        if (uiState.exams.isEmpty() || uiState.messages.isEmpty()) {
-            viewModel.refresh()
+    LaunchedEffect(isMainTabVisible) {
+        if (isMainTabVisible) {
+            kotlinx.coroutines.delay(800)
+            if (uiState.exams.isEmpty() || uiState.messages.isEmpty()) {
+                viewModel.refresh()
+            }
         }
     }
 

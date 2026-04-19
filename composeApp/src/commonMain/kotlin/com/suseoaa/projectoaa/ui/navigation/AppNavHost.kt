@@ -2,6 +2,7 @@ package com.suseoaa.projectoaa.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
+import com.suseoaa.projectoaa.presentation.MainViewModel
 import com.suseoaa.projectoaa.ui.screen.changepassword.ChangePasswordScreen
 import com.suseoaa.projectoaa.ui.screen.checkin.CheckinScreen
 import com.suseoaa.projectoaa.ui.screen.exam.ExamInfoScreen
@@ -21,7 +22,8 @@ import com.suseoaa.projectoaa.ui.screen.update.UpdateScreen
 @Composable
 fun AppNavHost(
     navController: NavHostController,
-    startDestination: String = Screen.Login.route
+    startDestination: String = Screen.Login.route,
+    mainViewModel: MainViewModel
 ) {
     SharedNavHost(
         navController = navController,
@@ -115,7 +117,8 @@ fun AppNavHost(
                 },
                 onNavigateToUpdate = {
                     navController.navigate(Screen.Update.route)
-                }
+                },
+                mainViewModel = mainViewModel
             )
         }
 

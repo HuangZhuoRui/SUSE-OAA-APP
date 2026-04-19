@@ -39,6 +39,8 @@ fun HomeScreen(
     onNavigateToRecruitment: () -> Unit,
     onNavigateToUserQuery: () -> Unit,
     bottomBarHeight: Dp = 0.dp,
+    featureDrawerExpanded: Boolean = false,
+    onFeatureDrawerExpandedChange: (Boolean) -> Unit = {},
     viewModel: HomeViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -46,6 +48,8 @@ fun HomeScreen(
 
     HomeWithDrawer(
         userInfo = uiState.userInfo,
+        isExpanded = featureDrawerExpanded,
+        onExpandedChange = onFeatureDrawerExpandedChange,
         onNavigateToRecruitment = onNavigateToRecruitment,
         onNavigateToUserQuery = onNavigateToUserQuery,
         bottomBarHeight = bottomBarHeight

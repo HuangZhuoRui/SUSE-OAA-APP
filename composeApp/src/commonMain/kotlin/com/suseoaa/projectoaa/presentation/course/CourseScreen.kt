@@ -69,6 +69,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.suseoaa.projectoaa.shared.domain.model.course.ClassTimeEntity
 import com.suseoaa.projectoaa.shared.domain.model.course.CourseAccountEntity
 import com.suseoaa.projectoaa.shared.domain.model.course.CourseWithTimes
+import com.suseoaa.projectoaa.ui.component.LocalMainTabVisible
 import com.suseoaa.projectoaa.util.ToastManager
 import com.suseoaa.projectoaa.util.pickImageForAvatar
 import kotlinx.coroutines.launch
@@ -156,6 +157,7 @@ fun CourseScreen(
     val semesterStartDate by viewModel.semesterStartDate.collectAsStateWithLifecycle()
     val hasWeekZero by viewModel.hasWeekZero.collectAsStateWithLifecycle()
     val courseBackgroundImageBase64 by viewModel.courseBackgroundImageBase64.collectAsStateWithLifecycle()
+    val isMainTabVisible = LocalMainTabVisible.current
 
     // 动态周次范围
     val minWeek = if (hasWeekZero) 0 else 1
@@ -174,6 +176,13 @@ fun CourseScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    // 保活模式下，切回课程页时主动同步周次。
+    LaunchedEffect(isMainTabVisible) {
+        if (isMainTabVisible) {
+            viewModel.syncCurrentWeek()
         }
     }
 
