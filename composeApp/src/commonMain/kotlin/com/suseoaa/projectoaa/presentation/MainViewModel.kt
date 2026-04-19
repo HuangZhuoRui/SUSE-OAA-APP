@@ -25,12 +25,19 @@ class MainViewModel(
     private val _homeFeatureDrawerExpanded = MutableStateFlow(false)
     val homeFeatureDrawerExpanded: StateFlow<Boolean> = _homeFeatureDrawerExpanded.asStateFlow()
 
+    private val _academicFeatureDrawerExpanded = MutableStateFlow(false)
+    val academicFeatureDrawerExpanded: StateFlow<Boolean> = _academicFeatureDrawerExpanded.asStateFlow()
+
     fun updateSelectedMainTab(index: Int) {
         _selectedMainTab.value = index
     }
 
     fun updateHomeFeatureDrawerExpanded(expanded: Boolean) {
         _homeFeatureDrawerExpanded.value = expanded
+    }
+
+    fun updateAcademicFeatureDrawerExpanded(expanded: Boolean) {
+        _academicFeatureDrawerExpanded.value = expanded
     }
 
     /**
