@@ -9,7 +9,6 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.tween
@@ -26,7 +25,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
@@ -52,6 +50,7 @@ import com.suseoaa.projectoaa.ui.animation.ScaleTransition.popExitScale
 import com.suseoaa.projectoaa.util.PlatformBackSwipeEdge
 import com.suseoaa.projectoaa.util.PlatformPredictiveBackHandler
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.max
@@ -66,8 +65,11 @@ data class GestureBackTransformState(
 private val LocalGestureBackTransformState = compositionLocalOf { GestureBackTransformState() }
 private val LocalGestureBackTargetEntryId = compositionLocalOf<String?> { null }
 
-private const val PREDICTIVE_VISUAL_MIN_PROGRESS = 0.018f
-private const val PREDICTIVE_COMMIT_REBASE_DURATION_MILLIS = 220
+private const val PREDICTIVE_VISUAL_ACTIVATION_PROGRESS = 0.10f
+private const val PREDICTIVE_QUICK_BACK_MAX_PROGRESS = 0.14f
+private const val PREDICTIVE_FAST_SWIPE_DELTA_THRESHOLD = 0.09f
+private const val PREDICTIVE_FAST_SWIPE_MAX_PROGRESS = 0.45f
+private const val ENTRY_INTERRUPT_WINDOW_MILLIS = 120L
 
 private typealias DestinationContent = @Composable AnimatedVisibilityScope.(NavBackStackEntry) -> Unit
 
@@ -187,15 +189,14 @@ class SharedTransitionNavGraphBuilder(
                 val isGestureTarget =
                     gestureBackTransformState.enabled &&
                         backStackEntry.id == activeBackStackEntryId
+                val gestureProgress = gestureBackTransformState.progress.coerceIn(0f, 1f)
                 val effectiveCornerRadius = if (isGestureTarget) {
-                    val gestureCornerRadius =
-                        12.dp + (40.dp * gestureBackTransformState.progress.coerceIn(0f, 1f))
+                    val gestureCornerRadius = 44.dp * gestureProgress
                     if (gestureCornerRadius > cornerRadius) gestureCornerRadius else cornerRadius
                 } else {
                     cornerRadius
                 }
-                val gestureShadowElevation =
-                    (2.dp + (10.dp * gestureBackTransformState.progress.coerceIn(0f, 1f)))
+                val gestureShadowElevation = 10.dp * gestureProgress
 
                 // 将内容用 Box 包裹，配合 Modifier.clip 裁剪，渲染出动态跟手圆角
                 // 使用 pointerInput 拦截隐藏或离开状态页面的点击事件
@@ -261,6 +262,10 @@ fun SharedNavHost(
     var predictiveBackProgress by remember { mutableFloatStateOf(0f) }
     var predictiveBackEdge by remember { mutableStateOf(PlatformBackSwipeEdge.Left) }
     var predictiveBackVerticalPosition by remember { mutableFloatStateOf(0.5f) }
+    var lastPredictiveSampleProgress by remember { mutableFloatStateOf(0f) }
+    var maxPredictiveProgressDelta by remember { mutableFloatStateOf(0f) }
+    var isInEntryAnimationWindow by remember { mutableStateOf(false) }
+    var skipEntryInterruptWindowOnce by remember { mutableStateOf(false) }
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val previousBackStackEntry = navController.previousBackStackEntry
     val destinationContentMap = remember { mutableMapOf<String, DestinationContent>() }
@@ -277,6 +282,27 @@ fun SharedNavHost(
 
     // 仅在拖动与取消回弹阶段禁用共享元素；commit 阶段需恢复以承接当前位置返回。
     val shouldDisableSharedTransition = isPredictiveBackActive || isPredictiveBackCancelling
+
+    LaunchedEffect(currentBackStackEntry?.id) {
+        val entryId = currentBackStackEntry?.id
+        if (entryId == null) {
+            isInEntryAnimationWindow = false
+            return@LaunchedEffect
+        }
+
+        if (skipEntryInterruptWindowOnce) {
+            // pop 退场后的回到上一页不再延迟判定，避免“动画结束仍需等待”。
+            skipEntryInterruptWindowOnce = false
+            isInEntryAnimationWindow = false
+            return@LaunchedEffect
+        }
+
+        isInEntryAnimationWindow = true
+        delay(ENTRY_INTERRUPT_WINDOW_MILLIS)
+        if (currentBackStackEntry?.id == entryId) {
+            isInEntryAnimationWindow = false
+        }
+    }
 
     LaunchedEffect(currentBackStackEntry?.id) {
         // commit 后由 back stack 变化触发统一清理，避免松手时先回全屏。
@@ -305,6 +331,8 @@ fun SharedNavHost(
             gestureMaxProgress = 0f
             predictiveBackProgress = 0f
             predictiveBackVerticalPosition = 0.5f
+            lastPredictiveSampleProgress = 0f
+            maxPredictiveProgressDelta = 0f
             settleAnimationJob = null
             return@LaunchedEffect
         }
@@ -318,7 +346,9 @@ fun SharedNavHost(
                     predictiveBackgroundEntry != null ||
                     gestureMaxProgress > 0f ||
                     predictiveBackProgress != 0f ||
-                    predictiveBackVerticalPosition != 0.5f
+                    predictiveBackVerticalPosition != 0.5f ||
+                    lastPredictiveSampleProgress != 0f ||
+                    maxPredictiveProgressDelta > 0f
 
             if (hasResidualState) {
                 hasPredictiveBackProgress = false
@@ -329,6 +359,8 @@ fun SharedNavHost(
                 gestureMaxProgress = 0f
                 predictiveBackProgress = 0f
                 predictiveBackVerticalPosition = 0.5f
+                lastPredictiveSampleProgress = 0f
+                maxPredictiveProgressDelta = 0f
             }
         }
     }
@@ -419,19 +451,31 @@ fun SharedNavHost(
                     gestureBackEntryId = navController.currentBackStackEntry?.id
                 }
 
+                if (!hasPredictiveBackProgress) {
+                    lastPredictiveSampleProgress = rawProgress
+                    maxPredictiveProgressDelta = 0f
+                } else {
+                    val delta = (rawProgress - lastPredictiveSampleProgress).coerceAtLeast(0f)
+                    maxPredictiveProgressDelta = max(maxPredictiveProgressDelta, delta)
+                    lastPredictiveSampleProgress = rawProgress
+                }
+
                 gestureMaxProgress = max(gestureMaxProgress, rawProgress)
                 hasPredictiveBackProgress = true
                 predictiveBackProgress = rawProgress
                 predictiveBackEdge = event.swipeEdge
                 predictiveBackVerticalPosition = event.verticalPosition.coerceIn(0f, 1f)
 
-                // 收到首个预测返回事件即激活可视状态，避免手势起始等待感。
-                if (!hasShownPredictiveVisual) {
+                // 仅在手势位移达到阈值后才进入预测返回可视态，避免“快速返回”误触预测动画。
+                if (
+                    !hasShownPredictiveVisual &&
+                    rawProgress >= PREDICTIVE_VISUAL_ACTIVATION_PROGRESS
+                ) {
                     hasShownPredictiveVisual = true
                     predictiveBackgroundEntry = navController.previousBackStackEntry
                 }
 
-                isPredictiveBackActive = true
+                isPredictiveBackActive = hasShownPredictiveVisual
             },
             onCancel = {
                 settleAnimationJob?.cancel()
@@ -449,7 +493,7 @@ fun SharedNavHost(
                         try {
                             animatable.animateTo(
                                 targetValue = 0f,
-                                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+                                animationSpec = tween(durationMillis = 180, easing = LinearEasing)
                             ) {
                                 predictiveBackProgress = value
                             }
@@ -466,6 +510,8 @@ fun SharedNavHost(
                         gestureMaxProgress = 0f
                         predictiveBackProgress = 0f
                         predictiveBackVerticalPosition = 0.5f
+                        lastPredictiveSampleProgress = 0f
+                        maxPredictiveProgressDelta = 0f
                     }
                 } else {
                     isPredictiveBackActive = false
@@ -479,27 +525,38 @@ fun SharedNavHost(
                     gestureMaxProgress = 0f
                     predictiveBackProgress = 0f
                     predictiveBackVerticalPosition = 0.5f
+                    lastPredictiveSampleProgress = 0f
+                    maxPredictiveProgressDelta = 0f
                 }
             },
             onBack = {
                 settleAnimationJob?.cancel()
                 settleAnimationJob = null
 
-                val shouldUseSharedForQuickBack =
-                    !hasShownPredictiveVisual &&
-                        predictiveBackProgress < PREDICTIVE_VISUAL_MIN_PROGRESS &&
-                        gestureMaxProgress < PREDICTIVE_VISUAL_MIN_PROGRESS
+                val isFastSwipeGesture =
+                    maxPredictiveProgressDelta >= PREDICTIVE_FAST_SWIPE_DELTA_THRESHOLD &&
+                        gestureMaxProgress <= PREDICTIVE_FAST_SWIPE_MAX_PROGRESS
 
-                val shouldCommitSettle =
-                    hasShownPredictiveVisual ||
-                        hasPredictiveBackProgress ||
-                        predictiveBackProgress >= PREDICTIVE_VISUAL_MIN_PROGRESS
+                // 页面刚进场时允许返回手势直接打断，统一走共享快速退场。
+                val shouldInterruptEnterAnimation =
+                    isInEntryAnimationWindow && navController.previousBackStackEntry != null
+
+                val shouldUseSharedForQuickBack =
+                    shouldInterruptEnterAnimation ||
+                        isFastSwipeGesture || (
+                        predictiveBackProgress < PREDICTIVE_QUICK_BACK_MAX_PROGRESS &&
+                        gestureMaxProgress < PREDICTIVE_QUICK_BACK_MAX_PROGRESS
+                        )
+
+                val shouldUsePredictiveVisual =
+                    hasShownPredictiveVisual && !shouldUseSharedForQuickBack
 
                 if (shouldUseSharedForQuickBack) {
                     isPredictiveBackActive = false
                     isPredictiveBackCancelling = false
                     isPredictiveBackCommitting = false
-                    suppressNextPopTransition = false
+                    suppressNextPopTransition = shouldInterruptEnterAnimation
+                    pendingPopCleanup = shouldInterruptEnterAnimation
                     if (!hasPredictiveBackProgress) {
                         predictiveBackProgress = 0f
                     }
@@ -509,41 +566,19 @@ fun SharedNavHost(
                     predictiveBackgroundEntry = null
                     gestureMaxProgress = 0f
                     predictiveBackVerticalPosition = 0.5f
+                    lastPredictiveSampleProgress = 0f
+                    maxPredictiveProgressDelta = 0f
+                    skipEntryInterruptWindowOnce = true
                     navController.popBackStack()
-                } else if (shouldCommitSettle) {
+                } else if (shouldUsePredictiveVisual) {
                     isPredictiveBackActive = false
                     isPredictiveBackCancelling = false
-                    isPredictiveBackCommitting = true
-                    suppressNextPopTransition = true
+                    isPredictiveBackCommitting = false
+                    suppressNextPopTransition = false
                     pendingPopCleanup = true
                     predictiveBackProgress = predictiveBackProgress.coerceIn(0f, 1f)
-
-                    settleAnimationJob = scope.launch {
-                        val startProgress = predictiveBackProgress
-
-                        val rebaseJob = launch {
-                            val animatable = Animatable(startProgress)
-                            try {
-                                animatable.animateTo(
-                                    targetValue = 0f,
-                                    animationSpec = tween(
-                                        durationMillis = PREDICTIVE_COMMIT_REBASE_DURATION_MILLIS,
-                                        easing = LinearEasing
-                                    )
-                                ) {
-                                    predictiveBackProgress = value
-                                }
-                            } catch (_: CancellationException) {
-                                return@launch
-                            }
-                        }
-
-                        // 给一帧时间让 shared modifier 从“禁用”切到“启用”，再执行 pop 接力。
-                        withFrameNanos { }
-                        navController.popBackStack()
-
-                        rebaseJob.join()
-                    }
+                    skipEntryInterruptWindowOnce = true
+                    navController.popBackStack()
                 } else {
                     isPredictiveBackActive = false
                     isPredictiveBackCancelling = false
@@ -556,6 +591,9 @@ fun SharedNavHost(
                     predictiveBackgroundEntry = null
                     gestureMaxProgress = 0f
                     predictiveBackVerticalPosition = 0.5f
+                    lastPredictiveSampleProgress = 0f
+                    maxPredictiveProgressDelta = 0f
+                    skipEntryInterruptWindowOnce = true
                     navController.popBackStack()
                 }
             }
