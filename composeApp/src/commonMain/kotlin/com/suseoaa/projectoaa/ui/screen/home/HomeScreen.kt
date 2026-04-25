@@ -36,6 +36,7 @@ import com.suseoaa.projectoaa.ui.theme.*
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.suseoaa.projectoaa.util.PlatformBackHandler
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,6 +65,11 @@ fun HomeScreen(
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
+    }
+
+    // 当上拉抽屉展开时，拦截系统返回键，收起抽屉而不是退出应用
+    PlatformBackHandler(enabled = featureDrawerExpanded) {
+        onFeatureDrawerExpandedChange(false)
     }
 
     HomeWithDrawer(
