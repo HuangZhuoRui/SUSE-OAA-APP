@@ -48,7 +48,7 @@ import com.suseoaa.projectoaa.ui.theme.*
 import com.suseoaa.projectoaa.util.getExamCountDown
 import kotlinx.datetime.*
 import org.koin.compose.viewmodel.koinViewModel
-import com.suseoaa.projectoaa.util.PlatformBackHandler
+import com.suseoaa.projectoaa.util.PlatformPredictiveBackHandler
 import kotlin.collections.listOf
 
 data class PortalFunction(
@@ -89,10 +89,22 @@ fun AcademicScreen(
 
     val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
 
-    // 当上拉抽屉展开时，拦截系统返回键，收起抽屉而不是退出应用
-    PlatformBackHandler(enabled = featureDrawerExpanded) {
-        onFeatureDrawerExpandedChange(false)
-    }
+    // 手势进度状态：驱动抽屉实时跟随手势移动
+    var backGestureProgress by remember { mutableStateOf<Float?>(null) }
+    var backGestureCancelCount by remember { mutableIntStateOf(0) }
+
+    PlatformPredictiveBackHandler(
+        enabled = featureDrawerExpanded,
+        onProgress = { event -> backGestureProgress = event.progress },
+        onCancel = {
+            backGestureProgress = null
+            backGestureCancelCount++
+        },
+        onBack = {
+            backGestureProgress = null
+            onFeatureDrawerExpandedChange(false)
+        }
+    )
 
     val unifiedFunctionColor = MaterialTheme.colorScheme.primary
     val functions = listOf(
@@ -138,6 +150,8 @@ fun AcademicScreen(
         onExpandedChange = onFeatureDrawerExpandedChange,
         title = "常用功能",
         bottomBarHeight = bottomBarHeight,
+        backGestureProgress = backGestureProgress,
+        backGestureCancelCount = backGestureCancelCount,
         baseContent = {
             PullToRefreshBox(
                 isRefreshing = uiState.isRefreshing,
