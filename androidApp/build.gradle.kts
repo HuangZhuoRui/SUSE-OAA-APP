@@ -14,7 +14,7 @@ extensions.configure<ApplicationExtension>("android") {
         minSdk = 28
         targetSdk = 36
         versionCode = 201015
-        versionName = "2.10.15"
+        versionName = "2.5.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {

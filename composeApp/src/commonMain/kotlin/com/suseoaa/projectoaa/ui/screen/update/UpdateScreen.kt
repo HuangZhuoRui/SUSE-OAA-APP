@@ -95,6 +95,10 @@ fun UpdateScreen(
                             allReleases
                         }
                     }
+                    
+                    val consolidatedLatestRelease = remember(latestRelease, allReleases) {
+                        latestRelease?.copy(body = viewModel.getConsolidatedReleaseNotes())
+                    }
 
                     if (isTablet) {
                         Row(
@@ -111,11 +115,11 @@ fun UpdateScreen(
                             ) {
                                 HeroVersionSection(
                                     hasUpdate,
-                                    latestRelease,
+                                    consolidatedLatestRelease,
                                     isTablet = true
                                 )
 
-                                if (hasUpdate && latestRelease != null) {
+                                if (hasUpdate && consolidatedLatestRelease != null) {
                                     Spacer(modifier = Modifier.height(20.dp))
                                     Box(
                                         modifier = Modifier
@@ -124,9 +128,9 @@ fun UpdateScreen(
                                             .padding(horizontal = 32.dp)
                                     ) {
                                         ReleaseCard(
-                                            release = latestRelease,
+                                            release = consolidatedLatestRelease,
                                             isLatestRelease = true,
-                                            isCurrentVersion = getAppVersionName() == latestRelease.tagName.removePrefix("v"),
+                                            isCurrentVersion = getAppVersionName() == consolidatedLatestRelease!!.tagName.removePrefix("v"),
                                             downloadingReleaseTag = uiState.downloadingReleaseTag,
                                             downloadedReleaseTag = uiState.downloadedReleaseTag,
                                             isDownloading = uiState.isDownloading,
@@ -155,7 +159,7 @@ fun UpdateScreen(
                                 ReleaseHistorySection(
                                     allReleases = releaseNotesReleases,
                                     hasUpdate = false,
-                                    latestRelease = latestRelease,
+                                    latestRelease = consolidatedLatestRelease,
                                     isChecking = uiState.isChecking,
                                     downloadingReleaseTag = uiState.downloadingReleaseTag,
                                     downloadedReleaseTag = uiState.downloadedReleaseTag,
@@ -173,12 +177,12 @@ fun UpdateScreen(
                             item {
                                 HeroVersionSection(
                                     hasUpdate,
-                                    latestRelease,
+                                    consolidatedLatestRelease,
                                     isTablet = false
                                 )
                             }
 
-                            if (hasUpdate && latestRelease != null) {
+                            if (hasUpdate && consolidatedLatestRelease != null) {
                                 item {
                                     Box(
                                         modifier = Modifier.padding(
@@ -187,9 +191,9 @@ fun UpdateScreen(
                                         )
                                     ) {
                                         ReleaseCard(
-                                            release = latestRelease,
+                                            release = consolidatedLatestRelease,
                                             isLatestRelease = true,
-                                            isCurrentVersion = getAppVersionName() == latestRelease.tagName.removePrefix("v"),
+                                            isCurrentVersion = getAppVersionName() == consolidatedLatestRelease!!.tagName.removePrefix("v"),
                                             downloadingReleaseTag = uiState.downloadingReleaseTag,
                                             downloadedReleaseTag = uiState.downloadedReleaseTag,
                                             isDownloading = uiState.isDownloading,
@@ -230,10 +234,10 @@ fun UpdateScreen(
                                 }
                             } else {
                                 items(releaseNotesReleases) { release ->
-                                    val isLatestRelease = uiState.latestRelease?.tagName == release.tagName
+                                    val isLatestRelease = consolidatedLatestRelease?.tagName == release.tagName
                                     val releaseForDisplay =
                                         if (isLatestRelease)
-                                            uiState.latestRelease!!
+                                            consolidatedLatestRelease!!
                                         else
                                             release
 
