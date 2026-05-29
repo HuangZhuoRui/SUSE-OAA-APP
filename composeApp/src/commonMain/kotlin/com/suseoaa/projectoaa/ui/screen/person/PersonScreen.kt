@@ -39,7 +39,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -363,7 +365,41 @@ fun PersonScreen(
                         ),
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize().drawBehind {
+                            val layoutInfo = gridState.layoutInfo
+                            val item0 = layoutInfo.visibleItemsInfo.find { it.index == 0 }
+                            val fadeHeight = 48.dp.toPx()
+                            val spacing = 16.dp.toPx()
+                            
+                            val cardsTopY = if (item0 != null) {
+                                item0.offset.y.toFloat() + item0.size.height.toFloat() + spacing
+                            } else {
+                                0f
+                            }
+
+                            if (cardsTopY > 0) {
+                                drawRect(
+                                    brush = Brush.verticalGradient(
+                                        colors = listOf(Color.Transparent, backgroundColor),
+                                        startY = cardsTopY - fadeHeight,
+                                        endY = cardsTopY
+                                    ),
+                                    topLeft = Offset(0f, cardsTopY - fadeHeight),
+                                    size = Size(size.width, fadeHeight)
+                                )
+                                drawRect(
+                                    color = backgroundColor,
+                                    topLeft = Offset(0f, cardsTopY),
+                                    size = Size(size.width, size.height - cardsTopY)
+                                )
+                            } else {
+                                drawRect(
+                                    color = backgroundColor,
+                                    topLeft = Offset(0f, 0f),
+                                    size = Size(size.width, size.height)
+                                )
+                            }
+                        }
                     ) {
                         item(span = { GridItemSpan(maxLineSpan) }) {
                             Spacer(modifier = Modifier.height(HeaderHeight - 80.dp))
