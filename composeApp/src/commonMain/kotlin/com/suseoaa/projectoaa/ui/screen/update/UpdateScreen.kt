@@ -25,6 +25,7 @@ import com.suseoaa.projectoaa.data.repository.GithubAsset
 import com.suseoaa.projectoaa.data.repository.GithubRelease
 import com.suseoaa.projectoaa.presentation.update.AppUpdateViewModel
 import com.suseoaa.projectoaa.presentation.update.getAppVersionName
+import com.suseoaa.projectoaa.ui.component.OaaMarkdownText
 import com.suseoaa.projectoaa.presentation.update.isIosPlatform
 import com.suseoaa.projectoaa.ui.component.common.SharedTransitionPageContainer
 import org.koin.compose.viewmodel.koinViewModel
@@ -518,8 +519,8 @@ fun ReleaseCard(
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
                     ) {
-                        com.mikepenz.markdown.m3.Markdown(
-                            content = release.body,
+                        OaaMarkdownText(
+                            markdown = release.body,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -533,8 +534,8 @@ fun ReleaseCard(
                     viewModel = viewModel
                 )
             } else {
-                com.mikepenz.markdown.m3.Markdown(
-                    content = release.body,
+                OaaMarkdownText(
+                    markdown = release.body,
                     modifier = Modifier.fillMaxWidth()
                 )
 
