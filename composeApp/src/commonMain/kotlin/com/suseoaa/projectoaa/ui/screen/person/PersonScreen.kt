@@ -479,6 +479,29 @@ fun PersonScreen(
                             )
                         }
 
+                        // 液态玻璃导航栏开关
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            SettingCard(
+                                icon = Icons.Default.Palette,
+                                title = "液态玻璃导航栏",
+                                subtitle = "开启后底部导航栏将呈现高斯模糊透明玻璃质感",
+                                trailingContent = {
+                                    Switch(
+                                        checked = uiState.isLiquidGlassTabbarEnabled,
+                                        onCheckedChange = { viewModel.toggleLiquidGlassTabbarEnabled() },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                            uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                                            uncheckedBorderColor = MaterialTheme.colorScheme.outline
+                                        )
+                                    )
+                                },
+                                onClick = null
+                            )
+                        }
+
                         // 莫奈取色开关 (Dynamic Color)
                         item(span = { GridItemSpan(maxLineSpan) }) {
                             SettingCard(
