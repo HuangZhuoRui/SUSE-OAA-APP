@@ -26,11 +26,11 @@ private const val WATER_DROP_SHADER = """
             float dist = sqrt(distSq);
             
             // 基础放大倍数（中心区域平面的恒定放大）
-            float centerScale = 1.15;
+            float centerScale = 1.06;
             float flatDist = dist / centerScale;
             
-            // 边缘曲率权重：中心极小，只有在非常靠近边缘时才急剧增加到 1.0
-            float edgeWeight = pow(dist, 6.0);
+            // 边缘曲率权重：保证中心区域是平面，只有在非常靠近边缘时才急剧增加到 1.0
+            float edgeWeight = pow(dist, 14.0);
             
             // 在中心平面（flatDist）与真实边界（dist）之间平滑混合
             float finalDist = mix(flatDist, dist, edgeWeight);

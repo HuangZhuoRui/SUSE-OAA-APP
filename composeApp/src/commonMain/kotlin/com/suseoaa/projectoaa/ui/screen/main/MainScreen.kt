@@ -92,7 +92,7 @@ fun MainScreen(
     onNavigateToRecruitment: () -> Unit = {},
     onNavigateToUserQuery: () -> Unit,
     onNavigateToActivityCheckin: () -> Unit = {},
-    onNavigateToUpdate: () -> Unit = {},
+    onNavigateToUpdate: () -> Unit, onNavigateToSettings: () -> Unit = {},
     mainViewModel: MainViewModel = koinViewModel(),
     modifier: Modifier = Modifier
 ) {
@@ -136,7 +136,7 @@ fun MainScreen(
                 onNavigateToRecruitment = onNavigateToRecruitment,
                 onNavigateToUserQuery = onNavigateToUserQuery,
                 onNavigateToActivityCheckin = onNavigateToActivityCheckin,
-                onNavigateToUpdate = onNavigateToUpdate,
+                onNavigateToUpdate = onNavigateToUpdate, onNavigateToSettings = onNavigateToSettings,
                 modifier = modifier
             )
         } else {
@@ -170,7 +170,7 @@ fun MainScreen(
                 onNavigateToRecruitment = onNavigateToRecruitment,
                 onNavigateToUserQuery = onNavigateToUserQuery,
                 onNavigateToActivityCheckin = onNavigateToActivityCheckin,
-                onNavigateToUpdate = onNavigateToUpdate,
+                onNavigateToUpdate = onNavigateToUpdate, onNavigateToSettings = onNavigateToSettings,
                 isLiquidGlassTabbarEnabled = isLiquidGlassTabbarEnabled,
                 modifier = modifier
             )
@@ -205,7 +205,7 @@ private fun TabletLandscapeLayout(
     onNavigateToRecruitment: () -> Unit,
     onNavigateToUserQuery: () -> Unit,
     onNavigateToActivityCheckin: () -> Unit,
-    onNavigateToUpdate: () -> Unit,
+    onNavigateToUpdate: () -> Unit, onNavigateToSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isDarkTheme = isSystemInDarkTheme()
@@ -262,7 +262,7 @@ private fun TabletLandscapeLayout(
                     onNavigateToRecruitment = onNavigateToRecruitment,
                     onNavigateToUserQuery = onNavigateToUserQuery,
                     onNavigateToActivityCheckin = onNavigateToActivityCheckin,
-                    onNavigateToUpdate = onNavigateToUpdate
+                    onNavigateToUpdate = onNavigateToUpdate, onNavigateToSettings = onNavigateToSettings
                 )
             }
         }
@@ -296,7 +296,7 @@ private fun PhoneLayout(
     onNavigateToRecruitment: () -> Unit,
     onNavigateToUserQuery: () -> Unit,
     onNavigateToActivityCheckin: () -> Unit,
-    onNavigateToUpdate: () -> Unit,
+    onNavigateToUpdate: () -> Unit, onNavigateToSettings: () -> Unit,
     isLiquidGlassTabbarEnabled: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -429,7 +429,7 @@ private fun PhoneLayout(
                     onNavigateToRecruitment = onNavigateToRecruitment,
                     onNavigateToUserQuery = onNavigateToUserQuery,
                     onNavigateToActivityCheckin = onNavigateToActivityCheckin,
-                    onNavigateToUpdate = onNavigateToUpdate
+                    onNavigateToUpdate = onNavigateToUpdate, onNavigateToSettings = onNavigateToSettings
                 )
             }
         }
@@ -520,7 +520,7 @@ private fun KeepAliveMainPages(
     onNavigateToRecruitment: () -> Unit,
     onNavigateToUserQuery: () -> Unit,
     onNavigateToActivityCheckin: () -> Unit,
-    onNavigateToUpdate: () -> Unit
+    onNavigateToUpdate: () -> Unit, onNavigateToSettings: () -> Unit
 ) {
     val orderedTabs = remember(selectedTab) {
         MainTab.entries.sortedBy { if (it.index == selectedTab) 1 else 0 }
@@ -565,7 +565,7 @@ private fun KeepAliveMainPages(
                         onNavigateToRecruitment = onNavigateToRecruitment,
                         onNavigateToUserQuery = onNavigateToUserQuery,
                         onNavigateToActivityCheckin = onNavigateToActivityCheckin,
-                        onNavigateToUpdate = onNavigateToUpdate
+                        onNavigateToUpdate = onNavigateToUpdate, onNavigateToSettings = onNavigateToSettings
                     )
                 }
             } // end key(tab.index)
@@ -596,7 +596,7 @@ private fun MainTabPage(
     onNavigateToRecruitment: () -> Unit,
     onNavigateToUserQuery: () -> Unit,
     onNavigateToActivityCheckin: () -> Unit,
-    onNavigateToUpdate: () -> Unit
+    onNavigateToUpdate: () -> Unit, onNavigateToSettings: () -> Unit
 ) {
     CompositionLocalProvider(LocalMainTabVisible provides isVisible) {
         when (tabIndex) {
@@ -632,7 +632,7 @@ private fun MainTabPage(
                 onNavigateToLogin = onNavigateToLogin,
                 onNavigateToChangePassword = onNavigateToChangePassword,
                 onNavigateToCheckin = onNavigateToCheckin,
-                onNavigateToUpdate = onNavigateToUpdate,
+                onNavigateToUpdate = onNavigateToUpdate, onNavigateToSettings = onNavigateToSettings,
                 bottomBarHeight = bottomBarHeight
             )
         }
@@ -789,7 +789,7 @@ fun OaaBottomBar(
     Box(
         modifier = modifier
             .navigationBarsPadding()
-            .padding(horizontal = 48.dp, vertical = 12.dp)
+            .padding(start = 48.dp, end = 48.dp, top = 12.dp, bottom = 24.dp)
     ) {
         // 1. 底层 Tabbar 背景
         Box(
@@ -883,57 +883,10 @@ fun OaaBottomBar(
                         onDragStopped = { onIndicatorDragEnd() }
                     )
             ) {
-                // 2. Normal Icons Layer (Unselected)
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = barHorizontalPadding)
-                        .zIndex(if (!isLiquidGlassTabbarEnabled) 1f else 0f),
-                    horizontalArrangement = Arrangement.spacedBy(itemSpacing),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    MainTab.entries.forEachIndexed { index, tab ->
-                        val isSelected = selectedIndex == index
-                        // 如果不是液态玻璃模式，选中态的图标直接画在这个底层
-                        val iconTint = if (!isLiquidGlassTabbarEnabled && isSelected) selectedTint else unselectedTint
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .clip(RoundedCornerShape(percent = 50))
-                                .clickable(
-                                    interactionSource = tabInteractionSources[index],
-                                    indication = null,
-                                    onClick = { onNavigate(tab.index) }
-                                )
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(vertical = 8.dp, horizontal = 4.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = tab.icon,
-                                    contentDescription = tab.label,
-                                    tint = iconTint
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = tab.label,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = iconTint
-                                )
-                            }
-                        }
-                    }
-                }
-
                 // 计算气泡的垂直偏移（严格数学居中，确保静置和按压时上下对称）
                 val bubbleOffsetY = (60.dp - animatedBubbleHeight) / 2
 
-                // 3. The Glass Bubble Lens (Background of the lens)
+                // The Glass Bubble Lens (Background of the lens)
                 val indicatorModifier = if (isLiquidGlassTabbarEnabled) {
                     Modifier
                         .hazeEffect(
@@ -972,7 +925,7 @@ fun OaaBottomBar(
 
                 val bubbleShape = RoundedCornerShape(percent = 50)
 
-                // 绘制气泡本体
+                // 2. 绘制气泡本体 (Bubble Lens - drawn behind icons)
                 Box(
                     modifier = Modifier
                         .offset(x = currentIndicatorOffset, y = bubbleOffsetY)
@@ -983,27 +936,15 @@ fun OaaBottomBar(
                         .then(indicatorBorder)
                 )
 
-                // 4. The Foreground Selected Icons (Refraction Layer)
-                // 仅在液态玻璃模式下使用此层，用来呈现选中色，并在形变时进行光学放大
-                if (isLiquidGlassTabbarEnabled) {
-                    // 这个Box作为裁剪遮罩
-                    Box(
-                        modifier = Modifier
-                            .offset(x = currentIndicatorOffset, y = bubbleOffsetY)
-                            .width(currentIndicatorWidth)
-                            .height(animatedBubbleHeight)
-                            .clip(bubbleShape),
-                        contentAlignment = Alignment.TopStart
-                    ) {
-                        // 内部的Row被反向偏移，以匹配外部正常的Row的位置
-                        Row(
-                            modifier = Modifier
-                                .wrapContentSize(unbounded = true, align = Alignment.TopStart)
-                                .offset(x = -currentIndicatorOffset, y = -bubbleOffsetY)
-                                .requiredWidth(this@BoxWithConstraints.maxWidth) // 强制使用最大宽度，避免被外部的小Box压缩
-                                .requiredHeight(60.dp)
-                                .padding(horizontal = barHorizontalPadding)
-                                .liquidGlassDistortion(
+                // 3. Normal Icons Layer (Drawn on top of the bubble)
+                // 此时整个Row会使用liquidGlassDistortion着色器，进行像素级别的边缘畸变
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = barHorizontalPadding)
+                        .then(
+                            if (isLiquidGlassTabbarEnabled) {
+                                Modifier.liquidGlassDistortion(
                                     isExpanded = isExpanded,
                                     centerX = with(density) { (currentIndicatorOffset + currentIndicatorWidth / 2f).toPx() },
                                     centerY = with(density) { (bubbleOffsetY + animatedBubbleHeight / 2f).toPx() },
@@ -1013,75 +954,47 @@ fun OaaBottomBar(
                                     fallbackScaleY = 1.15f,
                                     fallbackPivotX = (with(density) { barHorizontalPadding.toPx() } + leftPx + (rightPx - leftPx) / 2f) / with(density) { this@BoxWithConstraints.maxWidth.toPx() },
                                     fallbackPivotY = 0.5f
-                                ),
-                            horizontalArrangement = Arrangement.spacedBy(itemSpacing),
-                            verticalAlignment = Alignment.CenterVertically
+                                )
+                            } else Modifier
+                        ),
+                    horizontalArrangement = Arrangement.spacedBy(itemSpacing),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    MainTab.entries.forEachIndexed { index, tab ->
+                        val isSelected = selectedIndex == index
+                        val iconTint = if (isSelected) selectedTint else unselectedTint
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(percent = 50))
+                                .clickable(
+                                    interactionSource = tabInteractionSources[index],
+                                    indication = null,
+                                    onClick = { onNavigate(tab.index) }
+                                )
                         ) {
-                            MainTab.entries.forEachIndexed { index, tab ->
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxHeight()
-                                ) {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .padding(vertical = 8.dp, horizontal = 4.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = tab.icon,
-                                            contentDescription = tab.label,
-                                            // 前景层永远呈现选中色，因为只有在气泡内的才可见
-                                            tint = selectedTint
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = tab.label,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = selectedTint
-                                        )
-                                    }
-                                }
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = tab.icon,
+                                    contentDescription = tab.label,
+                                    tint = iconTint
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = tab.label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = iconTint
+                                )
                             }
                         }
                     }
-                }
-
-                // 5. The Glass Edge Distortion Overlay (Top layer for optical bending illusion)
-                // 通过在文字上方叠加一层四周模糊/发光的罩子，视觉上欺骗眼睛，让文字边缘看起来像被弯曲折射了
-                if (isLiquidGlassTabbarEnabled && isExpanded) {
-                    Box(
-                        modifier = Modifier
-                            .offset(x = currentIndicatorOffset, y = bubbleOffsetY)
-                            .width(currentIndicatorWidth)
-                            .height(animatedBubbleHeight)
-                            .clip(bubbleShape)
-                            .background(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        Color.Transparent, 
-                                        Color.Transparent, 
-                                        indicatorColor.copy(alpha = 0.3f), // 开始遮盖文字边缘
-                                        indicatorColor.copy(alpha = 0.85f), // 极强烈的边缘遮盖，模拟光线无法透射的物理边缘
-                                        Color.White.copy(alpha = 0.6f)     // 极边缘环境反光
-                                    ),
-                                    radius = with(density) { (currentIndicatorWidth.toPx() / 2f) * 1.2f }
-                                )
-                            )
-                            .border(
-                                width = 2.dp,
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.White.copy(alpha = 0.8f),
-                                        Color.Transparent,
-                                        Color.White.copy(alpha = 0.7f)
-                                    )
-                                ),
-                                shape = bubbleShape
-                            )
-                    )
                 }
             }
         }

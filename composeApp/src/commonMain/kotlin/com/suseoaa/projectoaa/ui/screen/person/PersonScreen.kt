@@ -27,6 +27,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
@@ -116,6 +117,7 @@ fun PersonScreen(
     onNavigateToChangePassword: () -> Unit,
     onNavigateToCheckin: () -> Unit = {},
     onNavigateToUpdate: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
     bottomBarHeight: Dp = 0.dp,
     viewModel: PersonViewModel = koinViewModel(),
     updateViewModel: AppUpdateViewModel = koinViewModel(),
@@ -441,103 +443,15 @@ fun PersonScreen(
                             )
                         }
 
-                        // 起始页设置
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            val startTabLabels = listOf("首页", "课程", "教务信息", "个人")
-                            SettingCard(
-                                icon = Icons.Default.Home,
-                                title = "起始页设置",
-                                subtitle = "打开应用时默认显示：${startTabLabels.getOrElse(uiState.defaultStartTab) { "首页" }}",
-                                onClick = { showStartTabDialog = true }
-                            )
-                        }
-
-                        // 预测性返回手势开关
+                        // 设置入口
                         item(span = { GridItemSpan(maxLineSpan) }) {
                             SettingCard(
-                                icon = Icons.Default.Edit,
-                                title = "预测性返回手势",
-                                subtitle = if (uiState.isPredictiveBackEnabled) {
-                                    "已开启，支持跟手滑动返回"
-                                } else {
-                                    "已关闭"
-                                },
-                                trailingContent = {
-                                    Switch(
-                                        checked = uiState.isPredictiveBackEnabled,
-                                        onCheckedChange = { viewModel.togglePredictiveBackEnabled() },
-                                        colors = SwitchDefaults.colors(
-                                            checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
-                                            uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                                            uncheckedBorderColor = MaterialTheme.colorScheme.outline
-                                        )
-                                    )
-                                },
-                                onClick = null
+                                icon = Icons.Default.Settings,
+                                title = "设置",
+                                subtitle = "界面、手势与个性化偏好",
+                                modifier = Modifier.sharedBoundsTransition("settings"),
+                                onClick = onNavigateToSettings
                             )
-                        }
-
-                        // 液态玻璃导航栏开关
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            SettingCard(
-                                icon = Icons.Default.Palette,
-                                title = "液态玻璃导航栏",
-                                subtitle = "开启后底部导航栏将呈现高斯模糊透明玻璃质感",
-                                trailingContent = {
-                                    Switch(
-                                        checked = uiState.isLiquidGlassTabbarEnabled,
-                                        onCheckedChange = { viewModel.toggleLiquidGlassTabbarEnabled() },
-                                        colors = SwitchDefaults.colors(
-                                            checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
-                                            uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                                            uncheckedBorderColor = MaterialTheme.colorScheme.outline
-                                        )
-                                    )
-                                },
-                                onClick = null
-                            )
-                        }
-
-                        // 莫奈取色开关 (Dynamic Color)
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            SettingCard(
-                                icon = Icons.Default.Edit,
-                                title = "动态取色",
-                                subtitle = if (uiState.isDynamicColorEnabled) {
-                                    "已开启，可使用下方莫奈调色盘自定义主题强调色"
-                                } else {
-                                    "已关闭，当前使用软件默认配色"
-                                },
-                                trailingContent = {
-                                    Switch(
-                                        checked = uiState.isDynamicColorEnabled,
-                                        onCheckedChange = { viewModel.toggleDynamicColor() },
-                                        colors = SwitchDefaults.colors(
-                                            checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
-                                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
-                                            uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                                            uncheckedBorderColor = MaterialTheme.colorScheme.outline
-                                        )
-                                    )
-                                },
-                                onClick = null
-                            )
-                        }
-
-                        if (uiState.isDynamicColorEnabled) {
-                            item(span = { GridItemSpan(maxLineSpan) }) {
-                                DynamicColorPaletteEntryCard(
-                                    lightColorHex = uiState.dynamicPaletteLightColorHex,
-                                    darkColorHex = uiState.dynamicPaletteDarkColorHex,
-                                    dynamicColorEnabled = uiState.isDynamicColorEnabled,
-                                    onClick = { showPaletteDialog = true }
-                                )
-                            }
                         }
 
                         // 应用信息
