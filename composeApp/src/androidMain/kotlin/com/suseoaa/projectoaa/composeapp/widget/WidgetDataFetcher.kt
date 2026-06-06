@@ -2,8 +2,11 @@ package com.suseoaa.projectoaa.composeapp.widget
 
 import com.suseoaa.projectoaa.shared.data.local.TokenManager
 import com.suseoaa.projectoaa.shared.data.repository.LocalCourseRepository
+import com.suseoaa.projectoaa.shared.data.repository.SchoolInfoRepository
+import com.suseoaa.projectoaa.shared.data.repository.ExamCacheEntity
 import com.suseoaa.projectoaa.shared.domain.model.course.CourseWithTimes
 import com.suseoaa.projectoaa.shared.util.OaaClock
+import com.suseoaa.projectoaa.shared.util.parseExamTimeRange
 import kotlinx.coroutines.flow.first
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -402,5 +405,36 @@ object WidgetDataFetcher {
         }
         
         return weeklyMap
+    }
+
+    suspend fun getUpcomingExams(): List<ExamCacheEntity> {
+        return try {
+            val koin = GlobalContext.get()
+            val tokenManager = koin.get<TokenManager>()
+            val schoolInfoRepo = koin.get<SchoolInfoRepository>()
+
+            val studentId = tokenManager.currentStudentId.first() ?: return emptyList()
+            
+            // Get all exams from the local cache
+            val exams = schoolInfoRepo.observeExams(studentId).first()
+            
+            val timeZone = TimeZone.currentSystemDefault()
+            val now = OaaClock.now().toLocalDateTime(timeZone)
+            
+            exams.filter { exam ->
+                val timeRange = parseExamTimeRange(exam.time)
+                if (timeRange != null) {
+                    now <= timeRange.second
+                } else {
+                    false
+                }
+            }.sortedBy { exam ->
+                val timeRange = parseExamTimeRange(exam.time)
+                timeRange?.first
+            }.take(3)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
     }
 }

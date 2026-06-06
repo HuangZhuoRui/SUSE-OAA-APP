@@ -30,6 +30,10 @@ import com.suseoaa.projectoaa.shared.domain.model.course.CourseWithTimes
 import androidx.glance.appwidget.cornerRadius
 import kotlin.math.abs
 import android.annotation.SuppressLint
+import android.content.Intent
+import android.net.Uri
+import androidx.glance.action.clickable
+import androidx.glance.appwidget.action.actionStartActivity
 
 class NextCourseWidget : GlanceAppWidget() {
 
@@ -58,12 +62,17 @@ class NextCourseWidget : GlanceAppWidget() {
         }
 
         provideContent {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("app://suseoaa/main?tab=1")).apply {
+                setPackage(context.packageName)
+            }
+
             if (errorMsg != null) {
                 Box(
                     modifier = GlanceModifier
                         .fillMaxSize()
                         .background(ColorProvider(Color.White))
                         .cornerRadius(12.dp)
+                        .clickable(actionStartActivity(intent))
                         .padding(12.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -78,6 +87,7 @@ class NextCourseWidget : GlanceAppWidget() {
                         .fillMaxSize()
                         .background(ColorProvider(Color.White))
                         .cornerRadius(12.dp)
+                        .clickable(actionStartActivity(intent))
                         .padding(12.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -109,6 +119,7 @@ class NextCourseWidget : GlanceAppWidget() {
                         .fillMaxSize()
                         .background(bgSurface)
                         .cornerRadius(12.dp)
+                        .clickable(actionStartActivity(intent))
                         .padding(12.dp)
                 ) {
                     val timeParts = slot.startTime.split(":")
