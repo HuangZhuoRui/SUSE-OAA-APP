@@ -180,7 +180,7 @@ class GpaViewModel(
     fun updateSimulatedScoreByCourseId(courseId: String, newScore: Double) {
         _uiState.update { state ->
             val updatedAllCourses = state.allCourses.map { course ->
-                if (course.originalEntity.courseId == courseId) {
+                if (course.originalEntity.courseId == courseId || course.originalEntity.courseName == courseId) {
                     val newGpa = calculateSingleGpa(newScore)
                     course.copy(simulatedScore = newScore, simulatedGpa = newGpa)
                 } else {
@@ -192,8 +192,22 @@ class GpaViewModel(
         }
     }
 
+    fun updateCourseInclusion(courseId: String, isIncluded: Boolean) {
+        _uiState.update { state ->
+            val updatedAllCourses = state.allCourses.map { course ->
+                if (course.originalEntity.courseId == courseId || course.originalEntity.courseName == courseId) {
+                    course.copy(isIncludedInCalculation = isIncluded)
+                } else {
+                    course
+                }
+            }
+            val newState = state.copy(allCourses = updatedAllCourses)
+            applyFiltersAndSort(newState, updatedAllCourses, state.selectedTerm, state.filterType, state.sortOrder)
+        }
+    }
+
     fun updateSimulatedScore(item: GpaCourseWrapper, newScore: Double) {
-        updateSimulatedScoreByCourseId(item.originalEntity.courseId, newScore)
+        updateSimulatedScoreByCourseId(item.originalEntity.courseId.ifEmpty { item.originalEntity.courseName }, newScore)
     }
 
     /**
@@ -226,6 +240,8 @@ class GpaViewModel(
         var degreeCredits = 0.0
 
         courses.forEach { item ->
+            if (!item.isIncludedInCalculation) return@forEach
+            
             val credit = item.credit
             if (credit > 0.0) {
                 // 所有课程都参与绩点计算

@@ -46,7 +46,8 @@ private data class GpaCourseUiModel(
     val isPassOnly: Boolean,
     val creditText: String,
     val displayScore: String,
-    val displayGpa: String
+    val displayGpa: String,
+    val isIncludedInCalculation: Boolean
 )
 
 private fun Double.toFixed(decimals: Int): String {
@@ -63,7 +64,7 @@ private fun Double.toFixed(decimals: Int): String {
 
 private fun GpaCourseWrapper.toUiModel(): GpaCourseUiModel {
     return GpaCourseUiModel(
-        courseId = originalEntity.courseId,
+        courseId = originalEntity.courseId.ifEmpty { originalEntity.courseName },
         termCode = "${originalEntity.xnm}_${originalEntity.xqm}",
         courseName = originalEntity.courseName,
         isDegreeCourse = isDegreeCourse,
@@ -71,7 +72,8 @@ private fun GpaCourseWrapper.toUiModel(): GpaCourseUiModel {
         isPassOnly = isPassOnly,
         creditText = credit.toFixed(1),
         displayScore = displayScore,
-        displayGpa = displayGpa
+        displayGpa = displayGpa,
+        isIncludedInCalculation = isIncludedInCalculation
     )
 }
 
@@ -163,6 +165,9 @@ fun GpaScreen(
                         onFilterTypeChange = { viewModel.setFilterType(it) },
                         onScoreChange = { courseId, score ->
                             viewModel.updateSimulatedScoreByCourseId(courseId, score)
+                        },
+                        onInclusionChange = { courseId, isIncluded ->
+                            viewModel.updateCourseInclusion(courseId, isIncluded)
                         }
                     )
                 }
@@ -185,11 +190,14 @@ private fun GpaContent(
     onTermChange: (String) -> Unit,
     onSortOrderChange: (SortOrder) -> Unit,
     onFilterTypeChange: (FilterType) -> Unit,
-    onScoreChange: (String, Double) -> Unit
+    onScoreChange: (String, Double) -> Unit,
+    onInclusionChange: (String, Boolean) -> Unit
 ) {
     val courseUiList by remember(courseList) {
         derivedStateOf { courseList.map { it.toUiModel() } }
     }
+    val includedList = courseUiList.filter { it.isIncludedInCalculation }
+    val excludedList = courseUiList.filter { !it.isIncludedInCalculation }
     val allTerms = listOf("ALL") + termList
     val navBarHeight = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
@@ -271,12 +279,39 @@ private fun GpaContent(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        items(
-                            items = courseUiList,
-                            key = { "${it.courseId}_${it.termCode}" },
-                            contentType = { "gpa_course_item" }
-                        ) { item ->
-                            GpaCourseItem(item = item, onScoreChange = onScoreChange)
+                        if (includedList.isNotEmpty()) {
+                            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                                Text(
+                                    "参与计算的课程",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                                )
+                            }
+                            items(
+                                items = includedList,
+                                key = { "${it.courseId}_${it.termCode}" },
+                                contentType = { "gpa_course_item" }
+                            ) { item ->
+                                GpaCourseItem(item = item, onScoreChange = onScoreChange, onInclusionChange = onInclusionChange)
+                            }
+                        }
+                        if (excludedList.isNotEmpty()) {
+                            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                                Text(
+                                    "不参与计算的课程",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.outline,
+                                    modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
+                                )
+                            }
+                            items(
+                                items = excludedList,
+                                key = { "${it.courseId}_${it.termCode}" },
+                                contentType = { "gpa_course_item" }
+                            ) { item ->
+                                GpaCourseItem(item = item, onScoreChange = onScoreChange, onInclusionChange = onInclusionChange)
+                            }
                         }
                     }
                 }
@@ -341,12 +376,39 @@ private fun GpaContent(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        items(
-                            items = courseUiList,
-                            key = { "${it.courseId}_${it.termCode}" },
-                            contentType = { "gpa_course_item" }
-                        ) { item ->
-                            GpaCourseItem(item = item, onScoreChange = onScoreChange)
+                        if (includedList.isNotEmpty()) {
+                            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                                Text(
+                                    "参与计算的课程",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                                )
+                            }
+                            items(
+                                items = includedList,
+                                key = { "${it.courseId}_${it.termCode}" },
+                                contentType = { "gpa_course_item" }
+                            ) { item ->
+                                GpaCourseItem(item = item, onScoreChange = onScoreChange, onInclusionChange = onInclusionChange)
+                            }
+                        }
+                        if (excludedList.isNotEmpty()) {
+                            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                                Text(
+                                    "不参与计算的课程",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.outline,
+                                    modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
+                                )
+                            }
+                            items(
+                                items = excludedList,
+                                key = { "${it.courseId}_${it.termCode}" },
+                                contentType = { "gpa_course_item" }
+                            ) { item ->
+                                GpaCourseItem(item = item, onScoreChange = onScoreChange, onInclusionChange = onInclusionChange)
+                            }
                         }
                     }
                 }
@@ -476,7 +538,8 @@ private fun CourseTag(text: String, containerColor: Color, contentColor: Color) 
 @Composable
 private fun GpaCourseItem(
     item: GpaCourseUiModel,
-    onScoreChange: (String, Double) -> Unit
+    onScoreChange: (String, Double) -> Unit,
+    onInclusionChange: (String, Boolean) -> Unit
 ) {
     var showDialog by remember(item.courseId, item.termCode) { mutableStateOf(false) }
 
@@ -560,11 +623,13 @@ private fun GpaCourseItem(
         EditScoreDialog(
             initialScore = item.displayScore,
             isGradeLevel = item.isGradeLevel,
+            isIncluded = item.isIncludedInCalculation,
             onDismiss = { showDialog = false },
-            onConfirm = { scoreStr ->
+            onConfirm = { scoreStr, isIncluded ->
                 scoreStr.toDoubleOrNull()?.let { score ->
                     onScoreChange(item.courseId, score)
                 }
+                onInclusionChange(item.courseId, isIncluded)
                 showDialog = false
             }
         )
@@ -575,11 +640,13 @@ private fun GpaCourseItem(
 fun EditScoreDialog(
     initialScore: String,
     isGradeLevel: Boolean = false,
+    isIncluded: Boolean = true,
     onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
+    onConfirm: (String, Boolean) -> Unit
 ) {
     var text by remember { mutableStateOf(if (isGradeLevel) "" else initialScore) }
     var selectedGrade by remember { mutableStateOf<String?>(if (isGradeLevel) initialScore else null) }
+    var includedState by remember { mutableStateOf(isIncluded) }
 
     // 等级制成绩选项及对应的分数
     val gradeOptions = listOf(
@@ -596,6 +663,23 @@ fun EditScoreDialog(
         title = { Text("修改模拟成绩") },
         text = {
             Column {
+                // 纳入计算开关
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("参与绩点计算", style = MaterialTheme.typography.bodyMedium)
+                    Switch(
+                        checked = includedState,
+                        onCheckedChange = { includedState = it },
+                        colors = SwitchDefaults.colors(
+                            uncheckedTrackColor = MaterialTheme.colorScheme.surface,
+                            uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    )
+                }
+                
                 // 等级制成绩快捷选择
                 Text(
                     "等级制成绩 (点击选择):",
@@ -644,7 +728,7 @@ fun EditScoreDialog(
             }
         },
         confirmButton = {
-            Button(onClick = { onConfirm(text) }) {
+            Button(onClick = { onConfirm(text, includedState) }) {
                 Text("确定")
             }
         },
