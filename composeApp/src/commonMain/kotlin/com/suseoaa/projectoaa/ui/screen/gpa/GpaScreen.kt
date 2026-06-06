@@ -5,6 +5,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items as lazyItems
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -73,6 +75,24 @@ private fun GpaCourseWrapper.toUiModel(): GpaCourseUiModel {
     )
 }
 
+/** 将学期代码转换为易读文本，例如 2023_3 -> 2023-2024 第1学期 */
+private fun formatTerm(termCode: String): String {
+    if (termCode == "ALL") return "全部学期"
+    val parts = termCode.split("_")
+    if (parts.size == 2) {
+        val year = parts[0]
+        val nextYear = (year.toIntOrNull() ?: 0) + 1
+        val termStr = when (parts[1]) {
+            "3" -> "第1学期"
+            "12" -> "第2学期"
+            "16" -> "第3学期"
+            else -> "第${parts[1]}学期"
+        }
+        return "$year-$nextYear $termStr"
+    }
+    return termCode
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GpaScreen(
@@ -130,12 +150,15 @@ fun GpaScreen(
                 else -> {
                     GpaContent(
                         courseList = uiState.courseList,
+                        termList = uiState.termList,
+                        selectedTerm = uiState.selectedTerm,
                         totalGpa = uiState.totalGpa,
                         totalCredits = uiState.totalCredits,
                         degreeGpa = uiState.degreeGpa,
                         degreeCredits = uiState.degreeCredits,
                         sortOrder = uiState.sortOrder,
                         filterType = uiState.filterType,
+                        onTermChange = { viewModel.setTermFilter(it) },
                         onSortOrderChange = { viewModel.setSortOrder(it) },
                         onFilterTypeChange = { viewModel.setFilterType(it) },
                         onScoreChange = { courseId, score ->
@@ -151,12 +174,15 @@ fun GpaScreen(
 @Composable
 private fun GpaContent(
     courseList: List<GpaCourseWrapper>,
+    termList: List<String>,
+    selectedTerm: String,
     totalGpa: String,
     totalCredits: String,
     degreeGpa: String,
     degreeCredits: String,
     sortOrder: SortOrder,
     filterType: FilterType,
+    onTermChange: (String) -> Unit,
     onSortOrderChange: (SortOrder) -> Unit,
     onFilterTypeChange: (FilterType) -> Unit,
     onScoreChange: (String, Double) -> Unit
@@ -164,121 +190,245 @@ private fun GpaContent(
     val courseUiList by remember(courseList) {
         derivedStateOf { courseList.map { it.toUiModel() } }
     }
+    val allTerms = listOf("ALL") + termList
+    val navBarHeight = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        // 1. 顶部统计卡片
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-            ),
-            shape = RoundedCornerShape(24.dp)
-        ) {
+    AdaptiveLayout { config ->
+        if (config.isTablet) {
+            // 平板双栏仪表盘布局
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 24.dp, horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxSize()
+                    .padding(bottom = navBarHeight)
             ) {
-                StatItem("总绩点", totalGpa, totalCredits)
-                Box(
+                // 左侧控制台
+                Column(
                     modifier = Modifier
-                        .height(48.dp)
-                        .width(1.dp)
-                        .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
-                )
-                StatItem("学位绩点", degreeGpa, degreeCredits)
-            }
-        }
-
-        // 2. 筛选和排序操作栏
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 0.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // 筛选分类
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = filterType == FilterType.ALL,
-                    onClick = { onFilterTypeChange(FilterType.ALL) },
-                    label = { Text("全部") },
-                    leadingIcon = if (filterType == FilterType.ALL) {
-                        { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
-                    } else null
-                )
-                FilterChip(
-                    selected = filterType == FilterType.DEGREE_ONLY,
-                    onClick = { onFilterTypeChange(FilterType.DEGREE_ONLY) },
-                    label = { Text("学位课") },
-                    leadingIcon = if (filterType == FilterType.DEGREE_ONLY) {
-                        { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
-                    } else null
-                )
-            }
-
-            // 排序按钮
-            TextButton(
-                onClick = {
-                    val newOrder = if (sortOrder == SortOrder.DESCENDING)
-                        SortOrder.ASCENDING else SortOrder.DESCENDING
-                    onSortOrderChange(newOrder)
-                }
-            ) {
-                Icon(
-                    imageVector = if (sortOrder == SortOrder.DESCENDING)
-                        Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(if (sortOrder == SortOrder.DESCENDING) "从高到低" else "从低到高")
-            }
-        }
-
-        Text(
-            "点击课程修改成绩进行模拟",
-            style = MaterialTheme.typography.bodySmall,
-            color = Color.Gray,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-        )
-
-        // 3. 课程列表
-        val navBarHeight = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-
-        Box(modifier = Modifier.weight(1f)) {
-            AdaptiveLayout { config ->
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(config.getListColumns()),
-                    contentPadding = PaddingValues(
-                        start = config.horizontalPadding,
-                        end = config.horizontalPadding,
-                        bottom = 16.dp + navBarHeight,
-                        top = 8.dp
-                    ),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxSize()
+                        .weight(0.35f)
+                        .fillMaxHeight()
+                        .padding(start = 16.dp, top = 8.dp, bottom = 16.dp, end = 8.dp)
                 ) {
-                    items(
-                        items = courseUiList,
-                        key = { "${it.courseId}_${it.termCode}" },
-                        contentType = { "gpa_course_item" }
-                    ) { item ->
-                        GpaCourseItem(
-                            item = item,
-                            onScoreChange = onScoreChange
-                        )
+                    DashboardSummaryCard(totalGpa, totalCredits, degreeGpa, degreeCredits)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // 学期列表作为侧边导航
+                    Text(
+                        "学期筛选",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
+                    )
+                    androidx.compose.foundation.lazy.LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(bottom = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        lazyItems(allTerms) { term ->
+                            val isSelected = selectedTerm == term
+                            Surface(
+                                onClick = { onTermChange(term) },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = formatTerm(term),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    // 底部控制
+                    GpaFilterControls(filterType, sortOrder, onFilterTypeChange, onSortOrderChange)
+                }
+
+                // 右侧课程列表
+                Column(
+                    modifier = Modifier
+                        .weight(0.65f)
+                        .fillMaxHeight()
+                        .padding(start = 8.dp, top = 8.dp, bottom = 16.dp, end = 16.dp)
+                ) {
+                    Text(
+                        "点击课程修改成绩进行模拟",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(config.getListColumns()),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(
+                            items = courseUiList,
+                            key = { "${it.courseId}_${it.termCode}" },
+                            contentType = { "gpa_course_item" }
+                        ) { item ->
+                            GpaCourseItem(item = item, onScoreChange = onScoreChange)
+                        }
                     }
                 }
             }
+        } else {
+            // 手机单列布局
+            Column(modifier = Modifier.fillMaxSize()) {
+                // 1. 学期选择 (横向滑动)
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    lazyItems(allTerms) { term ->
+                        FilterChip(
+                            selected = selectedTerm == term,
+                            onClick = { onTermChange(term) },
+                            label = { Text(formatTerm(term)) },
+                            leadingIcon = if (selectedTerm == term) {
+                                { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
+                            } else null,
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        )
+                    }
+                }
+
+                // 2. 顶部统计卡片
+                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    DashboardSummaryCard(totalGpa, totalCredits, degreeGpa, degreeCredits)
+                }
+
+                // 3. 筛选和排序操作栏
+                GpaFilterControls(
+                    filterType = filterType,
+                    sortOrder = sortOrder,
+                    onFilterTypeChange = onFilterTypeChange,
+                    onSortOrderChange = onSortOrderChange,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+
+                Text(
+                    "点击课程修改成绩进行模拟",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+
+                // 4. 课程列表
+                Box(modifier = Modifier.weight(1f)) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(config.getListColumns()),
+                        contentPadding = PaddingValues(
+                            start = config.horizontalPadding,
+                            end = config.horizontalPadding,
+                            bottom = 16.dp + navBarHeight,
+                            top = 8.dp
+                        ),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(
+                            items = courseUiList,
+                            key = { "${it.courseId}_${it.termCode}" },
+                            contentType = { "gpa_course_item" }
+                        ) { item ->
+                            GpaCourseItem(item = item, onScoreChange = onScoreChange)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DashboardSummaryCard(totalGpa: String, totalCredits: String, degreeGpa: String, degreeCredits: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        ),
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 24.dp, horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            StatItem("总绩点", totalGpa, totalCredits)
+            Box(
+                modifier = Modifier
+                    .height(48.dp)
+                    .width(1.dp)
+                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
+            )
+            StatItem("学位绩点", degreeGpa, degreeCredits)
+        }
+    }
+}
+
+@Composable
+private fun GpaFilterControls(
+    filterType: FilterType,
+    sortOrder: SortOrder,
+    onFilterTypeChange: (FilterType) -> Unit,
+    onSortOrderChange: (SortOrder) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // 筛选分类
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+                selected = filterType == FilterType.ALL,
+                onClick = { onFilterTypeChange(FilterType.ALL) },
+                label = { Text("全部") },
+            )
+            FilterChip(
+                selected = filterType == FilterType.DEGREE_ONLY,
+                onClick = { onFilterTypeChange(FilterType.DEGREE_ONLY) },
+                label = { Text("学位课") },
+            )
+        }
+
+        // 排序按钮
+        TextButton(
+            onClick = {
+                val newOrder = if (sortOrder == SortOrder.DESCENDING)
+                    SortOrder.ASCENDING else SortOrder.DESCENDING
+                onSortOrderChange(newOrder)
+            }
+        ) {
+            Icon(
+                imageVector = if (sortOrder == SortOrder.DESCENDING)
+                    Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(if (sortOrder == SortOrder.DESCENDING) "从高到低" else "从低到高")
         }
     }
 }
@@ -332,18 +482,18 @@ private fun GpaCourseItem(
 
     val containerColor = MaterialTheme.colorScheme.surface
     val borderColor = if (item.isDegreeCourse) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
     } else {
         MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
     }
 
-    Card(
+    Surface(
+        onClick = { showDialog = true },
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        colors = CardDefaults.cardColors(containerColor = containerColor),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = containerColor,
         border = BorderStroke(1.dp, borderColor),
-        onClick = { showDialog = true }
+        shadowElevation = 2.dp
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -353,8 +503,9 @@ private fun GpaCourseItem(
                 Text(
                     text = item.courseName,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -390,13 +541,14 @@ private fun GpaCourseItem(
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = item.displayScore,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
                     text = "GPA: ${item.displayGpa}",
                     style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp)
                 )

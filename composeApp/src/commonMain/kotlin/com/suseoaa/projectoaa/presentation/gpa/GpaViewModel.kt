@@ -49,6 +49,8 @@ data class GpaUiState(
     val isLoading: Boolean = false,
     val courseList: List<GpaCourseWrapper> = emptyList(),
     val allCourses: List<GpaCourseWrapper> = emptyList(),
+    val termList: List<String> = emptyList(),
+    val selectedTerm: String = "ALL",
     val totalGpa: String = "0.00",
     val totalCredits: String = "0.0",
     val degreeGpa: String = "0.00",
@@ -89,6 +91,14 @@ class GpaViewModel(
 
                 result.onSuccess { courses ->
                     val sortedCourses = courses.sortedByDescending { it.scoreValue }
+                    val terms = courses.map { "${it.originalEntity.xnm}_${it.originalEntity.xqm}" }
+                        .distinct()
+                        .sortedByDescending {
+                            val parts = it.split("_")
+                            val year = parts.getOrNull(0)?.toIntOrNull() ?: 0
+                            val term = parts.getOrNull(1)?.toIntOrNull() ?: 0
+                            year * 100 + term
+                        }
                     val stats = calculateTotalStats(sortedCourses)
 
                     _uiState.update {
@@ -96,6 +106,8 @@ class GpaViewModel(
                             isLoading = false,
                             allCourses = sortedCourses,
                             courseList = sortedCourses,
+                            termList = terms,
+                            selectedTerm = "ALL",
                             totalGpa = stats.totalGpa,
                             totalCredits = stats.totalCredits,
                             degreeGpa = stats.degreeGpa,
@@ -122,36 +134,47 @@ class GpaViewModel(
         }
     }
 
-    fun setSortOrder(order: SortOrder) {
-        _uiState.update { state ->
-            val sorted = when (order) {
-                SortOrder.DESCENDING -> state.courseList.sortedByDescending { it.scoreValue }
-                SortOrder.ASCENDING -> state.courseList.sortedBy { it.scoreValue }
-            }
-            state.copy(sortOrder = order, courseList = sorted)
+    private fun applyFiltersAndSort(
+        state: GpaUiState,
+        allCourses: List<GpaCourseWrapper>,
+        term: String,
+        type: FilterType,
+        order: SortOrder
+    ): GpaUiState {
+        val termFiltered = if (term == "ALL") allCourses
+        else allCourses.filter { "${it.originalEntity.xnm}_${it.originalEntity.xqm}" == term }
+
+        val stats = calculateTotalStats(termFiltered)
+
+        val typeFiltered = if (type == FilterType.DEGREE_ONLY) termFiltered.filter { it.isDegreeCourse } else termFiltered
+
+        val sorted = when (order) {
+            SortOrder.DESCENDING -> typeFiltered.sortedByDescending { it.scoreValue }
+            SortOrder.ASCENDING -> typeFiltered.sortedBy { it.scoreValue }
         }
+
+        return state.copy(
+            courseList = sorted,
+            selectedTerm = term,
+            filterType = type,
+            sortOrder = order,
+            totalGpa = stats.totalGpa,
+            totalCredits = stats.totalCredits,
+            degreeGpa = stats.degreeGpa,
+            degreeCredits = stats.degreeCredits
+        )
+    }
+
+    fun setSortOrder(order: SortOrder) {
+        _uiState.update { state -> applyFiltersAndSort(state, state.allCourses, state.selectedTerm, state.filterType, order) }
     }
 
     fun setFilterType(type: FilterType) {
-        _uiState.update { state ->
-            val filtered = when (type) {
-                FilterType.ALL -> state.allCourses
-                FilterType.DEGREE_ONLY -> state.allCourses.filter { it.isDegreeCourse }
-            }
-            // 应用当前排序
-            val sorted = when (state.sortOrder) {
-                SortOrder.DESCENDING -> filtered.sortedByDescending { it.scoreValue }
-                SortOrder.ASCENDING -> filtered.sortedBy { it.scoreValue }
-            }
-            // 重新计算统计数据
-            val stats = calculateTotalStats(filtered)
-            state.copy(
-                filterType = type,
-                courseList = sorted,
-                totalGpa = if (type == FilterType.DEGREE_ONLY) stats.degreeGpa else stats.totalGpa,
-                totalCredits = if (type == FilterType.DEGREE_ONLY) stats.degreeCredits else stats.totalCredits
-            )
-        }
+        _uiState.update { state -> applyFiltersAndSort(state, state.allCourses, state.selectedTerm, type, state.sortOrder) }
+    }
+
+    fun setTermFilter(term: String) {
+        _uiState.update { state -> applyFiltersAndSort(state, state.allCourses, term, state.filterType, state.sortOrder) }
     }
 
     fun updateSimulatedScoreByCourseId(courseId: String, newScore: Double) {
@@ -164,26 +187,8 @@ class GpaViewModel(
                     course
                 }
             }
-
-            val stats = calculateTotalStats(updatedAllCourses)
-            val filtered = when (state.filterType) {
-                FilterType.ALL -> updatedAllCourses
-                FilterType.DEGREE_ONLY -> updatedAllCourses.filter { it.isDegreeCourse }
-            }
-
-            val sorted = when (state.sortOrder) {
-                SortOrder.DESCENDING -> filtered.sortedByDescending { it.scoreValue }
-                SortOrder.ASCENDING -> filtered.sortedBy { it.scoreValue }
-            }
-
-            state.copy(
-                allCourses = updatedAllCourses,
-                courseList = sorted,
-                totalGpa = stats.totalGpa,
-                totalCredits = stats.totalCredits,
-                degreeGpa = stats.degreeGpa,
-                degreeCredits = stats.degreeCredits
-            )
+            val newState = state.copy(allCourses = updatedAllCourses)
+            applyFiltersAndSort(newState, updatedAllCourses, state.selectedTerm, state.filterType, state.sortOrder)
         }
     }
 
