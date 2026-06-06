@@ -338,7 +338,8 @@ private fun PhoneLayout(
 
     // 若外部或点击产生的 selectedTab 变化，控制 pager 滚动
     LaunchedEffect(selectedTab) {
-        if (!isIndicatorDragging && pagerState.currentPage != selectedTab) {
+        val isNotAtTarget = pagerState.currentPage != selectedTab || kotlin.math.abs(pagerState.currentPageOffsetFraction) > 0.001f
+        if (!isIndicatorDragging && isNotAtTarget) {
             scrollJob?.cancel()
             scrollJob = scope.launch {
                 val maxIndex = MainTab.entries.size - 1
@@ -347,10 +348,10 @@ private fun PhoneLayout(
                 val distance = kotlin.math.abs(targetProgress - startProgress)
                 val durationMillis = (220 + (distance * 140).toInt()).coerceAtMost(680)
 
-                val startNanos = withFrameNanos { it }
+                val startNanos = androidx.compose.runtime.withFrameNanos { it }
                 var rawFraction = 0f
                 while (rawFraction < 1f) {
-                    val nowNanos = withFrameNanos { it }
+                    val nowNanos = androidx.compose.runtime.withFrameNanos { it }
                     val elapsedMs = ((nowNanos - startNanos) / 1_000_000f)
                     rawFraction = if (durationMillis <= 0) 1f else (elapsedMs / durationMillis).coerceIn(0f, 1f)
                     val easedFraction = androidx.compose.animation.core.FastOutSlowInEasing.transform(rawFraction)
@@ -362,8 +363,7 @@ private fun PhoneLayout(
                 }
 
                 pagerState.scrollToPage(page = selectedTab, pageOffsetFraction = 0f)
-                
-                // 等待 Pager 内部的 settledPage 真正更新到位后再结束 Job
+
                 // 这样能够防止因为布局刷新延迟导致的 selectedTab 回退问题
                 androidx.compose.runtime.snapshotFlow { pagerState.settledPage }.first { it == selectedTab }
             }
