@@ -62,6 +62,11 @@ class NextCourseWidget : GlanceAppWidget() {
         }
 
         provideContent {
+            val bgSurface = DayNightColorProvider(day = Color.White, night = Color(0xFF1F2937))
+            val textPrimary = DayNightColorProvider(day = Color.Black, night = Color.White)
+            val textSecondary = DayNightColorProvider(day = Color.DarkGray, night = Color.LightGray)
+            val textTertiary = DayNightColorProvider(day = Color.Gray, night = Color.Gray)
+
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("app://suseoaa/main?tab=1")).apply {
                 setPackage(context.packageName)
             }
@@ -70,7 +75,7 @@ class NextCourseWidget : GlanceAppWidget() {
                 Box(
                     modifier = GlanceModifier
                         .fillMaxSize()
-                        .background(ColorProvider(Color.White))
+                        .background(bgSurface)
                         .cornerRadius(12.dp)
                         .clickable(actionStartActivity(intent))
                         .padding(12.dp),
@@ -85,7 +90,7 @@ class NextCourseWidget : GlanceAppWidget() {
                 Box(
                     modifier = GlanceModifier
                         .fillMaxSize()
-                        .background(ColorProvider(Color.White))
+                        .background(bgSurface)
                         .cornerRadius(12.dp)
                         .clickable(actionStartActivity(intent))
                         .padding(12.dp),
@@ -94,7 +99,7 @@ class NextCourseWidget : GlanceAppWidget() {
                     Text(
                         text = "暂无课",
                         style = TextStyle(
-                            color = ColorProvider(Color.Gray),
+                            color = textSecondary,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -108,11 +113,6 @@ class NextCourseWidget : GlanceAppWidget() {
                 }
                 
                 val theme = getCourseTheme(course.course.courseName)
-
-                val bgSurface = DayNightColorProvider(day = Color.White, night = Color(0xFF1F2937))
-                val textPrimary = DayNightColorProvider(day = Color.Black, night = Color.White)
-                val textSecondary = DayNightColorProvider(day = Color.DarkGray, night = Color.LightGray)
-                val textTertiary = DayNightColorProvider(day = Color.Gray, night = Color.Gray)
 
                 Box(
                     modifier = GlanceModifier

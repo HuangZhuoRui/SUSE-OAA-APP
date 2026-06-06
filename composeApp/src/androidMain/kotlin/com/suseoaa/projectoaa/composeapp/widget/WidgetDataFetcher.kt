@@ -407,13 +407,19 @@ object WidgetDataFetcher {
         return weeklyMap
     }
 
-    suspend fun getUpcomingExams(): List<ExamCacheEntity> {
+    data class ExamsSummary(
+        val upcoming: List<ExamCacheEntity>,
+        val takenCount: Int,
+        val unTakenCount: Int
+    )
+
+    suspend fun getExamsSummary(): ExamsSummary {
         return try {
             val koin = GlobalContext.get()
             val tokenManager = koin.get<TokenManager>()
             val schoolInfoRepo = koin.get<SchoolInfoRepository>()
 
-            val studentId = tokenManager.currentStudentId.first() ?: return emptyList()
+            val studentId = tokenManager.currentStudentId.first() ?: return ExamsSummary(emptyList(), 0, 0)
             
             // Get all exams from the local cache
             val exams = schoolInfoRepo.observeExams(studentId).first()
@@ -421,20 +427,33 @@ object WidgetDataFetcher {
             val timeZone = TimeZone.currentSystemDefault()
             val now = OaaClock.now().toLocalDateTime(timeZone)
             
-            exams.filter { exam ->
+            var taken = 0
+            var untaken = 0
+            val upcoming = mutableListOf<ExamCacheEntity>()
+
+            exams.forEach { exam ->
                 val timeRange = parseExamTimeRange(exam.time)
                 if (timeRange != null) {
-                    now <= timeRange.second
+                    if (now > timeRange.second) {
+                        taken++
+                    } else {
+                        untaken++
+                        upcoming.add(exam)
+                    }
                 } else {
-                    false
+                    // if time is unknown, assume untaken but do not show in recent list
+                    untaken++
                 }
-            }.sortedBy { exam ->
-                val timeRange = parseExamTimeRange(exam.time)
-                timeRange?.first
+            }
+
+            val sortedUpcoming = upcoming.sortedBy { exam ->
+                parseExamTimeRange(exam.time)?.first
             }.take(3)
+
+            ExamsSummary(sortedUpcoming, taken, untaken)
         } catch (e: Exception) {
             e.printStackTrace()
-            emptyList()
+            ExamsSummary(emptyList(), 0, 0)
         }
     }
 }

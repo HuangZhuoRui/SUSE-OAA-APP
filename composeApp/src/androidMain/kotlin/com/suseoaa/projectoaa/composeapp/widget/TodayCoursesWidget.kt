@@ -80,6 +80,10 @@ class TodayCoursesWidget : GlanceAppWidget() {
         }
 
         provideContent {
+            val bgSurface = DayNightColorProvider(day = Color.White, night = Color(0xFF1F2937))
+            val textPrimary = DayNightColorProvider(day = Color.Black, night = Color.White)
+            val textSecondary = DayNightColorProvider(day = Color.DarkGray, night = Color.LightGray)
+
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("app://suseoaa/main?tab=1")).apply {
                 setPackage(context.packageName)
             }
@@ -88,7 +92,7 @@ class TodayCoursesWidget : GlanceAppWidget() {
                 Box(
                     modifier = GlanceModifier
                         .fillMaxSize()
-                        .background(ColorProvider(Color.White))
+                        .background(bgSurface)
                         .cornerRadius(12.dp)
                         .clickable(actionStartActivity(intent))
                         .padding(12.dp),
@@ -103,7 +107,7 @@ class TodayCoursesWidget : GlanceAppWidget() {
                 Box(
                     modifier = GlanceModifier
                         .fillMaxSize()
-                        .background(ColorProvider(Color.White))
+                        .background(bgSurface)
                         .cornerRadius(12.dp)
                         .clickable(actionStartActivity(intent))
                         .padding(12.dp),
@@ -112,17 +116,13 @@ class TodayCoursesWidget : GlanceAppWidget() {
                     Text(
                         text = "今日无课，好好休息！",
                         style = TextStyle(
-                            color = ColorProvider(Color.Gray),
+                            color = textSecondary,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
                     )
                 }
             } else {
-                val bgSurface = DayNightColorProvider(day = Color.White, night = Color(0xFF1F2937))
-                val textPrimary = DayNightColorProvider(day = Color.Black, night = Color.White)
-                val textSecondary = DayNightColorProvider(day = Color.DarkGray, night = Color.LightGray)
-
                 Box(
                     modifier = GlanceModifier
                         .fillMaxSize()
@@ -139,21 +139,21 @@ class TodayCoursesWidget : GlanceAppWidget() {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         text = "今日周$weekdayStr，共有 ",
-                                        style = TextStyle(color = textPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                        style = TextStyle(color = textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                     )
                                     Text(
                                         text = "${allCourses.size}",
-                                        style = TextStyle(color = ColorProvider(Color(0xFFF472B6)), fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                                        style = TextStyle(color = ColorProvider(Color(0xFFF472B6)), fontSize = 15.sp, fontWeight = FontWeight.Bold)
                                     )
                                     Text(
                                         text = " 门课要上",
-                                        style = TextStyle(color = textPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                        style = TextStyle(color = textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                     )
                                 }
                                 Spacer(modifier = GlanceModifier.height(4.dp))
                                 Text(
                                     text = "$month.$day / 今日课程",
-                                    style = TextStyle(color = textSecondary, fontSize = 11.sp)
+                                    style = TextStyle(color = textSecondary, fontSize = 10.sp)
                                 )
                             }
                             // 青蟹的logo
@@ -212,23 +212,23 @@ class TodayCoursesWidget : GlanceAppWidget() {
                 .fillMaxWidth()
                 .background(bgProvider)
                 .cornerRadius(12.dp)
-                .padding(12.dp)
+                .padding(10.dp)
         ) {
             Text(
                 text = course.course.courseName,
                 style = TextStyle(
                     fontWeight = FontWeight.Bold,
                     color = textProvider,
-                    fontSize = 13.sp
+                    fontSize = 12.sp
                 ),
-                maxLines = 1
+                maxLines = 2
             )
             Spacer(modifier = GlanceModifier.height(4.dp))
             Text(
                 text = "${slot.startTime} - ${slot.endTime}  ${time?.location ?: ""}",
                 style = TextStyle(
                     color = textProvider,
-                    fontSize = 11.sp
+                    fontSize = 10.sp
                 ),
                 maxLines = 1
             )

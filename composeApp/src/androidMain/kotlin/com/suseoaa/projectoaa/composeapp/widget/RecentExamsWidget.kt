@@ -33,7 +33,16 @@ import android.content.Intent
 import android.net.Uri
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.action.actionStartActivity
+import androidx.glance.appwidget.action.actionRunCallback
+import androidx.glance.action.ActionParameters
+import androidx.glance.appwidget.action.ActionCallback
+import androidx.glance.appwidget.updateAll
+
 import com.suseoaa.projectoaa.shared.data.repository.ExamCacheEntity
+import com.suseoaa.projectoaa.shared.util.OaaClock
+import com.suseoaa.projectoaa.shared.util.parseExamTimeRange
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 class RecentExamsWidget : GlanceAppWidget() {
 
@@ -53,9 +62,9 @@ class RecentExamsWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         var errorMsg: String? = null
-        var recentExams: List<ExamCacheEntity>? = null
+        var summary: WidgetDataFetcher.ExamsSummary? = null
         try {
-            recentExams = WidgetDataFetcher.getUpcomingExams()
+            summary = WidgetDataFetcher.getExamsSummary()
         } catch (e: Exception) {
             e.printStackTrace()
             errorMsg = e.stackTraceToString()
@@ -66,16 +75,12 @@ class RecentExamsWidget : GlanceAppWidget() {
             val textPrimary = DayNightColorProvider(day = Color.Black, night = Color.White)
             val textSecondary = DayNightColorProvider(day = Color.DarkGray, night = Color.LightGray)
 
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("app://suseoaa/exams")).apply {
-                setPackage(context.packageName)
-            }
-
             Box(
                 modifier = GlanceModifier
                     .fillMaxSize()
                     .background(bgSurface)
                     .cornerRadius(12.dp)
-                    .clickable(actionStartActivity(intent))
+                    .clickable(actionRunCallback<UpdateAndLaunchExamsAction>())
                     .padding(12.dp)
             ) {
                 if (errorMsg != null) {
@@ -85,7 +90,7 @@ class RecentExamsWidget : GlanceAppWidget() {
                             style = TextStyle(color = ColorProvider(Color.Red), fontSize = 10.sp)
                         )
                     }
-                } else if (recentExams.isNullOrEmpty()) {
+                } else if (summary?.upcoming.isNullOrEmpty()) {
                     Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
                             text = "近期无考试，好好休息！",
@@ -98,17 +103,28 @@ class RecentExamsWidget : GlanceAppWidget() {
                     }
                 } else {
                     Column(modifier = GlanceModifier.fillMaxSize()) {
-                        Text(
-                            text = "近期考试",
-                            style = TextStyle(
-                                color = textPrimary,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
-                            ),
-                            modifier = GlanceModifier.padding(bottom = 8.dp)
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = GlanceModifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                            Text(
+                                text = "近期考试",
+                                style = TextStyle(
+                                    color = textPrimary,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                modifier = GlanceModifier.defaultWeight()
+                            )
+                            Text(
+                                text = "未考${summary!!.unTakenCount}门，已考${summary!!.takenCount}门",
+                                style = TextStyle(
+                                    color = textSecondary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                        }
                         
-                        recentExams.forEachIndexed { index, exam ->
+                        val maxExams = summary!!.upcoming
+                        maxExams.forEachIndexed { index, exam ->
                             val theme = getExamTheme(exam.courseName)
                             
                             @SuppressLint("RestrictedApi")
@@ -118,57 +134,97 @@ class RecentExamsWidget : GlanceAppWidget() {
                             val badgeTitle = DayNightColorProvider(day = Color(theme.titleHex), night = Color(theme.textHex))
 
                             Row(
-                                modifier = GlanceModifier.fillMaxWidth().padding(bottom = if (index < recentExams.size - 1) 8.dp else 0.dp),
+                                modifier = GlanceModifier
+                                    .fillMaxWidth()
+                                    .defaultWeight()
+                                    .clickable(actionRunCallback<UpdateAndLaunchExamsAction>())
+                                    .padding(bottom = if (index < maxExams.size - 1) 4.dp else 0.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 // Left: Badge
-                                Column(
-                                    modifier = GlanceModifier
-                                        .background(badgeBg)
-                                        .cornerRadius(8.dp)
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                                        .width(48.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Text(
-                                        text = "考试",
-                                        style = TextStyle(
-                                            color = badgeTitle,
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Bold
+                                    Column(
+                                        modifier = GlanceModifier
+                                            .background(badgeBg)
+                                            .cornerRadius(6.dp)
+                                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                                            .width(44.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = "考试",
+                                            style = TextStyle(
+                                                color = badgeTitle,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
                                         )
-                                    )
-                                }
+                                    }
 
-                                Spacer(modifier = GlanceModifier.width(12.dp))
+                                    Spacer(modifier = GlanceModifier.width(10.dp))
 
-                                // Right: Details
-                                Column(modifier = GlanceModifier.defaultWeight()) {
-                                    Text(
-                                        text = exam.courseName,
-                                        style = TextStyle(
-                                            color = textPrimary,
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Bold
-                                        ),
-                                        maxLines = 1
-                                    )
-                                    Spacer(modifier = GlanceModifier.height(2.dp))
-                                    Text(
-                                        text = "${exam.time} | ${exam.location}",
-                                        style = TextStyle(
-                                            color = textSecondary,
-                                            fontSize = 11.sp
-                                        ),
-                                        maxLines = 1
-                                    )
+                                    // Middle: Details
+                                    Column(modifier = GlanceModifier.defaultWeight()) {
+                                        Text(
+                                            text = exam.courseName,
+                                            style = TextStyle(
+                                                color = textPrimary,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold
+                                            ),
+                                            maxLines = 1
+                                        )
+                                        Spacer(modifier = GlanceModifier.height(4.dp))
+                                        Text(
+                                            text = "${exam.time} | ${exam.location}",
+                                            style = TextStyle(
+                                                color = textSecondary,
+                                                fontSize = 10.sp
+                                            ),
+                                            maxLines = 1
+                                        )
+                                    }
+
+                                    // Right: Countdown
+                                    val parsedTime = parseExamTimeRange(exam.time)
+                                    val daysLeftStr = if (parsedTime != null) {
+                                        val now = OaaClock.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+                                        val examDate = parsedTime.first.date
+                                        val daysLeft = examDate.toEpochDays() - now.toEpochDays()
+                                        if (daysLeft > 0) "剩${daysLeft}天"
+                                        else if (daysLeft == 0) "今天"
+                                        else ""
+                                    } else ""
+
+                                    if (daysLeftStr.isNotEmpty()) {
+                                        Text(
+                                            text = daysLeftStr,
+                                            style = TextStyle(
+                                                color = ColorProvider(Color(theme.titleHex)),
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold
+                                            ),
+                                            modifier = GlanceModifier.padding(start = 6.dp)
+                                        )
+                                    }
                                 }
-                            }
                         }
-                        Spacer(modifier = GlanceModifier.defaultWeight())
                     }
                 }
             }
         }
+    }
+}
+
+class UpdateAndLaunchExamsAction : ActionCallback {
+    override suspend fun onAction(
+        context: Context,
+        glanceId: GlanceId,
+        parameters: ActionParameters
+    ) {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("app://suseoaa/exams")).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        context.startActivity(intent)
+        RecentExamsWidget().updateAll(context)
     }
 }

@@ -485,10 +485,10 @@ class WeeklyScheduleWidget : GlanceAppWidget() {
                     text = courseName,
                     style = TextStyle(
                         color = ColorProvider(Color(theme.textHex)),
-                        fontSize = 10.sp,
+                        fontSize = 9.sp,
                         textAlign = TextAlign.Center
                     ),
-                    maxLines = 4
+                    maxLines = 6
                 )
                 Spacer(modifier = GlanceModifier.defaultWeight())
             } else {
