@@ -87,7 +87,7 @@ fun ValueCalculatorScreen(
         }
     }
     
-    val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+    val today = com.suseoaa.projectoaa.shared.util.OaaClock.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
     
     val daysSincePurchase = remember(selectedLocalDate) {
         selectedLocalDate?.let { date ->
@@ -531,7 +531,7 @@ fun FadingSnappingSlider(
 
 @Composable
 fun HistoryItemCard(item: ValueCalculatorItem, onDelete: () -> Unit) {
-    val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+    val today = com.suseoaa.projectoaa.shared.util.OaaClock.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
     val purchaseDate = Instant.fromEpochMilliseconds(item.purchaseDateMillis).toLocalDateTime(TimeZone.currentSystemDefault()).date
     
     val daysSincePurchase = if (purchaseDate <= today) purchaseDate.daysUntil(today) else 0

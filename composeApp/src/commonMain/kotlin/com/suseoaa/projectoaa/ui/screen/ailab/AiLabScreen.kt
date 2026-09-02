@@ -104,6 +104,7 @@ import com.suseoaa.projectoaa.util.DeviceInfo
 import com.suseoaa.projectoaa.util.ModelRecommendation
 import com.suseoaa.projectoaa.util.ModelRecommendationLevel
 import com.suseoaa.projectoaa.util.toReadableStorage
+import com.suseoaa.projectoaa.util.format
 import com.suseoaa.projectoaa.util.ToastManager
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -393,7 +394,7 @@ private fun DeviceCapabilitySection(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "可用 ${"%.1f".format(availRamGb)}GB / 共 ${"%.1f".format(totalRamGb)}GB",
+                            text = "可用 ${availRamGb.format(1)}GB / 共 ${totalRamGb.format(1)}GB",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -465,7 +466,7 @@ private fun buildHardwareItems(info: DeviceInfo): List<Pair<String, String>> {
         if (info.socModel.isNotBlank()) add("SoC 型号" to info.socModel.take(28))
         add("GPU 渲染器" to info.gpuRenderer.take(28))
         add("NPU 支持" to if (info.hasNpu) info.npuDescription.take(24) else "未检测到")
-        add("总内存" to "${"%.1f".format(totalRamGb)} GB")
+        add("总内存" to "${totalRamGb.format(1)} GB")
         add("总存储" to info.totalStorage.toReadableStorage())
         add("可用存储" to info.availableStorage.toReadableStorage())
         add("系统版本" to info.osVersion)

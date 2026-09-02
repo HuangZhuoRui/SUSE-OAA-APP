@@ -1,24 +1,14 @@
 package com.suseoaa.projectoaa
 
 import androidx.compose.ui.window.ComposeUIViewController
-import com.suseoaa.projectoaa.di.appModule
-import com.suseoaa.projectoaa.di.platformModule
 import com.suseoaa.projectoaa.presentation.checkin.CheckinScheduler
-import com.suseoaa.projectoaa.shared.di.getSharedModules
+import com.suseoaa.projectoaa.scheduling.initializeKoinIfNeeded
 import com.suseoaa.projectoaa.util.AppLifecycleObserver
-import org.koin.core.context.startKoin
 import org.koin.mp.KoinPlatform
 
 fun MainViewController() = ComposeUIViewController(
     configure = {
-        startKoin {
-            modules(
-                getSharedModules() + listOf(
-                    platformModule(),
-                    appModule
-                )
-            )
-        }
+        initializeKoinIfNeeded()
 
         // 启动定时签到调度器
         try {

@@ -38,6 +38,8 @@ kotlin {
             isStatic = true
             // 链接 SQLite 库
             linkerOpts("-lsqlite3")
+            export(project(":shared"))
+            export(libs.kotlinx.datetime)
         }
     }
 
@@ -48,7 +50,7 @@ kotlin {
             // 提供类似 iOS 和 Windows 预设材质效果的扩展库
             implementation(libs.haze.materials)
             // Shared模块
-            implementation(project(":shared"))
+            api(project(":shared"))
 
             // Compose Multiplatform
             implementation(compose.runtime)
@@ -88,10 +90,10 @@ kotlin {
             implementation(libs.kotlinx.serialization.json)
 
             // Coroutines
-            implementation(libs.kotlinx.coroutines.core)
+            api(libs.kotlinx.coroutines.core)
 
             // DateTime
-            implementation(libs.kotlinx.datetime)
+            api(libs.kotlinx.datetime)
             // KMP DataStore
             implementation(libs.androidx.datastore.preferences.core)
             // Window Size Class

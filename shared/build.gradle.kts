@@ -40,13 +40,13 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             // Coroutines
-            implementation(libs.kotlinx.coroutines.core)
+            api(libs.kotlinx.coroutines.core)
 
             // Serialization
-            implementation(libs.kotlinx.serialization.json)
+            api(libs.kotlinx.serialization.json)
 
             // DateTime
-            implementation(libs.kotlinx.datetime)
+            api(libs.kotlinx.datetime)
 
             // Ktor Client
             implementation(libs.ktor.client.core)

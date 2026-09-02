@@ -37,7 +37,15 @@ private val DarkGradientColors = listOf(
 fun App(
     mainViewModel: MainViewModel = koinViewModel()
 ) {
-    val startDestination by mainViewModel.startDestination.collectAsState()
+    val destination by mainViewModel.startDestination.collectAsState()
+    var initialDestination by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(destination) {
+        if (initialDestination == null && destination != null) {
+            initialDestination = destination
+        }
+    }
+
     val dynamicColorEnabled by mainViewModel.dynamicColorEnabled.collectAsState()
     val dynamicPaletteLightColorHex by mainViewModel.dynamicPaletteLightColorHex.collectAsState()
     val dynamicPaletteDarkColorHex by mainViewModel.dynamicPaletteDarkColorHex.collectAsState()
@@ -49,7 +57,8 @@ fun App(
     ) {
         Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             // 等待加载完成
-            if (startDestination == null) {
+            val currentStartDestination = initialDestination
+            if (currentStartDestination == null) {
                 val isDarkTheme = isSystemInDarkTheme()
                 val gradientColors = if (isDarkTheme) DarkGradientColors else LightGradientColors
                 val headerTextColor = if (isDarkTheme) Color.White else Color.Black
@@ -83,7 +92,7 @@ fun App(
                 val navController = rememberNavController()
                 AppNavHost(
                     navController = navController,
-                    startDestination = startDestination!!,
+                    startDestination = currentStartDestination,
                     mainViewModel = mainViewModel
                 )
             }

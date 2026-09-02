@@ -226,7 +226,7 @@ object WidgetDataFetcher {
         
         val schedule = getDailySchedule()
         val now = OaaClock.now().toLocalDateTime(TimeZone.currentSystemDefault())
-        val currentDay = now.dayOfWeek.value // 1..7 (Monday..Sunday)
+        val currentDay = now.dayOfWeek.ordinal + 1 // 1..7 (Monday..Sunday)
         val currentHour = now.hour
         val currentMinute = now.minute
         val currentTotalMinutes = currentHour * 60 + currentMinute
@@ -314,7 +314,7 @@ object WidgetDataFetcher {
         
         val schedule = getDailySchedule()
         val now = OaaClock.now().toLocalDateTime(TimeZone.currentSystemDefault())
-        val currentDay = now.dayOfWeek.value // 1..7
+        val currentDay = now.dayOfWeek.ordinal + 1 // 1..7
         
         val todayCoursesList = mutableListOf<Pair<CourseWithTimes, TimeSlotConfig>>()
         
