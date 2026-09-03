@@ -51,16 +51,14 @@ fun LoginScreen(
         }
     }
 
-    Scaffold() { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(color = MaterialTheme.colorScheme.background)
-                .padding(paddingValues)
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(color = MaterialTheme.colorScheme.background)
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
             Text(
                 text = "欢迎使用青蟹",
                 style = MaterialTheme.typography.headlineLarge,
@@ -154,4 +152,4 @@ fun LoginScreen(
             }
         }
     }
-}
+
