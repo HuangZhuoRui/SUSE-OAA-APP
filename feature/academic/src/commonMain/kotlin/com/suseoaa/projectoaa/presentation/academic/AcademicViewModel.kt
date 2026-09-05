@@ -9,7 +9,6 @@ import com.suseoaa.projectoaa.shared.domain.repository.LocalCourseRepository
 import com.suseoaa.projectoaa.shared.domain.model.message.MessageCacheEntity
 import com.suseoaa.projectoaa.shared.domain.repository.SchoolAuthRepository
 import com.suseoaa.projectoaa.shared.domain.repository.SchoolInfoRepository
-import com.suseoaa.projectoaa.shared.domain.engine.CampusAiEngine
 import com.suseoaa.projectoaa.shared.domain.model.exam.ExamResponse
 import com.suseoaa.projectoaa.shared.domain.model.exam.ExamItem
 import com.suseoaa.projectoaa.shared.util.parseExamTimeRange
@@ -47,7 +46,6 @@ data class AcademicUiState(
     val messages: List<MessageCacheEntity> = emptyList(),
     val exams: List<ExamUiState> = emptyList(),
     val errorMessage: String? = null,
-    val summarizingMessageId: Long? = null
 )
 
 class AcademicViewModel(
@@ -215,28 +213,6 @@ class AcademicViewModel(
                 _uiState.update { it.copy(errorMessage = "刷新消息失败: ${e.message}") }
             } finally {
                 _uiState.update { it.copy(isRefreshing = false) }
-            }
-        }
-    }
-
-    fun summarizeSingleMessage(message: com.suseoaa.projectoaa.shared.domain.model.message.MessageCacheEntity) {
-        viewModelScope.launch {
-            if (!CampusAiEngine.isModelAvailable()) return@launch
-            if (_uiState.value.summarizingMessageId != null) return@launch // Debounce/Prevent concurrent
-            
-            try {
-                _uiState.update { it.copy(summarizingMessageId = message.id) }
-                CampusAiEngine.loadModel()
-                if (CampusAiEngine.lastGpuCrashDetected()) {
-                    com.suseoaa.projectoaa.util.ToastManager.showToast("检测到 GPU 驱动异常，已自动降级至 CPU 推理，建议前往 AI 实验室手动切换模式。")
-                }
-                val summary = CampusAiEngine.summarizeAcademicMessage(message.content)
-                schoolInfoRepository.updateMessageSummary(message.id, summary)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            } finally {
-                CampusAiEngine.unloadModel()
-                _uiState.update { it.copy(summarizingMessageId = null) }
             }
         }
     }

@@ -131,15 +131,7 @@ fun AcademicMessagesScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(uiState.messages) { message ->
-                            val isThisMessageSummarizing = uiState.summarizingMessageId == message.id
-                            val isAnySummarizing = uiState.summarizingMessageId != null
-                            
-                            AcademicMessageCard(
-                                message = message,
-                                isSummarizing = isThisMessageSummarizing,
-                                isAnySummarizing = isAnySummarizing,
-                                onSummarizeClick = { viewModel.summarizeSingleMessage(message) }
-                            )
+                            AcademicMessageCard(message = message)
                         }
                     }
                 }
@@ -151,9 +143,6 @@ fun AcademicMessagesScreen(
 @Composable
 private fun AcademicMessageCard(
     message: MessageCacheEntity,
-    isSummarizing: Boolean,
-    isAnySummarizing: Boolean,
-    onSummarizeClick: () -> Unit
 ) {
     Card(
         colors = CardDefaults.cardColors(
@@ -191,87 +180,10 @@ private fun AcademicMessageCard(
                     )
                 }
 
-                // AI 总结按钮
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    modifier = Modifier.clickable(
-                        enabled = !isAnySummarizing,
-                        onClick = onSummarizeClick
-                    )
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        if (isSummarizing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.AutoAwesome,
-                                contentDescription = "AI 总结",
-                                tint = if (isAnySummarizing) MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (isSummarizing) "总结中" else if (message.aiSummary == null) "AI 总结" else "重新总结",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (isAnySummarizing && !isSummarizing) MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                    }
-                }
-            }
-
-            // AI 摘要区域（总是显示）
-            val summary = message.aiSummary
-            if (summary != null) {
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                    ),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 10.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(10.dp),
-                        verticalAlignment = Alignment.Top,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = "AI",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                        Text(
-                            text = summary,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            lineHeight = 20.sp
-                        )
-                    }
-                }
             }
 
             // 完整原文区域（始终显示）
             Column(modifier = Modifier.padding(top = 10.dp)) {
-                if (summary != null) {
-                    Text(
-                        text = "原文：",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
-                }
                 Text(
                     text = message.content,
                     style = MaterialTheme.typography.bodyMedium,

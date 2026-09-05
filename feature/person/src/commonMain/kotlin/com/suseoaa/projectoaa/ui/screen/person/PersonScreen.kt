@@ -70,7 +70,6 @@ fun PersonScreen(
     onNavigateToCheckin: () -> Unit = {},
     onNavigateToUpdate: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
-    onNavigateToAiLab: () -> Unit = {},
     bottomBarHeight: Dp = 0.dp,
     viewModel: PersonViewModel = koinViewModel(),
     updateViewModel: AppUpdateViewModel = koinViewModel(),
@@ -386,14 +385,6 @@ fun PersonScreen(
                                     trailingText = if (updateUiState.hasUpdate && updateUiState.latestRelease != null)
                                         updateUiState.latestRelease!!.tagName else null,
                                     onClick = onNavigateToUpdate
-                                )
-                                androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(start = 80.dp, end = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                                SettingRow(
-                                    icon = Icons.Default.AutoAwesome,
-                                    title = "AI 实验室",
-                                    subtitle = "本地 AI 功能 · 调课摘要、学业分析、智能查询",
-                                    modifier = Modifier.sharedBoundsTransition("ai_lab"),
-                                    onClick = onNavigateToAiLab
                                 )
                                 androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(start = 80.dp, end = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                                 SettingRow(

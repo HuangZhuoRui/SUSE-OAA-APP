@@ -64,7 +64,6 @@ fun MainScreen(
     onNavigateToValueCalculator: () -> Unit = {},
     onNavigateToUpdate: () -> Unit, onNavigateToSettings: () -> Unit = {},
     onNavigateToCourseStatistics: () -> Unit = {},
-    onNavigateToAiLab: () -> Unit = {},
     pagerState: PagerState,
     hazeState: HazeState,
     bottomBarHeight: Dp,
@@ -116,7 +115,6 @@ fun MainScreen(
                 onNavigateToValueCalculator = onNavigateToValueCalculator,
                 onNavigateToUpdate = onNavigateToUpdate, onNavigateToSettings = onNavigateToSettings,
                 onNavigateToCourseStatistics = onNavigateToCourseStatistics,
-                onNavigateToAiLab = onNavigateToAiLab,
                 modifier = modifier
             )
         } else {
@@ -153,7 +151,6 @@ fun MainScreen(
                 onNavigateToValueCalculator = onNavigateToValueCalculator,
                 onNavigateToUpdate = onNavigateToUpdate, onNavigateToSettings = onNavigateToSettings,
                 onNavigateToCourseStatistics = onNavigateToCourseStatistics,
-                onNavigateToAiLab = onNavigateToAiLab,
                 isLiquidGlassTabbarEnabled = isLiquidGlassTabbarEnabled,
                 liquidGlassTabbarStyle = liquidGlassTabbarStyle,
                 pagerState = pagerState,
@@ -196,7 +193,6 @@ private fun TabletLandscapeLayout(
     onNavigateToValueCalculator: () -> Unit,
     onNavigateToUpdate: () -> Unit, onNavigateToSettings: () -> Unit,
     onNavigateToCourseStatistics: () -> Unit,
-    onNavigateToAiLab: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val isDarkTheme = isSystemInDarkTheme()
@@ -256,7 +252,6 @@ private fun TabletLandscapeLayout(
                     onNavigateToValueCalculator = onNavigateToValueCalculator,
                     onNavigateToUpdate = onNavigateToUpdate, onNavigateToSettings = onNavigateToSettings,
                     onNavigateToCourseStatistics = onNavigateToCourseStatistics,
-                    onNavigateToAiLab = onNavigateToAiLab
                 )
             }
         }
@@ -293,7 +288,6 @@ private fun PhoneLayout(
     onNavigateToValueCalculator: () -> Unit,
     onNavigateToUpdate: () -> Unit, onNavigateToSettings: () -> Unit,
     onNavigateToCourseStatistics: () -> Unit,
-    onNavigateToAiLab: () -> Unit = {},
     isLiquidGlassTabbarEnabled: Boolean = false,
     liquidGlassTabbarStyle: Int = 1,
     pagerState: PagerState,
@@ -352,7 +346,6 @@ private fun PhoneLayout(
                     onNavigateToValueCalculator = onNavigateToValueCalculator,
                     onNavigateToUpdate = onNavigateToUpdate, onNavigateToSettings = onNavigateToSettings,
                     onNavigateToCourseStatistics = onNavigateToCourseStatistics,
-                    onNavigateToAiLab = onNavigateToAiLab
                 )
             } // End MainPageBackground
         } // End HorizontalPager

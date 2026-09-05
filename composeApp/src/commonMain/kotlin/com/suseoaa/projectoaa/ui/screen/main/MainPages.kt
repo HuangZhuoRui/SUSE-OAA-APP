@@ -47,7 +47,6 @@ internal fun KeepAliveMainPages(
     onNavigateToValueCalculator: () -> Unit,
     onNavigateToUpdate: () -> Unit, onNavigateToSettings: () -> Unit,
     onNavigateToCourseStatistics: () -> Unit,
-    onNavigateToAiLab: () -> Unit = {}
 ) {
     val orderedTabs = remember(selectedTab) {
         MainTab.entries.sortedBy { if (it.index == selectedTab) 1 else 0 }
@@ -95,7 +94,6 @@ internal fun KeepAliveMainPages(
                         onNavigateToValueCalculator = onNavigateToValueCalculator,
                         onNavigateToUpdate = onNavigateToUpdate, onNavigateToSettings = onNavigateToSettings,
                         onNavigateToCourseStatistics = onNavigateToCourseStatistics,
-                        onNavigateToAiLab = onNavigateToAiLab
                     )
                 }
             } // end key(tab.index)
@@ -129,7 +127,6 @@ internal fun MainTabPage(
     onNavigateToValueCalculator: () -> Unit,
     onNavigateToUpdate: () -> Unit, onNavigateToSettings: () -> Unit,
     onNavigateToCourseStatistics: () -> Unit,
-    onNavigateToAiLab: () -> Unit = {}
 ) {
     CompositionLocalProvider(LocalMainTabVisible provides isVisible) {
         when (tabIndex) {
@@ -169,7 +166,6 @@ internal fun MainTabPage(
                 onNavigateToCheckin = onNavigateToCheckin,
                 onNavigateToUpdate = onNavigateToUpdate,
                 onNavigateToSettings = onNavigateToSettings,
-                onNavigateToAiLab = onNavigateToAiLab,
                 bottomBarHeight = bottomBarHeight
             )
         }

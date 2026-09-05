@@ -96,9 +96,6 @@ kotlin {
 
             // Cryptography Provider
             implementation(libs.cryptography.provider.jdk)
-
-            // LiteRT-LM（官方推荐的端侧LLM推理框架，替代旧版MediaPipe Tasks GenAI）
-            implementation(libs.litertlm.android)
         }
 
         iosMain.dependencies {

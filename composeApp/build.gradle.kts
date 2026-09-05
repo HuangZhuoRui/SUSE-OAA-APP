@@ -70,7 +70,6 @@ kotlin {
             implementation(project(":feature:checkin"))
             implementation(project(":feature:course"))
             implementation(project(":feature:teachingplan"))
-            implementation(project(":feature:ailab"))
             implementation(project(":feature:home"))
             implementation(project(":feature:grades"))
             implementation(project(":feature:exam"))

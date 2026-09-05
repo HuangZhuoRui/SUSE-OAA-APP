@@ -1,6 +1,5 @@
 package com.suseoaa.projectoaa.shared.di
 
-import com.suseoaa.projectoaa.shared.data.local.store.AiLabStore
 import com.suseoaa.projectoaa.shared.data.local.store.AppSettingsStore
 import com.suseoaa.projectoaa.shared.data.local.store.AppearanceStore
 import com.suseoaa.projectoaa.shared.data.local.store.CredentialStore
@@ -89,7 +88,6 @@ val sharedModule = module {
     single { AppearanceStore(get()) }
     single { SemesterStore(get()) }
     single { AppSettingsStore(get()) }
-    single { AiLabStore(get()) }
     // 网络会话清理由这里接上：datastore 模块本身不认识网络层
     single { UserDataCleaner(get(), get(), get()) { SessionCleaner.clearAllNetworkSessions() } }
 

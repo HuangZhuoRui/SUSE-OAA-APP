@@ -28,10 +28,6 @@ sealed class Screen(val route: String) {
     data object CourseStatistics : Screen("courseStatistics")
     data object Announcement : Screen("announcement")
     
-    // AI Lab 路由
-    data object AiLab : Screen("aiLab")
-    data object AiChat : Screen("aiChat")
-    data object AcademicAnalysis : Screen("academicAnalysis")
     data object ValueCalculator : Screen("value_calculator")
 
     // 签到相关

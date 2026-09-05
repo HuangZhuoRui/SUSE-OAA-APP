@@ -11,7 +11,6 @@ import com.suseoaa.projectoaa.util.CaptchaOcrRecognizer
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import com.suseoaa.projectoaa.util.DeepLinkManager
-import com.suseoaa.projectoaa.util.LiteRtNativePreloader
 import android.content.Intent
 import com.suseoaa.projectoaa.shared.data.local.store.AppSettingsStore
 
@@ -20,7 +19,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        LiteRtNativePreloader.preload(this)
         handleIntent(intent)
 
         val rootBackCallback = object : OnBackPressedCallback(false) {
@@ -47,12 +45,6 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             CaptchaOcrRecognizer.initialize(this@MainActivity)
         }
-
-        // 初始化模型下载器
-        com.suseoaa.projectoaa.util.ModelDownloader.init(this@MainActivity)
-        
-        // 初始化 AI 引擎上下文
-        com.suseoaa.projectoaa.shared.domain.engine.CampusAiEngine.initContext(this@MainActivity)
 
         // 请求通知权限并启动课程提醒服务
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {

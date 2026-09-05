@@ -25,9 +25,6 @@ import com.suseoaa.projectoaa.presentation.teachingplan.CourseInfoViewModel
 import com.suseoaa.projectoaa.presentation.teachingplan.StudyRequirementViewModel
 import com.suseoaa.projectoaa.presentation.update.AppUpdateViewModel
 import com.suseoaa.projectoaa.presentation.usermanagement.UserManagementViewModel
-import com.suseoaa.projectoaa.presentation.ailab.AiLabViewModel
-import com.suseoaa.projectoaa.presentation.ailab.AiChatViewModel
-import com.suseoaa.projectoaa.presentation.ailab.AcademicAnalysisViewModel
 import com.suseoaa.projectoaa.widget.WidgetRefresher
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
@@ -85,7 +82,4 @@ val appModule = module {
     single { com.suseoaa.projectoaa.util.ToastManager }
 
     // AI 实验室（factory：退出页面即释放，防止模型驻留内存）
-    viewModel { AiLabViewModel(get()) }
-    viewModel { AiChatViewModel(get()) }
-    viewModel { AcademicAnalysisViewModel(get(), get()) }
 }
