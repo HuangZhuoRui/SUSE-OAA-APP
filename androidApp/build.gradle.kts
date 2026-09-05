@@ -16,8 +16,8 @@ extensions.configure<ApplicationExtension>("android") {
         applicationId = "com.suseoaa.projectoaa"
         minSdk = 28
         targetSdk = 37
-        versionCode = 202227
-        versionName = "2.22.27"
+        versionCode = 202228
+        versionName = "2.22.28"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {

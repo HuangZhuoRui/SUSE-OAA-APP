@@ -1,5 +1,6 @@
 package com.suseoaa.projectoaa.presentation.course
 
+import com.suseoaa.projectoaa.shared.domain.course.SemesterCalendar
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -77,8 +78,8 @@ fun CourseScreen(
     val isMainTabVisible = LocalMainTabVisible.current
 
     // 动态周次范围
-    val minWeek = if (hasWeekZero) 0 else 1
-    val maxWeek = 25
+    val minWeek = SemesterCalendar.minWeek(hasWeekZero)
+    val maxWeek = SemesterCalendar.MAX_WEEK
     val totalWeeks = maxWeek - minWeek + 1
 
     val scope = rememberCoroutineScope()

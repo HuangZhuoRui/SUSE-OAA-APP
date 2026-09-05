@@ -1,9 +1,15 @@
 package com.suseoaa.projectoaa.composeapp.widget
 
+import com.suseoaa.projectoaa.presentation.course.DailySchedulePost2025
+import com.suseoaa.projectoaa.presentation.course.TimeSlotConfig
+import com.suseoaa.projectoaa.presentation.course.dailyScheduleFor
 import com.suseoaa.projectoaa.shared.data.local.TokenManager
 import com.suseoaa.projectoaa.shared.data.repository.LocalCourseRepository
 import com.suseoaa.projectoaa.shared.data.repository.SchoolInfoRepository
 import com.suseoaa.projectoaa.shared.data.repository.ExamCacheEntity
+import com.suseoaa.projectoaa.shared.domain.course.CourseScheduleParser
+import com.suseoaa.projectoaa.shared.domain.course.SemesterCalendar
+import com.suseoaa.projectoaa.shared.domain.course.PeriodSpan
 import com.suseoaa.projectoaa.shared.domain.model.course.CourseWithTimes
 import com.suseoaa.projectoaa.shared.util.OaaClock
 import com.suseoaa.projectoaa.shared.util.parseExamTimeRange
@@ -18,52 +24,9 @@ import org.koin.core.context.GlobalContext
 
 object WidgetDataFetcher {
 
-    enum class SlotType { CLASS, BREAK_SMALL, BREAK_LUNCH, BREAK_DINNER }
-
-    data class TimeSlotConfig(
-        val sectionName: String,
-        val startTime: String,
-        val endTime: String,
-        val type: SlotType,
-        val weight: Float
-    )
-
-    val DailySchedulePost2025 = listOf(
-        TimeSlotConfig("1", "08:30", "09:15", SlotType.CLASS, 1.0f),
-        TimeSlotConfig("2", "09:20", "10:05", SlotType.CLASS, 1.0f),
-        TimeSlotConfig("3", "10:25", "11:10", SlotType.CLASS, 1.0f),
-        TimeSlotConfig("4", "11:15", "12:00", SlotType.CLASS, 1.0f),
-        TimeSlotConfig("午餐", "12:00", "14:00", SlotType.BREAK_LUNCH, 0.5f),
-        TimeSlotConfig("午休", "", "", SlotType.BREAK_LUNCH, 0.5f),
-        TimeSlotConfig("5", "14:00", "14:45", SlotType.CLASS, 1.0f),
-        TimeSlotConfig("6", "14:50", "15:35", SlotType.CLASS, 1.0f),
-        TimeSlotConfig("7", "15:55", "16:40", SlotType.CLASS, 1.0f),
-        TimeSlotConfig("8", "16:45", "17:30", SlotType.CLASS, 1.0f),
-        TimeSlotConfig("9", "19:00", "19:45", SlotType.CLASS, 1.0f),
-        TimeSlotConfig("10", "19:50", "20:35", SlotType.CLASS, 1.0f),
-        TimeSlotConfig("11", "20:40", "21:25", SlotType.CLASS, 1.0f)
-    )
-
-    val DailySchedulePre2025 = listOf(
-        TimeSlotConfig("1", "08:30", "09:15", SlotType.CLASS, 1.0f),
-        TimeSlotConfig("2", "09:20", "10:05", SlotType.CLASS, 1.0f),
-        TimeSlotConfig("3", "10:25", "11:10", SlotType.CLASS, 1.0f),
-        TimeSlotConfig("4", "11:15", "12:00", SlotType.CLASS, 1.0f),
-        TimeSlotConfig("午餐", "12:00", "14:00", SlotType.BREAK_LUNCH, 0.5f),
-        TimeSlotConfig("午休", "", "", SlotType.BREAK_LUNCH, 0.5f),
-        TimeSlotConfig("5", "14:00", "14:45", SlotType.CLASS, 1.0f),
-        TimeSlotConfig("6", "14:50", "15:35", SlotType.CLASS, 1.0f),
-        TimeSlotConfig("7", "15:55", "16:40", SlotType.CLASS, 1.0f),
-        TimeSlotConfig("8", "16:45", "17:30", SlotType.CLASS, 1.0f),
-        TimeSlotConfig("9", "19:00", "19:45", SlotType.CLASS, 1.0f),
-        TimeSlotConfig("10", "19:50", "20:35", SlotType.CLASS, 1.0f),
-        TimeSlotConfig("11", "20:40", "21:25", SlotType.CLASS, 1.0f),
-        TimeSlotConfig("12", "21:30", "22:15", SlotType.CLASS, 1.0f)
-    )
-
     fun getDailySchedule(): List<TimeSlotConfig> {
         val (year, _) = calculateCurrentRealTerm()
-        return if (year >= "2025") DailySchedulePost2025 else DailySchedulePre2025
+        return dailyScheduleFor(year)
     }
 
     suspend fun getActiveCourses(): List<CourseWithTimes> {
@@ -92,8 +55,7 @@ object WidgetDataFetcher {
             
             val savedDateStr = tokenManager.getSemesterStartDate()
             val hasWeekZero = tokenManager.getSemesterHasWeekZero()
-            val minWeek = if (hasWeekZero) 0 else 1
-            
+
             val startDate = if (savedDateStr != null) {
                 try {
                     LocalDate.parse(savedDateStr)
@@ -103,12 +65,9 @@ object WidgetDataFetcher {
             } else {
                 getCurrentMonday()
             }
-            
+
             val todayDate = OaaClock.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
-            val daysBetween = startDate.daysUntil(todayDate)
-            val weekNum = (daysBetween / 7) + minWeek
-            
-            weekNum.coerceIn(minWeek, 25)
+            SemesterCalendar.currentWeek(startDate, todayDate, hasWeekZero)
         } catch (e: Exception) {
             1
         }
@@ -123,95 +82,14 @@ object WidgetDataFetcher {
         return today.minus(today.dayOfWeek.ordinal, DateTimeUnit.DAY)
     }
 
-    fun isWeekActive(week: Int, weeksStr: String, mask: Long): Boolean {
-        if (weeksStr.isNotBlank()) {
-            return parseWeeksString(weeksStr, week)
-        }
-        if (mask != 0L) {
-            return (mask and (1L shl (week - 1))) != 0L
-        }
-        return true
-    }
+    fun isWeekActive(week: Int, weeksStr: String, mask: Long): Boolean =
+        CourseScheduleParser.isWeekActive(week, weeksStr, mask)
 
-    private fun parseWeeksString(weeksStr: String, targetWeek: Int): Boolean {
-        if (weeksStr.isBlank()) return true
-        val cleanStr = weeksStr
-            .replace("周", "")
-            .replace("(单)", "#ODD#")
-            .replace("（单）", "#ODD#")
-            .replace("(双)", "#EVEN#")
-            .replace("（双）", "#EVEN#")
-            .replace("，", ",")
-            .replace("；", ",")
-            .replace(";", ",")
-            .replace("单", "")
-            .replace("双", "")
-            .replace(" ", "")
+    fun parseWeekday(weekday: String): Int =
+        CourseScheduleParser.parseWeekday(weekday)
 
-        val parts = cleanStr.split(",")
-        val hasSegmentParityTag = parts.any { it.contains("#ODD#") || it.contains("#EVEN#") }
-        val globalOddOnly = !hasSegmentParityTag && weeksStr.contains("单") && !weeksStr.contains("双")
-        val globalEvenOnly = !hasSegmentParityTag && weeksStr.contains("双") && !weeksStr.contains("单")
-
-        for (part in parts) {
-            val isOddOnly = part.contains("#ODD#") || (globalOddOnly && !part.contains("#EVEN#"))
-            val isEvenOnly = part.contains("#EVEN#") || (globalEvenOnly && !part.contains("#ODD#"))
-            val cleanPart = part.replace("#ODD#", "").replace("#EVEN#", "")
-
-            if (cleanPart.contains("-")) {
-                val range = cleanPart.split("-")
-                if (range.size == 2) {
-                    val start = range[0].toIntOrNull() ?: continue
-                    val end = range[1].toIntOrNull() ?: continue
-                    if (targetWeek in start..end) {
-                        val weekMatches = when {
-                            isOddOnly -> targetWeek % 2 == 1
-                            isEvenOnly -> targetWeek % 2 == 0
-                            else -> true
-                        }
-                        if (weekMatches) return true
-                    }
-                }
-            } else {
-                val single = cleanPart.toIntOrNull()
-                if (single == targetWeek) {
-                    val weekMatches = when {
-                        isOddOnly -> targetWeek % 2 == 1
-                        isEvenOnly -> targetWeek % 2 == 0
-                        else -> true
-                    }
-                    if (weekMatches) return true
-                }
-            }
-        }
-        return false
-    }
-
-    fun parseWeekday(weekday: String): Int {
-        return when {
-            weekday.contains("一") || weekday == "1" -> 1
-            weekday.contains("二") || weekday == "2" -> 2
-            weekday.contains("三") || weekday == "3" -> 3
-            weekday.contains("四") || weekday == "4" -> 4
-            weekday.contains("五") || weekday == "5" -> 5
-            weekday.contains("六") || weekday == "6" -> 6
-            weekday.contains("日") || weekday.contains("天") || weekday == "7" -> 7
-            else -> weekday.toIntOrNull() ?: 1
-        }
-    }
-
-    fun parsePeriod(period: String): Pair<Int, Int> {
-        val cleanPeriod = period.replace("节", "").trim()
-        return if (cleanPeriod.contains("-")) {
-            val parts = cleanPeriod.split("-")
-            val start = parts[0].toIntOrNull() ?: 1
-            val end = parts.getOrNull(1)?.toIntOrNull() ?: start
-            start to (end - start + 1)
-        } else {
-            val single = cleanPeriod.toIntOrNull() ?: 1
-            single to 1
-        }
-    }
+    fun parsePeriod(period: String): PeriodSpan =
+        CourseScheduleParser.parsePeriod(period)
 
     suspend fun getNextCourse(): Pair<CourseWithTimes, TimeSlotConfig>? {
         val courses = getActiveCourses()

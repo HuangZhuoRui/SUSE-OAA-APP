@@ -10,13 +10,15 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import com.suseoaa.projectoaa.presentation.course.DailySchedulePost2025
-import com.suseoaa.projectoaa.presentation.course.DailySchedulePre2025
+import com.suseoaa.projectoaa.presentation.course.dailyScheduleFor
 import com.suseoaa.projectoaa.presentation.course.SlotType
 import com.suseoaa.projectoaa.presentation.course.TimeSlotConfig
 import com.suseoaa.projectoaa.presentation.checkin.ScheduledCheckinManager
 import com.suseoaa.projectoaa.shared.data.local.TokenManager
 import com.suseoaa.projectoaa.shared.data.repository.LocalCourseRepository
+import com.suseoaa.projectoaa.shared.domain.course.CourseScheduleParser
+import com.suseoaa.projectoaa.shared.domain.course.SemesterCalendar
+import com.suseoaa.projectoaa.shared.domain.course.PeriodSpan
 import com.suseoaa.projectoaa.shared.domain.model.course.ClassTimeEntity
 import com.suseoaa.projectoaa.shared.util.OaaClock
 import kotlinx.coroutines.CoroutineScope
@@ -156,88 +158,16 @@ class CourseReminderService : Service(), KoinComponent {
         return com.suseoaa.projectoaa.shared.util.getCurrentTerm()
     }
 
-    private fun getDailySchedule(year: String): List<TimeSlotConfig> {
-        return if (year >= "2025") DailySchedulePost2025 else DailySchedulePre2025
-    }
+    private fun getDailySchedule(year: String): List<TimeSlotConfig> = dailyScheduleFor(year)
 
-    private fun parsePeriod(period: String): Pair<Int, Int> {
-        val parts = period.split("-")
-        val start = parts.firstOrNull()?.toIntOrNull() ?: 1
-        val end = parts.lastOrNull()?.toIntOrNull() ?: start
-        val span = end - start + 1
-        return Pair(start, span)
-    }
+    private fun parsePeriod(period: String): PeriodSpan =
+        CourseScheduleParser.parsePeriod(period)
 
-    private fun parseWeekday(weekday: String): Int {
-        return when (weekday) {
-            "1", "一" -> 1
-            "2", "二" -> 2
-            "3", "三" -> 3
-            "4", "四" -> 4
-            "5", "五" -> 5
-            "6", "六" -> 6
-            "7", "日" -> 7
-            else -> 1
-        }
-    }
+    private fun parseWeekday(weekday: String): Int =
+        CourseScheduleParser.parseWeekday(weekday)
 
-    private fun isWeekActive(week: Int, weeksStr: String, mask: Long): Boolean {
-        if (weeksStr.isNotBlank()) {
-            return parseWeeksString(weeksStr, week)
-        }
-        if (mask != 0L) {
-            return (mask and (1L shl (week - 1))) != 0L
-        }
-        return true
-    }
-
-    private fun parseWeeksString(weeksStr: String, targetWeek: Int): Boolean {
-        if (weeksStr.isBlank()) return true
-        val cleanStr = weeksStr
-            .replace("周", "")
-            .replace("(单)", "#ODD#").replace("（单）", "#ODD#")
-            .replace("(双)", "#EVEN#").replace("（双）", "#EVEN#")
-            .replace("，", ",").replace("；", ",").replace(";", ",")
-            .replace("单", "").replace("双", "").replace(" ", "")
-
-        val parts = cleanStr.split(",")
-        val hasSegmentParityTag = parts.any { it.contains("#ODD#") || it.contains("#EVEN#") }
-        val globalOddOnly = !hasSegmentParityTag && weeksStr.contains("单") && !weeksStr.contains("双")
-        val globalEvenOnly = !hasSegmentParityTag && weeksStr.contains("双") && !weeksStr.contains("单")
-
-        for (part in parts) {
-            val isOddOnly = part.contains("#ODD#") || (globalOddOnly && !part.contains("#EVEN#"))
-            val isEvenOnly = part.contains("#EVEN#") || (globalEvenOnly && !part.contains("#ODD#"))
-            val cleanPart = part.replace("#ODD#", "").replace("#EVEN#", "")
-
-            if (cleanPart.contains("-")) {
-                val range = cleanPart.split("-")
-                if (range.size == 2) {
-                    val start = range[0].toIntOrNull() ?: continue
-                    val end = range[1].toIntOrNull() ?: continue
-                    if (targetWeek in start..end) {
-                        val weekMatches = when {
-                            isOddOnly -> targetWeek % 2 == 1
-                            isEvenOnly -> targetWeek % 2 == 0
-                            else -> true
-                        }
-                        if (weekMatches) return true
-                    }
-                }
-            } else {
-                val single = cleanPart.toIntOrNull()
-                if (single == targetWeek) {
-                    val weekMatches = when {
-                        isOddOnly -> targetWeek % 2 == 1
-                        isEvenOnly -> targetWeek % 2 == 0
-                        else -> true
-                    }
-                    if (weekMatches) return true
-                }
-            }
-        }
-        return false
-    }
+    private fun isWeekActive(week: Int, weeksStr: String, mask: Long): Boolean =
+        CourseScheduleParser.isWeekActive(week, weeksStr, mask)
 
     private suspend fun checkAndNotify() {
         val studentId = tokenManager.currentStudentId.firstOrNull() ?: return
@@ -254,9 +184,7 @@ class CourseReminderService : Service(), KoinComponent {
         val todayDate = now.date
         val currentTime = now.time
 
-        val daysBetween = startDate.daysUntil(todayDate)
-        val minWeek = if (hasWeekZero) 0 else 1
-        val currentWeek = (daysBetween / 7) + minWeek
+        val currentWeek = SemesterCalendar.currentWeek(startDate, todayDate, hasWeekZero)
         val currentDayOfWeek = todayDate.dayOfWeek.ordinal + 1
 
         val (xnm, xqm) = getCurrentTerm()

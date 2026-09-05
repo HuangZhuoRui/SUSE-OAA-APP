@@ -5,6 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.suseoaa.projectoaa.shared.data.local.BackgroundPageIds
 import com.suseoaa.projectoaa.shared.data.local.TokenManager
+import com.suseoaa.projectoaa.shared.domain.course.CourseScheduleParser
+import com.suseoaa.projectoaa.shared.domain.course.SemesterCalendar
+import com.suseoaa.projectoaa.shared.domain.course.PeriodSpan
 import com.suseoaa.projectoaa.shared.domain.model.course.ClassTimeEntity
 import com.suseoaa.projectoaa.shared.domain.model.course.CourseAccountEntity
 import com.suseoaa.projectoaa.shared.domain.model.course.CourseWithTimes
@@ -28,20 +31,6 @@ data class TermOption(
     val xqm: String,      // 学期码: "3" = 第一学期, "12" = 第二学期
     val label: String     // 显示标签
 )
-
-/**
- * 时间段配置
- */
-@Immutable
-data class TimeSlotConfig(
-    val sectionName: String,
-    val startTime: String,
-    val endTime: String,
-    val type: SlotType,
-    val weight: Float
-)
-
-enum class SlotType { CLASS, BREAK_SMALL, BREAK_LUNCH, BREAK_DINNER }
 
 /**
  * 布局计算结果
@@ -91,47 +80,6 @@ data class CourseListUiState(
     val successMessage: String? = null,
     val errorMessage: String? = null,
     val statusMessage: String? = null
-)
-
-/**
- * 2025年后的课程时间表
- * 1-4节、5-8节、9-11节各为一个连续块，中间只有午休间隔
- */
-val DailySchedulePost2025 = listOf(
-    TimeSlotConfig("1", "08:30", "09:15", SlotType.CLASS, 1.0f),
-    TimeSlotConfig("2", "09:20", "10:05", SlotType.CLASS, 1.0f),
-    TimeSlotConfig("3", "10:25", "11:10", SlotType.CLASS, 1.0f),
-    TimeSlotConfig("4", "11:15", "12:00", SlotType.CLASS, 1.0f),
-    TimeSlotConfig("午餐", "12:00", "14:00", SlotType.BREAK_LUNCH, 0.5f),
-    TimeSlotConfig("午休", "", "", SlotType.BREAK_LUNCH, 0.5f),
-    TimeSlotConfig("5", "14:00", "14:45", SlotType.CLASS, 1.0f),
-    TimeSlotConfig("6", "14:50", "15:35", SlotType.CLASS, 1.0f),
-    TimeSlotConfig("7", "15:55", "16:40", SlotType.CLASS, 1.0f),
-    TimeSlotConfig("8", "16:45", "17:30", SlotType.CLASS, 1.0f),
-    TimeSlotConfig("9", "19:00", "19:45", SlotType.CLASS, 1.0f),
-    TimeSlotConfig("10", "19:50", "20:35", SlotType.CLASS, 1.0f),
-    TimeSlotConfig("11", "20:40", "21:25", SlotType.CLASS, 1.0f)
-)
-
-/**
- * 2025年之前的课程时间表（12节课）
- * 1-4节、5-8节、9-12节各为一个连续块，中间只有午休间隔
- */
-val DailySchedulePre2025 = listOf(
-    TimeSlotConfig("1", "08:30", "09:15", SlotType.CLASS, 1.0f),
-    TimeSlotConfig("2", "09:20", "10:05", SlotType.CLASS, 1.0f),
-    TimeSlotConfig("3", "10:25", "11:10", SlotType.CLASS, 1.0f),
-    TimeSlotConfig("4", "11:15", "12:00", SlotType.CLASS, 1.0f),
-    TimeSlotConfig("午餐", "12:00", "14:00", SlotType.BREAK_LUNCH, 0.5f),
-    TimeSlotConfig("午休", "", "", SlotType.BREAK_LUNCH, 0.5f),
-    TimeSlotConfig("5", "14:00", "14:45", SlotType.CLASS, 1.0f),
-    TimeSlotConfig("6", "14:50", "15:35", SlotType.CLASS, 1.0f),
-    TimeSlotConfig("7", "15:55", "16:40", SlotType.CLASS, 1.0f),
-    TimeSlotConfig("8", "16:45", "17:30", SlotType.CLASS, 1.0f),
-    TimeSlotConfig("9", "19:00", "19:45", SlotType.CLASS, 1.0f),
-    TimeSlotConfig("10", "19:50", "20:35", SlotType.CLASS, 1.0f),
-    TimeSlotConfig("11", "20:40", "21:25", SlotType.CLASS, 1.0f),
-    TimeSlotConfig("12", "21:30", "22:15", SlotType.CLASS, 1.0f)
 )
 
 class CourseViewModel(
@@ -193,10 +141,10 @@ class CourseViewModel(
     val hasWeekZero: StateFlow<Boolean> = _hasWeekZero.asStateFlow()
 
     /** 最小周次：有第0周时为0，否则为1 */
-    val minWeek: Int get() = if (_hasWeekZero.value) 0 else 1
+    val minWeek: Int get() = SemesterCalendar.minWeek(_hasWeekZero.value)
 
     /** 最大周次 */
-    val maxWeek: Int get() = if (_hasWeekZero.value) 25 else 25
+    val maxWeek: Int get() = SemesterCalendar.MAX_WEEK
 
     /** 总周数 */
     val totalWeeks: Int get() = maxWeek - minWeek + 1
@@ -289,7 +237,7 @@ class CourseViewModel(
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
 
     val dailySchedule: StateFlow<List<TimeSlotConfig>> = selectedXnm
-        .map { getDailySchedule(it) }
+        .map { dailyScheduleFor(it) }
         .stateIn(viewModelScope, SharingStarted.Lazily, DailySchedulePost2025)
 
     // 预计算每周的布局数据，供 Pager 使用
@@ -419,11 +367,11 @@ class CourseViewModel(
     }
 
     private fun updateRealCurrentWeek() {
-        val start = _semesterStartDate.value
-        val todayDate = today()
-        val daysBetween = start.daysUntil(todayDate)
-        val weekNum = (daysBetween / 7) + minWeek
-        _realCurrentWeek.value = weekNum.coerceIn(minWeek, maxWeek)
+        _realCurrentWeek.value = SemesterCalendar.currentWeek(
+            semesterStart = _semesterStartDate.value,
+            today = today(),
+            hasWeekZero = _hasWeekZero.value
+        )
         _currentDisplayWeek.value = _realCurrentWeek.value
     }
 
@@ -654,10 +602,6 @@ class CourseViewModel(
 
     // ==================== 私有方法 ====================
 
-    private fun getDailySchedule(year: String): List<TimeSlotConfig> {
-        return if (year >= "2025") DailySchedulePost2025 else DailySchedulePre2025
-    }
-
     private fun calculateCoursesForWeek(
         week: Int,
         courses: List<CourseWithTimes>
@@ -669,82 +613,8 @@ class CourseViewModel(
         }
     }
 
-    private fun isWeekActive(week: Int, weeksStr: String, mask: Long): Boolean {
-        // 优先按原始周次字符串解析，避免掩码在“单双周 + 普通周次”混合场景下误判
-        if (weeksStr.isNotBlank()) {
-            return parseWeeksString(weeksStr, week)
-        }
-        // 周次字符串为空时再使用掩码
-        if (mask != 0L) {
-            return (mask and (1L shl (week - 1))) != 0L
-        }
-        return true
-    }
-
-    /**
-     * 解析周次字符串，如 "1-16周", "1,3,5周", "1-8,10-16周", "1-16周(单)", "2-16周(双)"
-     */
-    private fun parseWeeksString(weeksStr: String, targetWeek: Int): Boolean {
-        if (weeksStr.isBlank()) return true
-
-        // 清理字符串
-        val cleanStr = weeksStr
-            .replace("周", "")
-            .replace("(单)", "#ODD#")
-            .replace("（单）", "#ODD#")
-            .replace("(双)", "#EVEN#")
-            .replace("（双）", "#EVEN#")
-            .replace("，", ",")
-            .replace("；", ",")
-            .replace(";", ",")
-            .replace("单", "")
-            .replace("双", "")
-            .replace(" ", "")
-
-        val parts = cleanStr.split(",")
-        val hasSegmentParityTag = parts.any { it.contains("#ODD#") || it.contains("#EVEN#") }
-        // 仅当所有分段都没有显式单双周标记时，才使用全局单双周兜底
-        val globalOddOnly =
-            !hasSegmentParityTag && weeksStr.contains("单") && !weeksStr.contains("双")
-        val globalEvenOnly =
-            !hasSegmentParityTag && weeksStr.contains("双") && !weeksStr.contains("单")
-
-        for (part in parts) {
-            // 检查此部分是否有单双周标记
-            val isOddOnly = part.contains("#ODD#") || (globalOddOnly && !part.contains("#EVEN#"))
-            val isEvenOnly = part.contains("#EVEN#") || (globalEvenOnly && !part.contains("#ODD#"))
-
-            val cleanPart = part.replace("#ODD#", "").replace("#EVEN#", "")
-
-            if (cleanPart.contains("-")) {
-                val range = cleanPart.split("-")
-                if (range.size == 2) {
-                    val start = range[0].toIntOrNull() ?: continue
-                    val end = range[1].toIntOrNull() ?: continue
-                    if (targetWeek in start..end) {
-                        // 检查单双周是否匹配
-                        val weekMatches = when {
-                            isOddOnly -> targetWeek % 2 == 1
-                            isEvenOnly -> targetWeek % 2 == 0
-                            else -> true
-                        }
-                        if (weekMatches) return true
-                    }
-                }
-            } else {
-                val single = cleanPart.toIntOrNull()
-                if (single == targetWeek) {
-                    val weekMatches = when {
-                        isOddOnly -> targetWeek % 2 == 1
-                        isEvenOnly -> targetWeek % 2 == 0
-                        else -> true
-                    }
-                    if (weekMatches) return true
-                }
-            }
-        }
-        return false
-    }
+    private fun isWeekActive(week: Int, weeksStr: String, mask: Long): Boolean =
+        CourseScheduleParser.isWeekActive(week, weeksStr, mask)
 
     /**
      * 布局计算：将课程映射到时间网格
@@ -940,38 +810,11 @@ class CourseViewModel(
         )
     }
 
-    /**
-     * 解析星期字符串
-     */
-    private fun parseWeekday(weekday: String): Int {
-        return when {
-            weekday.contains("一") || weekday == "1" -> 1
-            weekday.contains("二") || weekday == "2" -> 2
-            weekday.contains("三") || weekday == "3" -> 3
-            weekday.contains("四") || weekday == "4" -> 4
-            weekday.contains("五") || weekday == "5" -> 5
-            weekday.contains("六") || weekday == "6" -> 6
-            weekday.contains("日") || weekday.contains("天") || weekday == "7" -> 7
-            else -> weekday.toIntOrNull() ?: 1
-        }
-    }
+    private fun parseWeekday(weekday: String): Int =
+        CourseScheduleParser.parseWeekday(weekday)
 
-    /**
-     * 解析节次字符串，如 "1-2", "3-4节"
-     * @return Pair(起始节, 跨度)
-     */
-    private fun parsePeriod(period: String): Pair<Int, Int> {
-        val cleanPeriod = period.replace("节", "").trim()
-        return if (cleanPeriod.contains("-")) {
-            val parts = cleanPeriod.split("-")
-            val start = parts[0].toIntOrNull() ?: 1
-            val end = parts.getOrNull(1)?.toIntOrNull() ?: start
-            start to (end - start + 1)
-        } else {
-            val single = cleanPeriod.toIntOrNull() ?: 1
-            single to 1
-        }
-    }
+    private fun parsePeriod(period: String): PeriodSpan =
+        CourseScheduleParser.parsePeriod(period)
 
     private fun generateTermOptions(njdmId: String) {
         val currentYear = com.suseoaa.projectoaa.shared.util.OaaClock.now()

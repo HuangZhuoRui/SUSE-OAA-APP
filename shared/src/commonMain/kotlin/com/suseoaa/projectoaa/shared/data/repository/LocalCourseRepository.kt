@@ -2,6 +2,7 @@ package com.suseoaa.projectoaa.shared.data.repository
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
+import com.suseoaa.projectoaa.shared.domain.course.CourseScheduleParser
 import com.suseoaa.projectoaa.shared.domain.model.course.*
 import com.suseoaa.projectoaa.shared.domain.model.school.CourseResponseJson
 import com.suseoaa.projectoaa.shared.database.CourseDatabase
@@ -319,7 +320,7 @@ class LocalCourseRepository(private val database: CourseDatabase) {
                     weekday = item.xqj ?: "1",
                     period = item.jcs ?: "",
                     weeks = item.zcd ?: "",
-                    weeksMask = parseWeeksToMask(item.zcd ?: ""),
+                    weeksMask = CourseScheduleParser.weeksToMask(item.zcd ?: ""),
                     location = item.cdmc ?: "",
                     teacher = item.xm ?: "",
                     classGroup = item.jxbzc ?: ""  // jxbzc 是上课班级
@@ -329,65 +330,6 @@ class LocalCourseRepository(private val database: CourseDatabase) {
 
         updateTermCourses(studentId, xnm, xqm, courseEntities, timeEntities)
         println("[LocalCourse] Saved ${courseEntities.size} courses and ${timeEntities.size} time slots")
-    }
-
-    private fun parseWeeksToMask(weeksStr: String): Long {
-        var mask = 0L
-        try {
-            // 先检测整个字符串是否包含单双周标记
-            val globalOddOnly = weeksStr.contains("单") && !weeksStr.contains("双")
-            val globalEvenOnly = weeksStr.contains("双") && !weeksStr.contains("单")
-
-            // 清理字符串：移除"周"，用特殊标记保留单双周信息
-            val cleanedStr = weeksStr
-                .replace("周", "")
-                .replace("(单)", "#ODD#")  // 用特殊标记保留单双周信息
-                .replace("（单）", "#ODD#")
-                .replace("(双)", "#EVEN#")
-                .replace("（双）", "#EVEN#")
-                .replace("单", "")  // 移除单独的"单"字（如"单周"的"单"）
-                .replace("双", "")  // 移除单独的"双"字
-                .replace(" ", "")
-
-            val parts = cleanedStr.split(",")
-            for (part in parts) {
-                // 检查此部分是否有单双周标记
-                val isOddOnly =
-                    part.contains("#ODD#") || (globalOddOnly && !part.contains("#EVEN#"))
-                val isEvenOnly =
-                    part.contains("#EVEN#") || (globalEvenOnly && !part.contains("#ODD#"))
-
-                val cleanPart = part.replace("#ODD#", "").replace("#EVEN#", "")
-
-                if (cleanPart.contains("-")) {
-                    val rangeParts = cleanPart.split("-")
-                    val start = rangeParts[0].toIntOrNull() ?: continue
-                    val end = rangeParts[1].toIntOrNull() ?: continue
-
-                    for (week in start..end) {
-                        if (week in 1..60) {
-                            // 检查单双周过滤
-                            val shouldInclude = when {
-                                isOddOnly -> week % 2 == 1   // 单周：奇数周
-                                isEvenOnly -> week % 2 == 0  // 双周：偶数周
-                                else -> true                  // 默认：所有周
-                            }
-                            if (shouldInclude) {
-                                mask = mask or (1L shl (week - 1))
-                            }
-                        }
-                    }
-                } else {
-                    val week = cleanPart.toIntOrNull()
-                    if (week != null && week in 1..60) {
-                        mask = mask or (1L shl (week - 1))
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            println("[LocalCourse] Error parsing weeks: ${e.message}")
-        }
-        return mask
     }
 
     // ===== 扩展函数: SQLDelight生成类 -> 数据实体 =====
@@ -475,7 +417,7 @@ class LocalCourseRepository(private val database: CourseDatabase) {
             weekday = dayOfWeek.toString(),
             period = "$startNode-${startNode + duration - 1}",
             weeks = weeks,
-            weeksMask = parseWeeksToMask(weeks),
+            weeksMask = CourseScheduleParser.weeksToMask(weeks),
             location = location,
             teacher = teacher,
             duration = duration.toString(),
