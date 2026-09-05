@@ -33,9 +33,11 @@ jobs:
       - name: Architecture rules
         run: ./gradlew --no-daemon checkArchitecture
 
+      # 不写死模块名：testAndroidHostTest 会在所有声明了该任务的模块上执行，
+      # 新增 feature 模块时不用再改 CI
       - name: Unit tests
-        run: ./gradlew --no-daemon :shared:testAndroidHostTest :composeApp:testAndroidHostTest
+        run: ./gradlew --no-daemon testAndroidHostTest
 
       # 只编译不打包：assembleDebug 需要 NDK，日常检查用不上
       - name: Compile
-        run: ./gradlew --no-daemon :composeApp:compileAndroidMain :shared:compileAndroidMain
+        run: ./gradlew --no-daemon :composeApp:compileAndroidMain

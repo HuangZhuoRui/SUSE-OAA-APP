@@ -56,6 +56,25 @@ kotlin {
             implementation(libs.haze.materials)
             // Shared模块
             api(project(":shared"))
+            // 主题、通用组件与液态玻璃渲染
+            api(project(":core:designsystem"))
+            // 平台能力：OCR、下载、权限、Toast、设备信息
+            api(project(":core:platform"))
+            api(project(":core:navigation"))
+            // 业务功能模块
+            implementation(project(":feature:recruitment"))
+            implementation(project(":feature:person"))
+            implementation(project(":feature:academic"))
+            implementation(project(":feature:account"))
+            implementation(project(":feature:update"))
+            implementation(project(":feature:checkin"))
+            implementation(project(":feature:course"))
+            implementation(project(":feature:teachingplan"))
+            implementation(project(":feature:ailab"))
+            implementation(project(":feature:home"))
+            implementation(project(":feature:grades"))
+            implementation(project(":feature:exam"))
+            implementation(project(":feature:gpa"))
 
             // Compose Multiplatform
             implementation(compose.runtime)

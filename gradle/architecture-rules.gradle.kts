@@ -96,15 +96,33 @@ tasks.register("checkArchitecture") {
                 }
             }
         }
+        // 文件规模上限。本轮重构把最大文件从 2476 行压到 900 行以内；没有这道闸，
+        // 大文件会慢慢长回来——它们正是当初"改一处要通读两千行"的根源。
+        // 超限不是让人硬塞，而是提示该按职责拆文件了。
+        val maxLines = 900
+        sourceDirs.forEach { dir ->
+            dir.walkTopDown().filter { it.isFile && it.extension == "kt" }.forEach { file ->
+                val count = file.readLines().size
+                if (count > maxLines) {
+                    violations += "  ${file.absolutePath.removePrefix(rootPath).removePrefix("/")}:1\n" +
+                        "      违反规则「单文件行数上限」\n" +
+                        "      $count 行，超过上限 $maxLines 行"
+                }
+            }
+        }
+
         if (violations.isNotEmpty()) {
             val byRule = rules.filter { r ->
                 violations.any { it.contains("「${r.name}」") }
-            }.joinToString("\n\n") { "「${it.name}」\n  ${it.reason}" }
+            }.joinToString("\n\n") { "「${it.name}」\n  ${it.reason}" } +
+                if (violations.any { it.contains("「单文件行数上限」") })
+                    "\n\n「单文件行数上限」\n  单个 Kotlin 文件不超过 900 行；超了说明该按职责拆分了。"
+                else ""
             throw GradleException(
                 "架构检查未通过，共 ${violations.size} 处违规：\n\n" +
                     violations.joinToString("\n") + "\n\n涉及的规则：\n\n" + byRule
             )
         }
-        logger.lifecycle("架构检查通过：${rules.size} 条规则，${sourceDirs.size} 个模块。")
+        logger.lifecycle("架构检查通过：${rules.size} 条分层规则 + 单文件行数上限，${sourceDirs.size} 个模块。")
     }
 }

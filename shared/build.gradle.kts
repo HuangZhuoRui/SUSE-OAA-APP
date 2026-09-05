@@ -4,7 +4,6 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.kmp.library)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.sqldelight)
 }
 
 kotlin {
@@ -46,6 +45,12 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            // 基础工具与错误模型；用 api 暴露，让上层模块透传拿到
+            api(project(":core:common"))
+            api(project(":core:datastore"))
+            api(project(":core:database"))
+            api(project(":core:network"))
+
             // Coroutines
             api(libs.kotlinx.coroutines.core)
 
@@ -62,10 +67,6 @@ kotlin {
             implementation(libs.ktor.client.logging)
             implementation(libs.ktor.client.auth)
             implementation(libs.ktor.network)
-
-            // SQLDelight
-            api(libs.sqldelight.runtime)
-            api(libs.sqldelight.coroutines)
 
             // Koin DI
             implementation(libs.koin.core)
@@ -87,9 +88,6 @@ kotlin {
             // Ktor Android Engine
             implementation(libs.ktor.client.okhttp)
 
-            // SQLDelight Android Driver
-            implementation(libs.sqldelight.android.driver)
-
             // Coroutines Android
             implementation(libs.kotlinx.coroutines.android)
 
@@ -107,9 +105,6 @@ kotlin {
             // Ktor iOS Engine
             implementation(libs.ktor.client.darwin)
 
-            // SQLDelight iOS Driver
-            implementation(libs.sqldelight.native.driver)
-
             // Cryptography Provider
             implementation(libs.cryptography.provider.apple)
         }
@@ -120,11 +115,3 @@ kotlin {
     }
 }
 
-
-sqldelight {
-    databases {
-        create("CourseDatabase") {
-            packageName.set("com.suseoaa.projectoaa.shared.database")
-        }
-    }
-}

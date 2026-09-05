@@ -65,6 +65,7 @@ import com.suseoaa.projectoaa.shared.data.repository.SchoolInfoRepositoryImpl
 import com.suseoaa.projectoaa.shared.data.repository.TeachingPlanRepositoryImpl
 import com.suseoaa.projectoaa.shared.data.repository.ValueCalculatorRepositoryImpl
 import com.suseoaa.projectoaa.shared.domain.repository.NearFieldCheckinRepository
+import com.suseoaa.projectoaa.shared.data.remote.network.SessionCleaner
 
 /**
  * 共享模块 - 所有数据层的 DI 注册
@@ -89,7 +90,8 @@ val sharedModule = module {
     single { SemesterStore(get()) }
     single { AppSettingsStore(get()) }
     single { AiLabStore(get()) }
-    single { UserDataCleaner(get(), get(), get()) }
+    // 网络会话清理由这里接上：datastore 模块本身不认识网络层
+    single { UserDataCleaner(get(), get(), get()) { SessionCleaner.clearAllNetworkSessions() } }
 
     // 课程数据库
     single { CourseDatabase(get<CourseDatabaseDriverFactory>().createDriver()) }
