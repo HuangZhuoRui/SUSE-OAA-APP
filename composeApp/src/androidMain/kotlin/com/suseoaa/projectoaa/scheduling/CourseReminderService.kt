@@ -10,12 +10,11 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import com.suseoaa.projectoaa.presentation.course.dailyScheduleFor
-import com.suseoaa.projectoaa.presentation.course.SlotType
-import com.suseoaa.projectoaa.presentation.course.TimeSlotConfig
-import com.suseoaa.projectoaa.presentation.checkin.ScheduledCheckinManager
-import com.suseoaa.projectoaa.shared.data.local.TokenManager
-import com.suseoaa.projectoaa.shared.data.repository.LocalCourseRepository
+import com.suseoaa.projectoaa.domain.course.dailyScheduleFor
+import com.suseoaa.projectoaa.domain.course.SlotType
+import com.suseoaa.projectoaa.domain.course.TimeSlotConfig
+import com.suseoaa.projectoaa.domain.checkin.ScheduledCheckinManager
+import com.suseoaa.projectoaa.shared.domain.repository.LocalCourseRepository
 import com.suseoaa.projectoaa.shared.domain.course.CourseScheduleParser
 import com.suseoaa.projectoaa.shared.domain.course.SemesterCalendar
 import com.suseoaa.projectoaa.shared.domain.course.PeriodSpan
@@ -36,11 +35,15 @@ import kotlinx.datetime.toLocalDateTime
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.time.Duration.Companion.minutes
+import com.suseoaa.projectoaa.shared.util.AppLog
+import com.suseoaa.projectoaa.shared.data.local.store.SemesterStore
+import com.suseoaa.projectoaa.shared.data.local.store.SessionStore
 
 class CourseReminderService : Service(), KoinComponent {
 
     private val localCourseRepository: LocalCourseRepository by inject()
-    private val tokenManager: TokenManager by inject()
+    private val semesterStore: SemesterStore by inject()
+    private val sessionStore: SessionStore by inject()
     private val scheduledCheckinManager: ScheduledCheckinManager by inject()
 
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -170,9 +173,9 @@ class CourseReminderService : Service(), KoinComponent {
         CourseScheduleParser.isWeekActive(week, weeksStr, mask)
 
     private suspend fun checkAndNotify() {
-        val studentId = tokenManager.currentStudentId.firstOrNull() ?: return
-        val savedDateStr = tokenManager.getSemesterStartDate() ?: return
-        val hasWeekZero = tokenManager.getSemesterHasWeekZero()
+        val studentId = sessionStore.currentStudentId.firstOrNull() ?: return
+        val savedDateStr = semesterStore.getSemesterStartDate() ?: return
+        val hasWeekZero = semesterStore.getSemesterHasWeekZero()
         
         val startDate = try {
             LocalDate.parse(savedDateStr)
@@ -268,7 +271,7 @@ class CourseReminderService : Service(), KoinComponent {
                         val triggerKey = "${nowTime.date}_${config.scheduledHour}_${config.scheduledMinute}"
                         if (lastAuxTriggerKey != triggerKey) {
                             lastAuxTriggerKey = triggerKey
-                            println("[CourseReminderService] 保活服务检测到签到时间，主动拉起 CheckinAlarmReceiver")
+                            AppLog.d("[CourseReminderService] 保活服务检测到签到时间，主动拉起 CheckinAlarmReceiver")
                             val intent = Intent(this, CheckinAlarmReceiver::class.java)
                             intent.action = "com.suseoaa.projectoaa.CHECKIN_ALARM"
                             sendBroadcast(intent)
@@ -277,7 +280,7 @@ class CourseReminderService : Service(), KoinComponent {
                 }
             }
         } catch (e: Exception) {
-            println("[CourseReminderService] 辅助触发签到异常: ${e.message}")
+            AppLog.e("[CourseReminderService] 辅助触发签到异常: ${e.message}")
         }
     }
 }

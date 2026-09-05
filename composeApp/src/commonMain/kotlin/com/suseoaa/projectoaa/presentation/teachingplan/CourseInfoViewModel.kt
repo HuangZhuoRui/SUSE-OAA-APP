@@ -2,21 +2,52 @@ package com.suseoaa.projectoaa.presentation.teachingplan
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.suseoaa.projectoaa.shared.data.local.TokenManager
 import com.suseoaa.projectoaa.shared.domain.model.teachingplan.*
-import com.suseoaa.projectoaa.shared.data.repository.LocalCourseRepository
-import com.suseoaa.projectoaa.shared.data.repository.TeachingPlanRepository
-import com.suseoaa.projectoaa.shared.data.repository.SchoolAuthRepository
+import com.suseoaa.projectoaa.shared.domain.repository.LocalCourseRepository
+import com.suseoaa.projectoaa.shared.domain.repository.TeachingPlanRepository
+import com.suseoaa.projectoaa.shared.domain.repository.SchoolAuthRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import com.suseoaa.projectoaa.shared.data.local.store.SessionStore
+
+/**
+ * 以下 UI 状态原本定义在 shared 的 domain/model 里，属于 UI 层反向下沉到领域层。
+ * 它们只被本模块的 ViewModel 与 Screen 使用，现归位到 presentation 层。
+ */
+data class CourseInfoUiState(
+    val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
+    val courses: List<CourseInfoItem> = emptyList(),
+    val filteredCourses: List<CourseInfoItem> = emptyList(),
+    val planId: String = "",
+    val totalCount: Int = 0,
+    val errorMessage: String? = null,
+    val colleges: List<CollegeOption> = emptyList(),
+    val majors: List<MajorOption> = emptyList(),
+    val grades: List<String> = emptyList(),
+    val selectedCollegeId: String = "",
+    val selectedMajorId: String = "",
+    val selectedGrade: String = "",
+    val isLoadingColleges: Boolean = false,
+    val isLoadingMajors: Boolean = false,
+    val isLoadingPlan: Boolean = false,
+    val planInfo: TeachingPlanInfo? = null,
+    val selectedYear: String = "",
+    val selectedSemester: String = "",
+    val searchKeyword: String = "",
+    val selectedCourseType: String = "",
+    val isFilterExpanded: Boolean = true,
+    val isQueryMode: Boolean = false
+)
+
 
 /**
  * 课程信息查询 ViewModel
  * 支持查询任意学院、专业、年级的课程信息
  */
 class CourseInfoViewModel(
-    private val tokenManager: TokenManager,
+    private val sessionStore: SessionStore,
     private val localCourseRepository: LocalCourseRepository,
     private val teachingPlanRepository: TeachingPlanRepository,
     private val authRepository: SchoolAuthRepository
@@ -27,7 +58,7 @@ class CourseInfoViewModel(
 
     // 当前账户信息
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val currentAccount = tokenManager.currentStudentId
+    private val currentAccount = sessionStore.currentStudentId
         .filterNotNull()
         .flatMapLatest { id -> flow { emit(localCourseRepository.getAccountById(id)) } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)

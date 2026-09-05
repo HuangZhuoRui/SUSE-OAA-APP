@@ -1,7 +1,6 @@
 package com.suseoaa.projectoaa.ui.screen.checkin
 
 import androidx.compose.runtime.Composable
-import com.suseoaa.projectoaa.presentation.checkin.QrCodeLoginDialog
 
 /**
  * Android 平台的 WebView 扫码登录对话框实现

@@ -40,6 +40,7 @@ import com.suseoaa.projectoaa.ui.component.getListColumns
 import com.suseoaa.projectoaa.ui.theme.AppDimensions
 import com.suseoaa.projectoaa.util.ToastManager
 import org.koin.compose.viewmodel.koinViewModel
+import com.suseoaa.projectoaa.presentation.teachingplan.CourseInfoUiState
 
 /**
  * 课程信息查询界面
@@ -116,7 +117,7 @@ fun CourseInfoScreen(
  */
 @Composable
 private fun CourseInfoTabletLayout(
-    uiState: com.suseoaa.projectoaa.shared.domain.model.teachingplan.CourseInfoUiState,
+    uiState: CourseInfoUiState,
     selectedCollegeObj: CollegeOption?,
     selectedMajorObj: MajorOption?,
     availableYears: List<String>,
@@ -175,7 +176,7 @@ private fun CourseInfoTabletLayout(
  */
 @Composable
 private fun CourseInfoCompactLayout(
-    uiState: com.suseoaa.projectoaa.shared.domain.model.teachingplan.CourseInfoUiState,
+    uiState: CourseInfoUiState,
     selectedCollegeObj: CollegeOption?,
     selectedMajorObj: MajorOption?,
     availableYears: List<String>,
@@ -227,7 +228,7 @@ private fun CourseInfoCompactLayout(
 
 @Composable
 private fun CourseInfoMainContent(
-    uiState: com.suseoaa.projectoaa.shared.domain.model.teachingplan.CourseInfoUiState,
+    uiState: CourseInfoUiState,
     selectedMajorObj: MajorOption?,
     viewModel: CourseInfoViewModel,
     modifier: Modifier
@@ -254,7 +255,7 @@ private fun CourseInfoMainContent(
  */
 @Composable
 private fun CourseContentArea(
-    uiState: com.suseoaa.projectoaa.shared.domain.model.teachingplan.CourseInfoUiState,
+    uiState: CourseInfoUiState,
     selectedMajorObj: MajorOption?,
     onClearFilters: () -> Unit,
     modifier: Modifier = Modifier

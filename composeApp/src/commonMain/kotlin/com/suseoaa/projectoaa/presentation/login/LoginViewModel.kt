@@ -3,13 +3,14 @@ package com.suseoaa.projectoaa.presentation.login
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.suseoaa.projectoaa.shared.data.local.TokenManager
-import com.suseoaa.projectoaa.shared.data.repository.OaaAuthRepository
+import com.suseoaa.projectoaa.shared.domain.repository.OaaAuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.suseoaa.projectoaa.shared.data.local.store.CredentialStore
+import com.suseoaa.projectoaa.shared.data.local.store.SessionStore
 
 /**
  * 登录界面状态
@@ -28,7 +29,8 @@ data class LoginUiState(
  */
 class LoginViewModel(
     private val authRepository: OaaAuthRepository,
-    private val tokenManager: TokenManager
+    private val credentialStore: CredentialStore,
+    private val sessionStore: SessionStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
@@ -62,13 +64,13 @@ class LoginViewModel(
             result.onSuccess { response ->
                 // 保存 Token 和学号
                 response.data?.token?.let { token ->
-                    tokenManager.saveToken(token)
+                    sessionStore.saveToken(token)
                 }
-                tokenManager.saveCurrentStudentId(cleanAccount)
+                sessionStore.saveCurrentStudentId(cleanAccount)
 
                 // 将密码保存下来供之后在后台刷新 token 使用
                 viewModelScope.launch {
-                    tokenManager.savePassword(cleanPassword)
+                    credentialStore.savePassword(cleanPassword)
                 }
 
                 _uiState.update {

@@ -6,6 +6,7 @@ import kotlinx.cinterop.*
 import org.jetbrains.skia.Image
 import platform.Foundation.*
 import platform.posix.memcpy
+import com.suseoaa.projectoaa.shared.util.AppLog
 
 /**
  * iOS 平台的图片处理工具实现
@@ -37,7 +38,7 @@ actual object PlatformImageUtils {
 
             decodeByteArrayToImageBitmap(bytes)
         } catch (e: Exception) {
-            println("[PlatformImageUtils] Base64解码失败: ${e.message}")
+            AppLog.e("[PlatformImageUtils] Base64解码失败: ${e.message}")
             null
         }
     }
@@ -51,7 +52,7 @@ actual object PlatformImageUtils {
             val skiaImage = Image.makeFromEncoded(bytes)
             skiaImage.toComposeImageBitmap()
         } catch (e: Exception) {
-            println("[PlatformImageUtils] 字节数组解码失败: ${e.message}")
+            AppLog.e("[PlatformImageUtils] 字节数组解码失败: ${e.message}")
             null
         }
     }

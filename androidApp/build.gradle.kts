@@ -29,7 +29,17 @@ extensions.configure<ApplicationExtension>("android") {
     signingConfigs {
         create("release") {
             val ciStoreFile = System.getenv("KEYSTORE_FILE_PATH")
-            val localStoreFilePath = "/Users/vincent/Desktop/SUSE-APP-Key/APP-Key.jks"
+
+            // 签名库路径从 local.properties 的 STORE_FILE 读取，不再硬编码某台开发机的
+            // 绝对路径——否则除作者本人外没人能出 release 包。保留旧路径作为兜底默认值，
+            // 这样现有本地环境不配置也能继续用。
+            val localProps = Properties()
+            val propsFile = rootProject.file("local.properties")
+            if (propsFile.exists()) {
+                FileInputStream(propsFile).use { stream -> localProps.load(stream) }
+            }
+            val localStoreFilePath = localProps.getProperty("STORE_FILE")
+                ?: "${System.getProperty("user.home")}/Desktop/SUSE-APP-Key/APP-Key.jks"
 
             if (!ciStoreFile.isNullOrEmpty()) {
                 // CI 环境
@@ -39,12 +49,6 @@ extensions.configure<ApplicationExtension>("android") {
                 keyPassword = System.getenv("KEY_PASSWORD")
             } else if (file(localStoreFilePath).exists()) {
                 // 本地环境
-                val localProps = Properties()
-                val propsFile = rootProject.file("local.properties")
-                if (propsFile.exists()) {
-                    val fis = FileInputStream(propsFile)
-                    fis.use { stream -> localProps.load(stream) }
-                }
                 storeFile = file(localStoreFilePath)
                 storePassword = localProps.getProperty("STORE_PASSWORD", "")
                 keyAlias = localProps.getProperty("KEY_ALIAS", "")

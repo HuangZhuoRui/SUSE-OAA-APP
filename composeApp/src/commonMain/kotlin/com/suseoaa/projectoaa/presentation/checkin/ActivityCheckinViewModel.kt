@@ -4,8 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.suseoaa.projectoaa.shared.domain.nearfield.NearFieldCheckinTask
 import com.suseoaa.projectoaa.shared.domain.nearfield.NearFieldDiscoveryManager
-import com.suseoaa.projectoaa.shared.data.repository.NearFieldCheckinRepository
-import com.suseoaa.projectoaa.shared.data.repository.PersonRepository
+import com.suseoaa.projectoaa.shared.domain.repository.NearFieldCheckinRepository
+import com.suseoaa.projectoaa.shared.domain.repository.PersonRepository
 import com.suseoaa.projectoaa.shared.database.NearFieldTask
 import com.suseoaa.projectoaa.shared.database.NearFieldParticipant
 import com.suseoaa.projectoaa.shared.util.OaaClock

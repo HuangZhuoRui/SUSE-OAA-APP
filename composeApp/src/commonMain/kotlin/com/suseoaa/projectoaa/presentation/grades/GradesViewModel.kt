@@ -3,15 +3,13 @@ package com.suseoaa.projectoaa.presentation.grades
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.suseoaa.projectoaa.shared.data.local.TokenManager
 import com.suseoaa.projectoaa.shared.domain.model.course.CourseAccountEntity
-import com.suseoaa.projectoaa.shared.data.repository.GradeEntity
-import com.suseoaa.projectoaa.shared.data.repository.LocalCourseRepository
-import com.suseoaa.projectoaa.shared.data.repository.SchoolAuthRepository
-import com.suseoaa.projectoaa.shared.data.repository.SchoolGradeRepository
+import com.suseoaa.projectoaa.shared.domain.model.grade.GradeEntity
+import com.suseoaa.projectoaa.shared.domain.repository.LocalCourseRepository
+import com.suseoaa.projectoaa.shared.domain.repository.SchoolAuthRepository
+import com.suseoaa.projectoaa.shared.domain.repository.SchoolGradeRepository
 import com.suseoaa.projectoaa.shared.domain.model.grade.StudentGradeResponse
-import com.suseoaa.projectoaa.shared.domain.model.grade.GradeItem
-import com.suseoaa.projectoaa.shared.data.repository.GpaRepository
+import com.suseoaa.projectoaa.shared.domain.repository.GpaRepository
 import kotlin.math.pow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +25,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import com.suseoaa.projectoaa.shared.data.local.store.SessionStore
 
 @Immutable
 data class GradesUiState(
@@ -44,7 +43,7 @@ data class GradesUiState(
 )
 
 class GradesViewModel(
-    private val tokenManager: TokenManager,
+    private val sessionStore: SessionStore,
     private val localCourseRepository: LocalCourseRepository,
     private val schoolAuthRepository: SchoolAuthRepository,
     private val schoolGradeRepository: SchoolGradeRepository,
@@ -58,7 +57,7 @@ class GradesViewModel(
     @OptIn(ExperimentalCoroutinesApi::class)
     private val currentAccount: StateFlow<CourseAccountEntity?> = combine(
         localCourseRepository.getAllAccounts(),
-        tokenManager.currentStudentId
+        sessionStore.currentStudentId
     ) { accounts, selectedId ->
         if (accounts.isEmpty()) null
         else accounts.find { it.studentId == selectedId } ?: accounts.firstOrNull()

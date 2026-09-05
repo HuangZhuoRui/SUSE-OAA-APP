@@ -2,11 +2,11 @@ package com.suseoaa.projectoaa.presentation.course
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.suseoaa.projectoaa.shared.data.repository.LocalCourseRepository
+import com.suseoaa.projectoaa.shared.domain.repository.LocalCourseRepository
 import com.suseoaa.projectoaa.shared.domain.model.course.CourseAccountEntity
 import com.suseoaa.projectoaa.shared.domain.model.course.CourseWithTimes
-import com.suseoaa.projectoaa.shared.data.repository.GradeEntity
-import com.suseoaa.projectoaa.shared.data.repository.SchoolGradeRepository
+import com.suseoaa.projectoaa.shared.domain.model.grade.GradeEntity
+import com.suseoaa.projectoaa.shared.domain.repository.SchoolGradeRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch

@@ -4,6 +4,7 @@ import android.graphics.BitmapFactory
 import android.util.Base64
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import com.suseoaa.projectoaa.shared.util.AppLog
 
 /**
  * Android 平台的图片处理工具实现
@@ -25,7 +26,7 @@ actual object PlatformImageUtils {
             val decodedBytes = Base64.decode(base64Data, Base64.DEFAULT)
             BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)?.asImageBitmap()
         } catch (e: Exception) {
-            println("[PlatformImageUtils] Base64解码失败: ${e.message}")
+            AppLog.e("[PlatformImageUtils] Base64解码失败: ${e.message}")
             null
         }
     }
@@ -37,7 +38,7 @@ actual object PlatformImageUtils {
         return try {
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
         } catch (e: Exception) {
-            println("[PlatformImageUtils] 字节数组解码失败: ${e.message}")
+            AppLog.e("[PlatformImageUtils] 字节数组解码失败: ${e.message}")
             null
         }
     }

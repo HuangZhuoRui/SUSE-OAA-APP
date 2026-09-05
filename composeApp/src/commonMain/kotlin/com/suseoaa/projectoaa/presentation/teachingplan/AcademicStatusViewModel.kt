@@ -2,11 +2,68 @@ package com.suseoaa.projectoaa.presentation.teachingplan
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.suseoaa.projectoaa.shared.data.local.TokenManager
 import com.suseoaa.projectoaa.shared.domain.model.teachingplan.*
-import com.suseoaa.projectoaa.shared.data.repository.AcademicStatusRepository
+import com.suseoaa.projectoaa.shared.domain.repository.AcademicStatusRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import com.suseoaa.projectoaa.shared.data.local.store.SessionStore
+
+/**
+ * 以下 UI 状态原本定义在 shared 的 domain/model 里，属于 UI 层反向下沉到领域层。
+ * 它们只被本模块的 ViewModel 与 Screen 使用，现归位到 presentation 层。
+ */
+data class AcademicStatusUiState(
+    val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
+    val categories: List<AcademicStatusCategory> = emptyList(),
+    val expandedCategories: Set<String> = emptySet(),
+    val selectedFilter: AcademicStatusFilter = AcademicStatusFilter.ALL,
+    val errorMessage: String? = null,
+    val totalCredits: Double = 0.0,
+    val earnedCredits: Double = 0.0,
+    val studyingCredits: Double = 0.0,
+    val averageGradePoint: Double = 0.0,
+    // 教务系统原始的总体学分要求
+    val planOverview: AcademicPlanOverview = AcademicPlanOverview(),
+    // 其它课程学分要求的课程（qtkcxfyq节点）
+    val otherCourses: List<AcademicStatusCourseItem> = emptyList(),
+    val otherCoursesPassedCount: Int = 0,
+    val otherCoursesTotalCount: Int = 0,
+    // 计划内课程统计
+    val planTotalCourses: Int = 0,
+    val planPassedCount: Int = 0,
+    val planFailedCount: Int = 0,
+    val planStudyingCount: Int = 0,
+    val planNotStudiedCount: Int = 0,
+    // 计划外课程统计
+    val nonPlanCourses: List<AcademicStatusCourseItem> = emptyList(),
+    val nonPlanPassedCount: Int = 0,
+    val nonPlanFailedCount: Int = 0
+)
+
+enum class AcademicStatusFilter(val displayName: String) {
+    ALL("全部"),
+    PASSED("已通过"),
+    FAILED("不及格"),
+    STUDYING("在修"),
+    NOT_STUDIED("未修")
+}
+
+/**
+ * 判断某个修读状态码是否命中当前筛选项。
+ *
+ * 原本定义在 shared 的 StudyStatusUtils 里，导致领域层反过来依赖 UI 的筛选枚举；
+ * 状态码常量仍由 shared 的 StudyStatusUtils 提供，这里只承担 UI 筛选语义。
+ */
+fun StudyStatusUtils.matchesFilter(statusCode: String, filter: AcademicStatusFilter): Boolean =
+    when (filter) {
+        AcademicStatusFilter.ALL -> true
+        AcademicStatusFilter.PASSED -> statusCode == StudyStatusUtils.PASSED
+        AcademicStatusFilter.FAILED -> statusCode == StudyStatusUtils.FAILED
+        AcademicStatusFilter.STUDYING -> statusCode == StudyStatusUtils.STUDYING
+        AcademicStatusFilter.NOT_STUDIED -> statusCode == StudyStatusUtils.NOT_STUDIED
+    }
+
 
 /**
  * 学业情况查询 ViewModel
@@ -15,7 +72,7 @@ import kotlinx.coroutines.launch
  */
 class AcademicStatusViewModel(
     private val academicStatusRepository: AcademicStatusRepository,
-    private val tokenManager: TokenManager
+    private val sessionStore: SessionStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AcademicStatusUiState())
@@ -33,7 +90,7 @@ class AcademicStatusViewModel(
      */
     fun loadAcademicStatus() {
         viewModelScope.launch {
-            val studentId = tokenManager.currentStudentId.first()
+            val studentId = sessionStore.currentStudentId.first()
             if (studentId == null) {
                 _uiState.update { it.copy(errorMessage = "请先登录教务系统") }
                 return@launch
@@ -223,7 +280,7 @@ class AcademicStatusViewModel(
      */
     fun refresh() {
         viewModelScope.launch {
-            val studentId = tokenManager.currentStudentId.first() ?: return@launch
+            val studentId = sessionStore.currentStudentId.first() ?: return@launch
 
             _uiState.update { it.copy(isRefreshing = true) }
 

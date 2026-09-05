@@ -26,7 +26,7 @@ import com.suseoaa.projectoaa.ui.screen.teachingplan.AcademicStatusScreen
 import com.suseoaa.projectoaa.ui.screen.teachingplan.CourseInfoScreen
 import com.suseoaa.projectoaa.ui.screen.teachingplan.StudyRequirementScreen
 import com.suseoaa.projectoaa.ui.screen.update.UpdateScreen
-import com.suseoaa.projectoaa.presentation.course.CourseStatisticsScreen
+import com.suseoaa.projectoaa.ui.screen.course.CourseStatisticsScreen
 import com.suseoaa.projectoaa.ui.screen.ailab.AiChatScreen
 import com.suseoaa.projectoaa.ui.screen.ailab.AiLabScreen
 import com.suseoaa.projectoaa.ui.screen.ailab.AcademicAnalysisScreen

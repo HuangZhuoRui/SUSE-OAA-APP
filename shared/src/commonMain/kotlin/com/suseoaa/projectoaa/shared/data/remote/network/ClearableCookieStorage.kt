@@ -4,6 +4,7 @@ import io.ktor.client.plugins.cookies.*
 import io.ktor.http.*
 import io.ktor.util.collections.*
 import io.ktor.util.date.*
+import com.suseoaa.projectoaa.shared.util.AppLog
 
 /**
  * 可清除的 Cookie 存储
@@ -41,7 +42,7 @@ class ClearableCookieStorage : CookiesStorage {
      */
     fun clear() {
         storage.clear()
-        println("[CookieStorage] 已清除所有 Cookie")
+        AppLog.d("[CookieStorage] 已清除所有 Cookie")
     }
 
     /**
@@ -49,7 +50,7 @@ class ClearableCookieStorage : CookiesStorage {
      */
     fun clearForHost(host: String) {
         storage.remove(host)
-        println("[CookieStorage] 已清除 $host 的 Cookie")
+        AppLog.d("[CookieStorage] 已清除 $host 的 Cookie")
     }
 
     /**
@@ -73,11 +74,11 @@ class ClearableCookieStorage : CookiesStorage {
      * 打印所有存储的 Cookie（用于调试）
      */
     fun debugPrintAllCookies() {
-        println("[CookieStorage] 当前存储的所有 Cookie:")
+        AppLog.d("[CookieStorage] 当前存储的所有 Cookie:")
         storage.forEach { (host, cookies) ->
-            println("  Host: $host")
+            AppLog.d("  Host: $host")
             cookies.forEach { cookie ->
-                println("    ${cookie.name}=${cookie.value.take(50)}...")
+                AppLog.d("    ${cookie.name}=${cookie.value.take(50)}...")
             }
         }
     }

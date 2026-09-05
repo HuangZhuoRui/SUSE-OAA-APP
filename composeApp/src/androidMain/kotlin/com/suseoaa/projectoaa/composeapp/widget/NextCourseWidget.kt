@@ -1,7 +1,7 @@
 @file:SuppressLint("RestrictedApi")
 package com.suseoaa.projectoaa.composeapp.widget
 
-import com.suseoaa.projectoaa.presentation.course.TimeSlotConfig
+import com.suseoaa.projectoaa.domain.course.TimeSlotConfig
 import android.content.Context
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp

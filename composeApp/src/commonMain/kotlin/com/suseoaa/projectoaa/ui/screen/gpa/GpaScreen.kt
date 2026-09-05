@@ -26,10 +26,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.suseoaa.projectoaa.shared.data.repository.GpaCourseWrapper
+import com.suseoaa.projectoaa.shared.domain.model.gpa.GpaCourseWrapper
 import com.suseoaa.projectoaa.presentation.gpa.GpaViewModel
-import com.suseoaa.projectoaa.presentation.gpa.FilterType
-import com.suseoaa.projectoaa.presentation.gpa.SortOrder
+import com.suseoaa.projectoaa.domain.gpa.FilterType
+import com.suseoaa.projectoaa.domain.gpa.SortOrder
 import com.suseoaa.projectoaa.ui.component.common.AdaptivePageScaffold
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.math.pow

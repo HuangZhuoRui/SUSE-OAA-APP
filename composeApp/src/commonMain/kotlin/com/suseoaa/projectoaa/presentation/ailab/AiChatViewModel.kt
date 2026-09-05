@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.suseoaa.projectoaa.shared.util.OaaClock
+import com.suseoaa.projectoaa.shared.util.AppLog
+import com.suseoaa.projectoaa.shared.data.local.store.AiLabStore
 
 data class AiChatMessage(
     val id: String,
@@ -30,7 +32,7 @@ data class AiChatUiState(
     val isModelLoaded: Boolean = false
 )
 
-class AiChatViewModel(private val tokenManager: com.suseoaa.projectoaa.shared.data.local.TokenManager) : ViewModel() {
+class AiChatViewModel(private val aiLabStore: AiLabStore) : ViewModel() {
     private val _uiState = MutableStateFlow(AiChatUiState())
     val uiState: StateFlow<AiChatUiState> = _uiState.asStateFlow()
 
@@ -52,22 +54,22 @@ class AiChatViewModel(private val tokenManager: com.suseoaa.projectoaa.shared.da
     }
 
     private fun ensureModelLoaded() {
-        println("AiLab: AiChatViewModel.ensureModelLoaded() called")
+        AppLog.d("AiLab: AiChatViewModel.ensureModelLoaded() called")
         viewModelScope.launch {
             _uiState.update { it.copy(isModelLoading = true) }
             
             // 在加载模型之前，确保已经读取并应用了用户的模型选择和 GPU 偏好
-            val preferGpu = tokenManager.aiLabPreferGpuFlow.firstOrNull() ?: true
+            val preferGpu = aiLabStore.preferGpuFlow.firstOrNull() ?: true
             com.suseoaa.projectoaa.shared.domain.engine.CampusAiEngine.setPreferGpu(preferGpu)
             
-            val savedModelId = tokenManager.aiLabSelectedModelIdFlow.firstOrNull()
+            val savedModelId = aiLabStore.selectedModelIdFlow.firstOrNull()
             val deviceInfo = PlatformDeviceInfo.queryDeviceInfo()
             val savedModel = AvailableAiModels.firstOrNull { it.id == savedModelId }
             val targetModel = if (savedModel != null && savedModel.isCompatibleWithDevice(deviceInfo)) {
                 savedModel
             } else {
                 if (savedModel != null) {
-                    println(
+                    AppLog.d(
                         "AiLab: saved chat model ${savedModel.name} is incompatible with SoC ${deviceInfo.socModel}; using a compatible model."
                     )
                 }
@@ -83,7 +85,7 @@ class AiChatViewModel(private val tokenManager: com.suseoaa.projectoaa.shared.da
             if (com.suseoaa.projectoaa.shared.domain.engine.CampusAiEngine.lastGpuCrashDetected()) {
                 com.suseoaa.projectoaa.util.ToastManager.showToast("检测到 GPU 驱动异常，已自动降级至 CPU 推理，建议前往设置切换。")
             }
-            println("AiLab: AiChatViewModel CampusAiEngine.loadModel() returned $success")
+            AppLog.d("AiLab: AiChatViewModel CampusAiEngine.loadModel() returned $success")
             _uiState.update { it.copy(isModelLoading = false, isModelLoaded = success) }
         }
     }

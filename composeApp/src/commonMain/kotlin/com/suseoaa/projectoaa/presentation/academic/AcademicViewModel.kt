@@ -3,13 +3,12 @@ package com.suseoaa.projectoaa.presentation.academic
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.suseoaa.projectoaa.shared.data.local.TokenManager
 import com.suseoaa.projectoaa.shared.domain.model.course.CourseAccountEntity
-import com.suseoaa.projectoaa.shared.data.repository.ExamCacheEntity
-import com.suseoaa.projectoaa.shared.data.repository.LocalCourseRepository
-import com.suseoaa.projectoaa.shared.data.repository.MessageCacheEntity
-import com.suseoaa.projectoaa.shared.data.repository.SchoolAuthRepository
-import com.suseoaa.projectoaa.shared.data.repository.SchoolInfoRepository
+import com.suseoaa.projectoaa.shared.domain.model.exam.ExamCacheEntity
+import com.suseoaa.projectoaa.shared.domain.repository.LocalCourseRepository
+import com.suseoaa.projectoaa.shared.domain.model.message.MessageCacheEntity
+import com.suseoaa.projectoaa.shared.domain.repository.SchoolAuthRepository
+import com.suseoaa.projectoaa.shared.domain.repository.SchoolInfoRepository
 import com.suseoaa.projectoaa.shared.domain.engine.CampusAiEngine
 import com.suseoaa.projectoaa.shared.domain.model.exam.ExamResponse
 import com.suseoaa.projectoaa.shared.domain.model.exam.ExamItem
@@ -29,6 +28,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import com.suseoaa.projectoaa.shared.data.local.store.SessionStore
 
 /**
  * 考试UI状态
@@ -51,7 +51,7 @@ data class AcademicUiState(
 )
 
 class AcademicViewModel(
-    private val tokenManager: TokenManager,
+    private val sessionStore: SessionStore,
     private val localCourseRepository: LocalCourseRepository,
     private val schoolAuthRepository: SchoolAuthRepository,
     private val schoolInfoRepository: SchoolInfoRepository,
@@ -63,14 +63,14 @@ class AcademicViewModel(
 
     // 当前账户流
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val currentAccount: StateFlow<CourseAccountEntity?> = tokenManager.currentStudentId
+    private val currentAccount: StateFlow<CourseAccountEntity?> = sessionStore.currentStudentId
         .filterNotNull()
         .flatMapLatest { id -> flow { emit(localCourseRepository.getAccountById(id)) } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     // 考试列表流 (含精确排序逻辑)
     @OptIn(ExperimentalCoroutinesApi::class)
-    val examList: StateFlow<List<ExamUiState>> = tokenManager.currentStudentId
+    val examList: StateFlow<List<ExamUiState>> = sessionStore.currentStudentId
         .filterNotNull()
         .flatMapLatest { studentId ->
             schoolInfoRepository.observeExams(studentId)
@@ -120,7 +120,7 @@ class AcademicViewModel(
 
     // 消息列表流
     @OptIn(ExperimentalCoroutinesApi::class)
-    val messageList: StateFlow<List<MessageCacheEntity>> = tokenManager.currentStudentId
+    val messageList: StateFlow<List<MessageCacheEntity>> = sessionStore.currentStudentId
         .filterNotNull()
         .flatMapLatest { studentId ->
             schoolInfoRepository.observeMessages(studentId)
@@ -145,7 +145,7 @@ class AcademicViewModel(
         // 监听账号切换，自动刷新数据
         viewModelScope.launch {
             var previousStudentId: String? = null
-            tokenManager.currentStudentId.collect { studentId ->
+            sessionStore.currentStudentId.collect { studentId ->
                 if (studentId != null && previousStudentId != null && studentId != previousStudentId) {
                     // 账号切换了，自动刷新
                     refresh()
@@ -219,7 +219,7 @@ class AcademicViewModel(
         }
     }
 
-    fun summarizeSingleMessage(message: com.suseoaa.projectoaa.shared.data.repository.MessageCacheEntity) {
+    fun summarizeSingleMessage(message: com.suseoaa.projectoaa.shared.domain.model.message.MessageCacheEntity) {
         viewModelScope.launch {
             if (!CampusAiEngine.isModelAvailable()) return@launch
             if (_uiState.value.summarizingMessageId != null) return@launch // Debounce/Prevent concurrent

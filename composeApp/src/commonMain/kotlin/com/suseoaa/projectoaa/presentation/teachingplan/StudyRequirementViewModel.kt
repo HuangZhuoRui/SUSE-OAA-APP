@@ -3,9 +3,30 @@ package com.suseoaa.projectoaa.presentation.teachingplan
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.suseoaa.projectoaa.shared.domain.model.teachingplan.*
-import com.suseoaa.projectoaa.shared.data.repository.TeachingPlanRepository
+import com.suseoaa.projectoaa.shared.domain.repository.TeachingPlanRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+
+/**
+ * 以下 UI 状态原本定义在 shared 的 domain/model 里，属于 UI 层反向下沉到领域层。
+ * 它们只被本模块的 ViewModel 与 Screen 使用，现归位到 presentation 层。
+ */
+data class StudyRequirementUiState(
+    val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
+    val categories: List<StudyRequirementCategory> = emptyList(),
+    val selectedGrade: String = "",
+    val selectedCollegeId: String = "",
+    val selectedMajorId: String = "",
+    val grades: List<String> = emptyList(),
+    val colleges: List<CollegeOption> = emptyList(),
+    val majors: List<MajorOption> = emptyList(),
+    val planInfo: TeachingPlanInfo? = null,
+    val errorMessage: String? = null,
+    val isFilterExpanded: Boolean = true,
+    val expandedCategories: Set<String> = emptySet()
+)
+
 
 /**
  * 修读要求查询 ViewModel

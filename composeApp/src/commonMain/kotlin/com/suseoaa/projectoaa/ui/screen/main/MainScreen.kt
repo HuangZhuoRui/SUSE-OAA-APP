@@ -41,12 +41,12 @@ import androidx.compose.ui.zIndex
 import kotlinx.coroutines.flow.first
 import coil3.compose.AsyncImage
 import com.suseoaa.projectoaa.presentation.MainViewModel
-import com.suseoaa.projectoaa.shared.data.local.BackgroundPageIds
+import com.suseoaa.projectoaa.shared.data.local.store.BackgroundPageIds
 import com.suseoaa.projectoaa.ui.component.AdaptiveLayout
 import com.suseoaa.projectoaa.ui.component.AdaptiveLayoutConfig
 import com.suseoaa.projectoaa.ui.component.LocalMainTabVisible
 import com.suseoaa.projectoaa.ui.screen.academic.AcademicScreen
-import com.suseoaa.projectoaa.presentation.course.CourseScreen
+import com.suseoaa.projectoaa.ui.screen.course.CourseScreen
 
 import com.suseoaa.projectoaa.ui.screen.home.HomeScreen
 import com.suseoaa.projectoaa.ui.screen.person.PersonScreen

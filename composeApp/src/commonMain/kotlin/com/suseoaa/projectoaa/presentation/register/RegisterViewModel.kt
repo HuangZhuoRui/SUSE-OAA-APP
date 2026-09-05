@@ -3,7 +3,7 @@ package com.suseoaa.projectoaa.presentation.register
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.suseoaa.projectoaa.shared.data.repository.OaaRegisterRepository
+import com.suseoaa.projectoaa.shared.domain.repository.OaaRegisterRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

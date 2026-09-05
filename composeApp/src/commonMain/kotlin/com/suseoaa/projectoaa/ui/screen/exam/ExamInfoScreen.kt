@@ -32,10 +32,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.suseoaa.projectoaa.presentation.exam.ExamUiItem
+import com.suseoaa.projectoaa.domain.exam.ExamUiItem
 import com.suseoaa.projectoaa.presentation.exam.ExamUiState
 import com.suseoaa.projectoaa.presentation.exam.ExamViewModel
-import com.suseoaa.projectoaa.presentation.exam.SemesterOption
+import com.suseoaa.projectoaa.domain.exam.SemesterOption
 import com.suseoaa.projectoaa.ui.component.AdaptiveLayout
 import com.suseoaa.projectoaa.ui.component.common.AdaptivePageScaffold
 import com.suseoaa.projectoaa.ui.component.common.ValueLabelStatItem

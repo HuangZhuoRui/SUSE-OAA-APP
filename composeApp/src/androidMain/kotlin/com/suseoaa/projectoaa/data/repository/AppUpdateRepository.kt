@@ -16,6 +16,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.io.File
+import com.suseoaa.projectoaa.shared.data.remote.ApiConfig
+import com.suseoaa.projectoaa.shared.domain.error.AppError
+import com.suseoaa.projectoaa.shared.domain.error.appFailure
 
 /**
  * Android 平台的应用更新仓库实现
@@ -39,7 +42,7 @@ actual class AppUpdateRepository(
     actual suspend fun checkUpdate(): Result<GithubRelease?> = withContext(Dispatchers.IO) {
         try {
             val response: HttpResponse =
-                httpClient.get("https://update.vincenthzr.org:8443/api/releases/latest")
+                httpClient.get(ApiConfig.UPDATE_LATEST_RELEASE)
 
             if (response.status.value == 200) {
                 val latestRelease: GithubRelease = response.body()
@@ -52,7 +55,7 @@ actual class AppUpdateRepository(
                     Result.success(null) // 无更新
                 }
             } else {
-                Result.failure(Exception("检查更新失败: ${response.status.value}"))
+                appFailure(AppError.Http(response.status.value, "检查更新失败: ${response.status.value}"))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -65,7 +68,7 @@ actual class AppUpdateRepository(
     private suspend fun mergeMissedReleaseLogs(latestRelease: GithubRelease): GithubRelease {
         return try {
             val releasesResponse: HttpResponse =
-                httpClient.get("https://update.vincenthzr.org:8443/api/releases")
+                httpClient.get(ApiConfig.UPDATE_RELEASES)
             if (releasesResponse.status.value != 200) {
                 return latestRelease
             }
@@ -115,13 +118,13 @@ actual class AppUpdateRepository(
      */
     actual suspend fun getAllReleases(): Result<List<GithubRelease>> = withContext(Dispatchers.IO) {
         try {
-            val response: HttpResponse = httpClient.get("https://update.vincenthzr.org:8443/api/releases")
+            val response: HttpResponse = httpClient.get(ApiConfig.UPDATE_RELEASES)
             
             if (response.status.value == 200) {
                 val releases: List<GithubRelease> = response.body()
                 Result.success(releases)
             } else {
-                Result.failure(Exception("获取历史版本失败: ${response.status.value}"))
+                appFailure(AppError.Http(response.status.value, "获取历史版本失败: ${response.status.value}"))
             }
         } catch (e: Exception) {
             Result.failure(e)

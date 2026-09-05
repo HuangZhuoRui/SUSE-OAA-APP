@@ -75,6 +75,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import org.koin.compose.viewmodel.koinViewModel
+import com.suseoaa.projectoaa.domain.checkin.SchedulerStatus
 
 private val HeaderHeight = 320.dp
 
@@ -412,7 +413,7 @@ fun PersonScreen(
                                             "未启用"
                                         },
                                         modifier = Modifier.sharedBoundsTransition("scheduled_checkin"),
-                                        showBadge = scheduledCheckinUiState.schedulerStatus is com.suseoaa.projectoaa.presentation.checkin.SchedulerStatus.Running,
+                                        showBadge = scheduledCheckinUiState.schedulerStatus is SchedulerStatus.Running,
                                         onClick = { showScheduledCheckinDialog = true }
                                     )
                                 }

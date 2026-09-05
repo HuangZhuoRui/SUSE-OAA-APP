@@ -11,6 +11,7 @@ import platform.PhotosUI.*
 import platform.CoreGraphics.*
 import platform.darwin.NSObject
 import platform.posix.memcpy
+import com.suseoaa.projectoaa.shared.util.AppLog
 
 @OptIn(ExperimentalForeignApi::class)
 @Composable
@@ -113,7 +114,7 @@ private fun compressImage(
             }
         }
     } catch (e: Exception) {
-        println("Image compression error: ${e.message}")
+        AppLog.e("Image compression error: ${e.message}")
         null
     }
 }

@@ -51,16 +51,23 @@ fun parseExamTimeRange(timeStr: String): Pair<LocalDateTime, LocalDateTime>? {
 }
 
 /**
+ * 由年月推算所处学期，返回教务系统用的 (xnm 学年码, xqm 学期码)。
+ *
+ * 学年从 8 月起算：8-12 月属当年学年的第 1 学期（xqm=3）；1 月仍在上一学年的
+ * 第 1 学期里（寒假前的考试周），所以学年码要减 1；2-7 月为第 2 学期（xqm=12）。
+ *
+ * 与时钟解耦成纯函数，1 月这个跨年边界才好写用例——它正是最容易算错的一档。
+ */
+fun termFor(year: Int, month: Int): Pair<String, String> = when {
+    month == 1 -> (year - 1).toString() to "3"
+    month >= 8 -> year.toString() to "3"
+    else -> (year - 1).toString() to "12"
+}
+
+/**
  * 获取当前学期 (xnm, xqm)
  */
 fun getCurrentTerm(): Pair<String, String> {
     val now = OaaClock.now().toLocalDateTime(TimeZone.currentSystemDefault())
-    val year = now.year
-    val month = now.monthNumber
-    return if (month >= 8 || month == 1) {
-        val xnm = if (month == 1) (year - 1).toString() else year.toString()
-        xnm to "3"
-    } else {
-        (year - 1).toString() to "12"
-    }
+    return termFor(now.year, now.monthNumber)
 }

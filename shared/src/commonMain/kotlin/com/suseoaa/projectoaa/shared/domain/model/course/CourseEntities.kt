@@ -67,3 +67,16 @@ data class PracticeCourseEntity(
     val assessment: String = "",
     val campus: String = ""
 )
+
+/**
+ * 原先声明在 data/repository 包里，是纯领域模型，归位到 domain/model。
+ */
+/**
+ * 校历解析结果
+ * @param startDate 学期最早的周一日期（如果有第0周则是第0周的周一，否则是第1周的周一）
+ * @param hasWeekZero 是否存在第0周
+ */
+data class SemesterCalendarInfo(
+    val startDate: String,
+    val hasWeekZero: Boolean
+)

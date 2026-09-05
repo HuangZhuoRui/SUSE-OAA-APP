@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import io.ktor.util.encodeBase64
-import com.suseoaa.projectoaa.shared.data.local.TokenManager
 import kotlinx.coroutines.withContext
 import com.suseoaa.projectoaa.util.AiModelMetadata
 import com.suseoaa.projectoaa.util.AvailableAiModels
@@ -25,6 +24,8 @@ import com.suseoaa.projectoaa.util.LocalModelFile
 import com.suseoaa.projectoaa.util.ModelDownloader
 import com.suseoaa.projectoaa.util.format
 import com.suseoaa.projectoaa.util.isCompatibleWithDevice
+import com.suseoaa.projectoaa.shared.util.AppLog
+import com.suseoaa.projectoaa.shared.data.local.store.AiLabStore
 
 /**
  * 模型下载状态
@@ -58,7 +59,7 @@ data class AiLabUiState(
     val gpuCrashDetected: Boolean = false
 )
 
-class AiLabViewModel(private val tokenManager: TokenManager) : ViewModel() {
+class AiLabViewModel(private val aiLabStore: AiLabStore) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AiLabUiState())
     val uiState: StateFlow<AiLabUiState> = _uiState.asStateFlow()
@@ -85,8 +86,8 @@ class AiLabViewModel(private val tokenManager: TokenManager) : ViewModel() {
                 val rec = computeModelRecommendation(info)
                 val localFiles = ModelDownloader.getDownloadedModels()
                 
-                println("AiLab: localFiles from disk: ${localFiles.map { it.name }}")
-                println("AiLab: detected SoC model: ${info.socModel.ifBlank { "<unknown>" }}")
+                AppLog.d("AiLab: localFiles from disk: ${localFiles.map { it.name }}")
+                AppLog.d("AiLab: detected SoC model: ${info.socModel.ifBlank { "<unknown>" }}")
                 
                 val downloadedAvailableModels = compatibleModels.filter { model ->
                     val fileName = model.downloadUrl.substringAfterLast("/").substringBefore("?")
@@ -98,12 +99,12 @@ class AiLabViewModel(private val tokenManager: TokenManager) : ViewModel() {
                     }
                 }
                 
-                println("AiLab: matched downloadedAvailableModels: ${downloadedAvailableModels.map { it.name }}")
+                AppLog.d("AiLab: matched downloadedAvailableModels: ${downloadedAvailableModels.map { it.name }}")
                 
-                val savedModelId = tokenManager.aiLabSelectedModelIdFlow.firstOrNull()
+                val savedModelId = aiLabStore.selectedModelIdFlow.firstOrNull()
                 val savedModel = available.firstOrNull { it.id == savedModelId }
                 if (savedModel != null && !savedModel.isCompatibleWithDevice(info)) {
-                    println(
+                    AppLog.d(
                         "AiLab: saved model ${savedModel.name} is incompatible with SoC ${info.socModel}; selecting a compatible model instead."
                     )
                 }
@@ -119,13 +120,13 @@ class AiLabViewModel(private val tokenManager: TokenManager) : ViewModel() {
                 val selectedFileName = selected.downloadUrl.substringAfterLast("/").substringBefore("?")
                 com.suseoaa.projectoaa.shared.domain.engine.CampusAiEngine.setTargetModelFileName(selectedFileName)
                 if (savedModelId.isNullOrBlank() || savedModelId != selected.id) {
-                    tokenManager.saveAiLabSelectedModelId(selected.id)
+                    aiLabStore.saveSelectedModelId(selected.id)
                 }
                 
-                println("AiLab: selectedModel determined as: ${selected.name}")
+                AppLog.d("AiLab: selectedModel determined as: ${selected.name}")
                 
                 val isDownloaded = ModelDownloader.isModelDownloaded(selected.downloadUrl)
-                println("AiLab: isDownloaded for selectedModel: $isDownloaded")
+                AppLog.d("AiLab: isDownloaded for selectedModel: $isDownloaded")
                 _uiState.update { 
                     it.copy(
                         isLoadingDeviceInfo = false, 
@@ -150,13 +151,13 @@ class AiLabViewModel(private val tokenManager: TokenManager) : ViewModel() {
         }
 
         viewModelScope.launch {
-            tokenManager.kaggleAuthFlow.collect { auth ->
+            aiLabStore.kaggleAuthFlow.collect { auth ->
                 currentKaggleAuth = auth
             }
         }
         
         viewModelScope.launch {
-            tokenManager.aiLabPreferGpuFlow.collect { preferGpu ->
+            aiLabStore.preferGpuFlow.collect { preferGpu ->
                 _uiState.update { it.copy(preferGpu = preferGpu) }
                 com.suseoaa.projectoaa.shared.domain.engine.CampusAiEngine.setPreferGpu(preferGpu)
             }
@@ -179,7 +180,7 @@ class AiLabViewModel(private val tokenManager: TokenManager) : ViewModel() {
                 ) 
             }
             viewModelScope.launch {
-                tokenManager.saveAiLabSelectedModelId(modelId)
+                aiLabStore.saveSelectedModelId(modelId)
             }
             val fileName = model.downloadUrl.substringAfterLast("/").substringBefore("?")
             com.suseoaa.projectoaa.shared.domain.engine.CampusAiEngine.setTargetModelFileName(fileName)
@@ -193,7 +194,7 @@ class AiLabViewModel(private val tokenManager: TokenManager) : ViewModel() {
     fun checkForUpdates() {
         viewModelScope.launch {
             val targetModel = _uiState.value.selectedModel ?: return@launch
-            val localETag = tokenManager.getModelETagFlow(targetModel.id).firstOrNull()
+            val localETag = aiLabStore.modelETagFlow(targetModel.id).firstOrNull()
             if (localETag.isNullOrBlank()) return@launch // 未下载过，不检测更新
 
             val remoteETag = ModelDownloader.getETag(httpClient, targetModel.downloadUrl, currentKaggleAuth)
@@ -234,7 +235,7 @@ class AiLabViewModel(private val tokenManager: TokenManager) : ViewModel() {
     fun submitKaggleAuthAndDownload(username: String, key: String) {
         viewModelScope.launch {
             val authBase64 = "$username:$key".encodeBase64()
-            tokenManager.saveKaggleAuth(authBase64)
+            aiLabStore.saveKaggleAuth(authBase64)
             currentKaggleAuth = authBase64 // 立即同步更新内存状态，避免 Flow 收集的延迟
             _showTokenDialog.value = false
             startDownload() // 凭证保存后，继续执行下载
@@ -289,7 +290,7 @@ class AiLabViewModel(private val tokenManager: TokenManager) : ViewModel() {
 
             if (success) {
                 if (etag != null) {
-                    tokenManager.saveModelETag(targetModel.id, etag)
+                    aiLabStore.saveModelETag(targetModel.id, etag)
                 }
                 _uiState.update { it.copy(downloadState = ModelDownloadState.Downloaded, hasUpdateAvailable = false, latestRemoteETag = null) }
             } else {
@@ -326,7 +327,7 @@ class AiLabViewModel(private val tokenManager: TokenManager) : ViewModel() {
     fun setPreferGpu(prefer: Boolean) {
         _uiState.update { it.copy(preferGpu = prefer) }
         viewModelScope.launch {
-            tokenManager.saveAiLabPreferGpu(prefer)
+            aiLabStore.savePreferGpu(prefer)
         }
     }
 

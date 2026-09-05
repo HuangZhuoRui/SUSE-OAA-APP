@@ -7,16 +7,16 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
-import com.suseoaa.projectoaa.shared.data.local.TokenManager
 import com.suseoaa.projectoaa.util.CaptchaOcrRecognizer
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import com.suseoaa.projectoaa.util.DeepLinkManager
 import com.suseoaa.projectoaa.util.LiteRtNativePreloader
 import android.content.Intent
+import com.suseoaa.projectoaa.shared.data.local.store.AppSettingsStore
 
 class MainActivity : ComponentActivity() {
-    private val tokenManager: TokenManager by inject()
+    private val appSettingsStore: AppSettingsStore by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,7 +31,7 @@ class MainActivity : ComponentActivity() {
         onBackPressedDispatcher.addCallback(this, rootBackCallback)
 
         lifecycleScope.launch {
-            tokenManager.predictiveBackEnabledFlow.collect { isEnabled ->
+            appSettingsStore.predictiveBackEnabledFlow.collect { isEnabled ->
                 rootBackCallback.isEnabled = !isEnabled
             }
         }

@@ -45,7 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.suseoaa.projectoaa.presentation.checkin.ScheduledCheckinUiState
-import com.suseoaa.projectoaa.presentation.checkin.SchedulerStatus
+import com.suseoaa.projectoaa.domain.checkin.SchedulerStatus
 import com.suseoaa.projectoaa.shared.domain.model.checkin.CheckinAccountData
 
 /**

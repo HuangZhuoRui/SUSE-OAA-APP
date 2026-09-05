@@ -2,7 +2,7 @@ package com.suseoaa.projectoaa.presentation.usermanagement
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.suseoaa.projectoaa.shared.data.repository.PersonRepository
+import com.suseoaa.projectoaa.shared.domain.repository.PersonRepository
 import com.suseoaa.projectoaa.shared.domain.model.person.PersonData
 import com.suseoaa.projectoaa.shared.domain.model.person.UserQueryData
 import kotlinx.coroutines.flow.MutableStateFlow

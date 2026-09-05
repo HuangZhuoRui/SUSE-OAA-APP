@@ -37,7 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.suseoaa.projectoaa.shared.data.repository.MessageCacheEntity
+import com.suseoaa.projectoaa.shared.domain.model.message.MessageCacheEntity
 import com.suseoaa.projectoaa.presentation.academic.AcademicViewModel
 import com.suseoaa.projectoaa.presentation.academic.ExamUiState
 import com.suseoaa.projectoaa.ui.animation.sharedBoundsTransition
@@ -50,6 +50,7 @@ import kotlinx.datetime.*
 import org.koin.compose.viewmodel.koinViewModel
 import com.suseoaa.projectoaa.util.AppPredictiveBackHandler
 import kotlin.collections.listOf
+import com.suseoaa.projectoaa.shared.data.remote.ApiConfig
 
 data class PortalFunction(
     val title: String,
@@ -229,7 +230,7 @@ fun AcademicScreen(
                             "studyRequirement" -> onNavigateToStudyRequirement()
                             "courseInfo" -> onNavigateToCourseInfo()
                             "academicStatus" -> onNavigateToAcademicStatus()
-                            "jwgl" -> uriHandler.openUri("https://jwgl.suse.edu.cn/xtgl/login_slogin.html")
+                            "jwgl" -> uriHandler.openUri(ApiConfig.SCHOOL_LOGIN_PAGE)
                         }
                     },
                     sharedBoundKey = func.route

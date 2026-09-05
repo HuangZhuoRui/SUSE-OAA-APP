@@ -36,7 +36,7 @@ actual object CheckinRSAEncryptor {
             val encryptedHex = encryptedInt.toHexString()
             return encryptedHex.lowercase().padStart(256, '0')
         } catch (e: Exception) {
-            println("[CheckinRSA] Encryption error: ${e.message}")
+            AppLog.e("[CheckinRSA] Encryption error: ${e.message}")
             throw RuntimeException("RSA加密失败: ${e.message}")
         }
     }

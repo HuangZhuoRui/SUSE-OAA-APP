@@ -26,6 +26,10 @@ kotlin {
         compilerOptions {
             jvmTarget.set(JvmTarget.fromTarget("25"))
         }
+
+        // 打开 JVM 单元测试源集。此前 composeApp 完全没有测试源集，
+        // 所有 ViewModel 与 presentation 层逻辑都无处可测。
+        withHostTest { }
     }
 
     listOf(
@@ -144,6 +148,8 @@ kotlin {
 
         commonTest.dependencies {
             implementation(kotlin("test"))
+            // ViewModel 测试要用 runTest 与可控调度器
+            implementation(libs.kotlinx.coroutines.test)
         }
     }
 }

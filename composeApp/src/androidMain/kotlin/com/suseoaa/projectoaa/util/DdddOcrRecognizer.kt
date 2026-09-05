@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.FloatBuffer
 import kotlin.math.max
+import com.suseoaa.projectoaa.shared.util.AppLog
 
 /**
  * ddddocr 的 Android 移植版本
@@ -64,10 +65,10 @@ object DdddOcrRecognizer {
                 ortSession = ortEnv?.createSession(modelBytes, sessionOptions)
                 
                 isInitialized = true
-                println("[DdddOcr] 模型加载成功: $modelFileName")
+                AppLog.d("[DdddOcr] 模型加载成功: $modelFileName")
                 true
             } catch (e: Exception) {
-                println("[DdddOcr] 模型加载失败: ${e.message}")
+                AppLog.e("[DdddOcr] 模型加载失败: ${e.message}")
                 e.printStackTrace()
                 false
             }
@@ -102,7 +103,7 @@ object DdddOcrRecognizer {
                 val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
                     ?: return@withContext Result.failure(Exception("无法解码图片"))
                 
-                println("[DdddOcr] 原始图片尺寸: ${bitmap.width}x${bitmap.height}")
+                AppLog.d("[DdddOcr] 原始图片尺寸: ${bitmap.width}x${bitmap.height}")
                 
                 // 2. 预处理图片 (按照 ddddocr 的方式)
                 val inputTensor = preprocessImage(bitmap)
@@ -119,7 +120,7 @@ object DdddOcrRecognizer {
                 inputTensor.close()
                 output.close()
                 
-                println("[DdddOcr] 识别结果: $result")
+                AppLog.d("[DdddOcr] 识别结果: $result")
                 
                 if (result.isBlank()) {
                     Result.failure(Exception("未能识别出验证码"))
@@ -127,7 +128,7 @@ object DdddOcrRecognizer {
                     Result.success(result)
                 }
             } catch (e: Exception) {
-                println("[DdddOcr] 识别异常: ${e.message}")
+                AppLog.e("[DdddOcr] 识别异常: ${e.message}")
                 e.printStackTrace()
                 Result.failure(e)
             }
@@ -149,7 +150,7 @@ object DdddOcrRecognizer {
         // 缩放图片
         val scaledBitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, TARGET_HEIGHT, true)
         
-        println("[DdddOcr] 缩放后尺寸: ${scaledBitmap.width}x${scaledBitmap.height}")
+        AppLog.d("[DdddOcr] 缩放后尺寸: ${scaledBitmap.width}x${scaledBitmap.height}")
         
         // 转换为灰度并归一化
         val width = scaledBitmap.width
@@ -190,7 +191,7 @@ object DdddOcrRecognizer {
         val data = tensor.floatBuffer
         val shape = tensor.info.shape  // e.g., [T, 1, 6964] 或 [1, T, 6964]
         
-        println("[DdddOcr] 输出形状: ${shape.contentToString()}, charset大小: ${charset.size}")
+        AppLog.d("[DdddOcr] 输出形状: ${shape.contentToString()}, charset大小: ${charset.size}")
         
         // 确定各维度
         val seqLength: Int
@@ -212,7 +213,7 @@ object DdddOcrRecognizer {
             return ""
         }
         
-        println("[DdddOcr] seqLength=$seqLength, numClasses=$numClasses")
+        AppLog.d("[DdddOcr] seqLength=$seqLength, numClasses=$numClasses")
         
         // 贪婪解码: 每个时间步取最大概率的类别
         val result = StringBuilder()
@@ -259,9 +260,9 @@ object DdddOcrRecognizer {
             val jsonStr = context.assets.open("charsets_old.json").bufferedReader().use { it.readText() }
             // 简单解析 JSON 数组
             charset = parseJsonArray(jsonStr)
-            println("[DdddOcr] 从文件加载字符集成功, 大小: ${charset.size}")
+            AppLog.d("[DdddOcr] 从文件加载字符集成功, 大小: ${charset.size}")
         } catch (e: Exception) {
-            println("[DdddOcr] 无法加载字符集文件, 使用内置字符集: ${e.message}")
+            AppLog.d("[DdddOcr] 无法加载字符集文件, 使用内置字符集: ${e.message}")
             // 使用内置的简化字符集（仅包含常见验证码字符）
             charset = listOf("") + "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".map { it.toString() }
         }
@@ -320,7 +321,7 @@ object DdddOcrRecognizer {
             ortSession = null
             ortEnv = null
             isInitialized = false
-            println("[DdddOcr] 资源已释放")
+            AppLog.d("[DdddOcr] 资源已释放")
         } catch (e: Exception) {
             e.printStackTrace()
         }

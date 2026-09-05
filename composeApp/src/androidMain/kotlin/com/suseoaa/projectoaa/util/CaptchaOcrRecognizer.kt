@@ -14,6 +14,7 @@ import kotlin.coroutines.resumeWithException
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import com.suseoaa.projectoaa.shared.util.AppLog
 
 /**
  * OCR验证码识别器
@@ -36,15 +37,15 @@ object CaptchaOcrRecognizer {
 
     private fun logDebug(message: String) {
         Log.d(LOG_TAG, message)
-        println("[OCR] $message")
+        AppLog.d("[OCR] $message")
     }
 
     private fun logWarn(message: String, throwable: Throwable? = null) {
         Log.w(LOG_TAG, message, throwable)
         if (throwable != null) {
-            println("[OCR] $message, error=${throwable.message}")
+            AppLog.e("[OCR] $message, error=${throwable.message}")
         } else {
-            println("[OCR] $message")
+            AppLog.d("[OCR] $message")
         }
     }
 
@@ -314,7 +315,7 @@ object CaptchaOcrRecognizer {
         
         // 使用Otsu算法计算最佳阈值
         val threshold = calculateOtsuThreshold(grayPixels)
-        println("[OCR] Otsu阈值: $threshold")
+        AppLog.d("[OCR] Otsu阈值: $threshold")
         
         // 二值化
         val resultPixels = IntArray(width * height)

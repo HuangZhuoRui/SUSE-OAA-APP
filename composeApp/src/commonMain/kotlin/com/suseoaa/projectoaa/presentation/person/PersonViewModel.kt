@@ -3,14 +3,15 @@ package com.suseoaa.projectoaa.presentation.person
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.suseoaa.projectoaa.shared.data.local.TokenManager
 import com.suseoaa.projectoaa.shared.domain.model.person.PersonData
-import com.suseoaa.projectoaa.shared.data.repository.PersonRepository
+import com.suseoaa.projectoaa.shared.domain.repository.PersonRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.suseoaa.projectoaa.shared.data.local.store.AppearanceStore
+import com.suseoaa.projectoaa.shared.data.local.store.AppSettingsStore
 
 @Immutable
 data class PersonUiState(
@@ -30,7 +31,8 @@ data class PersonUiState(
 
 class PersonViewModel(
     private val personRepository: PersonRepository,
-    private val tokenManager: TokenManager
+    private val appearanceStore: AppearanceStore,
+    private val appSettingsStore: AppSettingsStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PersonUiState())
@@ -49,7 +51,7 @@ class PersonViewModel(
 
     private fun loadDynamicColorStatus() {
         viewModelScope.launch {
-            tokenManager.dynamicColorEnabledFlow.collect { enabled ->
+            appearanceStore.dynamicColorEnabledFlow.collect { enabled ->
                 _uiState.update { it.copy(isDynamicColorEnabled = enabled) }
             }
         }
@@ -58,19 +60,19 @@ class PersonViewModel(
     fun toggleDynamicColor() {
         viewModelScope.launch {
             val currentState = _uiState.value.isDynamicColorEnabled
-            tokenManager.saveDynamicColorEnabled(!currentState)
+            appearanceStore.saveDynamicColorEnabled(!currentState)
         }
     }
 
     private fun loadDynamicPaletteColors() {
         viewModelScope.launch {
-            tokenManager.dynamicColorPaletteLightFlow.collect { colorHex ->
+            appearanceStore.dynamicColorPaletteLightFlow.collect { colorHex ->
                 _uiState.update { it.copy(dynamicPaletteLightColorHex = colorHex) }
             }
         }
 
         viewModelScope.launch {
-            tokenManager.dynamicColorPaletteDarkFlow.collect { colorHex ->
+            appearanceStore.dynamicColorPaletteDarkFlow.collect { colorHex ->
                 _uiState.update { it.copy(dynamicPaletteDarkColorHex = colorHex) }
             }
         }
@@ -78,7 +80,7 @@ class PersonViewModel(
 
     fun setDynamicPaletteColors(lightColorHex: String?, darkColorHex: String?) {
         viewModelScope.launch {
-            tokenManager.saveDynamicColorPalettes(lightColorHex, darkColorHex)
+            appearanceStore.saveDynamicColorPalettes(lightColorHex, darkColorHex)
         }
     }
 
@@ -87,7 +89,7 @@ class PersonViewModel(
      */
     private fun loadCheckinUnlockStatus() {
         viewModelScope.launch {
-            tokenManager.checkinUnlockedFlow.collect { unlocked ->
+            appSettingsStore.checkinUnlockedFlow.collect { unlocked ->
                 _uiState.update { it.copy(isCheckinUnlocked = unlocked) }
             }
         }
@@ -98,14 +100,14 @@ class PersonViewModel(
      */
     fun unlockCheckinFeature() {
         viewModelScope.launch {
-            tokenManager.unlockCheckinFeature()
+            appSettingsStore.unlockCheckinFeature()
             _uiState.update { it.copy(isCheckinUnlocked = true) }
         }
     }
 
     private fun loadDefaultStartTab() {
         viewModelScope.launch {
-            tokenManager.defaultStartTabFlow.collect { tab ->
+            appSettingsStore.defaultStartTabFlow.collect { tab ->
                 _uiState.update { it.copy(defaultStartTab = tab) }
             }
         }
@@ -113,14 +115,14 @@ class PersonViewModel(
 
     fun saveDefaultStartTab(tabIndex: Int) {
         viewModelScope.launch {
-            tokenManager.saveDefaultStartTab(tabIndex)
+            appSettingsStore.saveDefaultStartTab(tabIndex)
             _uiState.update { it.copy(defaultStartTab = tabIndex) }
         }
     }
 
     private fun loadPredictiveBackEnabled() {
         viewModelScope.launch {
-            tokenManager.predictiveBackEnabledFlow.collect { enabled ->
+            appSettingsStore.predictiveBackEnabledFlow.collect { enabled ->
                 _uiState.update { it.copy(isPredictiveBackEnabled = enabled) }
             }
         }
@@ -129,13 +131,13 @@ class PersonViewModel(
     fun togglePredictiveBackEnabled() {
         viewModelScope.launch {
             val currentState = _uiState.value.isPredictiveBackEnabled
-            tokenManager.savePredictiveBackEnabled(!currentState)
+            appSettingsStore.savePredictiveBackEnabled(!currentState)
         }
     }
 
     private fun loadLiquidGlassTabbarEnabled() {
         viewModelScope.launch {
-            tokenManager.liquidGlassTabbarEnabledFlow.collect { enabled ->
+            appSettingsStore.liquidGlassTabbarEnabledFlow.collect { enabled ->
                 _uiState.update { it.copy(isLiquidGlassTabbarEnabled = enabled) }
             }
         }
@@ -144,13 +146,13 @@ class PersonViewModel(
     fun toggleLiquidGlassTabbarEnabled() {
         viewModelScope.launch {
             val currentState = _uiState.value.isLiquidGlassTabbarEnabled
-            tokenManager.saveLiquidGlassTabbarEnabled(!currentState)
+            appSettingsStore.saveLiquidGlassTabbarEnabled(!currentState)
         }
     }
 
     private fun loadLiquidGlassTabbarStyle() {
         viewModelScope.launch {
-            tokenManager.liquidGlassTabbarStyleFlow.collect { style ->
+            appSettingsStore.liquidGlassTabbarStyleFlow.collect { style ->
                 _uiState.update { it.copy(liquidGlassTabbarStyle = style) }
             }
         }
@@ -158,7 +160,7 @@ class PersonViewModel(
 
     fun setLiquidGlassTabbarStyle(style: Int) {
         viewModelScope.launch {
-            tokenManager.saveLiquidGlassTabbarStyle(style)
+            appSettingsStore.saveLiquidGlassTabbarStyle(style)
         }
     }
 

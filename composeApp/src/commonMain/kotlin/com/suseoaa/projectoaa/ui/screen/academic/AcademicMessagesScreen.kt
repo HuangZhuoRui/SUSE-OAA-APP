@@ -55,7 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.suseoaa.projectoaa.presentation.academic.AcademicViewModel
 import androidx.compose.material3.CircularProgressIndicator
-import com.suseoaa.projectoaa.shared.data.repository.MessageCacheEntity
+import com.suseoaa.projectoaa.shared.domain.model.message.MessageCacheEntity
 import com.suseoaa.projectoaa.ui.component.common.SharedTransitionPageContainer
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone

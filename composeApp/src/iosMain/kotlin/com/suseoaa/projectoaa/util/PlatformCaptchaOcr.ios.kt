@@ -11,6 +11,7 @@ import platform.Vision.VNRequestTextRecognitionLevelAccurate
 import platform.posix.memcpy
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
+import com.suseoaa.projectoaa.shared.util.AppLog
 
 /**
  * OCR 识别器接口 - 可由 Swift 实现
@@ -27,7 +28,7 @@ object IOSOcrRegistry {
 
     fun setRecognizer(recognizer: IOSOcrRecognizer) {
         ocrRecognizer = recognizer
-        println("[iOS OCR] 已注册外部 OCR 识别器")
+        AppLog.d("[iOS OCR] 已注册外部 OCR 识别器")
     }
 }
 
@@ -53,11 +54,11 @@ actual object PlatformCaptchaOcr {
                 if (externalOcr != null) {
                     val result = externalOcr.recognize(nsData)
                     if (result != null && result.isNotEmpty()) {
-                        println("[iOS OCR] ddddocr 识别结果: $result")
+                        AppLog.d("[iOS OCR] ddddocr 识别结果: $result")
                         continuation.resume(Result.success(result))
                         return@suspendCoroutine
                     }
-                    println("[iOS OCR] ddddocr 识别失败，回退到 Vision Framework")
+                    AppLog.e("[iOS OCR] ddddocr 识别失败，回退到 Vision Framework")
                 }
 
                 // 回退到 Vision Framework
@@ -77,7 +78,7 @@ actual object PlatformCaptchaOcr {
 
                 val request = VNRecognizeTextRequest { request, error ->
                     if (error != null) {
-                        println("[iOS OCR] Vision 识别错误: ${error.localizedDescription}")
+                        AppLog.e("[iOS OCR] Vision 识别错误: ${error.localizedDescription}")
                     } else {
                         @Suppress("UNCHECKED_CAST")
                         val observations = request?.results as? List<Any?>
@@ -111,11 +112,11 @@ actual object PlatformCaptchaOcr {
                 if (cleanedText.isBlank()) {
                     continuation.resume(Result.failure(Exception("未能识别出验证码")))
                 } else {
-                    println("[iOS OCR] Vision 识别结果: $cleanedText (原始: $recognizedText)")
+                    AppLog.d("[iOS OCR] Vision 识别结果: $cleanedText (原始: $recognizedText)")
                     continuation.resume(Result.success(cleanedText))
                 }
             } catch (e: Exception) {
-                println("[iOS OCR] 识别异常: ${e.message}")
+                AppLog.e("[iOS OCR] 识别异常: ${e.message}")
                 continuation.resume(Result.failure(e))
             }
         }

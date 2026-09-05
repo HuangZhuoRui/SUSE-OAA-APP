@@ -2,11 +2,10 @@ package com.suseoaa.projectoaa.presentation.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.suseoaa.projectoaa.shared.data.local.TokenManager
 import com.suseoaa.projectoaa.shared.domain.model.announcement.AnnouncementData
 import com.suseoaa.projectoaa.shared.domain.model.person.PersonData
-import com.suseoaa.projectoaa.shared.data.repository.AnnouncementRepository
-import com.suseoaa.projectoaa.shared.data.repository.PersonRepository
+import com.suseoaa.projectoaa.shared.domain.repository.AnnouncementRepository
+import com.suseoaa.projectoaa.shared.domain.repository.PersonRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,7 +43,6 @@ data class HomeUiState(
 class HomeViewModel(
     private val announcementRepository: AnnouncementRepository,
     private val personRepository: PersonRepository,
-    private val tokenManager: TokenManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())

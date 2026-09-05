@@ -3,8 +3,7 @@ package com.suseoaa.projectoaa.presentation.ailab
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.suseoaa.projectoaa.shared.data.local.TokenManager
-import com.suseoaa.projectoaa.shared.data.repository.SchoolGradeRepository
+import com.suseoaa.projectoaa.shared.domain.repository.SchoolGradeRepository
 import com.suseoaa.projectoaa.shared.domain.engine.AiToolEngine
 import com.suseoaa.projectoaa.shared.domain.engine.CampusAiEngine
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -17,6 +16,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.suseoaa.projectoaa.shared.util.AppLog
+import com.suseoaa.projectoaa.shared.data.local.store.SessionStore
 
 /**
  * 聊天消息数据模型
@@ -42,7 +43,7 @@ data class AcademicAnalysisUiState(
 )
 
 class AcademicAnalysisViewModel(
-    private val tokenManager: TokenManager,
+    private val sessionStore: SessionStore,
     private val schoolGradeRepository: SchoolGradeRepository
 ) : ViewModel() {
 
@@ -53,7 +54,7 @@ class AcademicAnalysisViewModel(
 
     // 观察学生的成绩数据
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val studentGrades = tokenManager.currentStudentId
+    private val studentGrades = sessionStore.currentStudentId
         .filterNotNull()
         .flatMapLatest { studentId ->
             schoolGradeRepository.observeAllGrades(studentId)
@@ -85,9 +86,9 @@ class AcademicAnalysisViewModel(
     }
 
     fun loadModel() {
-        println("AiLab: AcademicAnalysisViewModel.loadModel() called")
+        AppLog.d("AiLab: AcademicAnalysisViewModel.loadModel() called")
         if (!uiState.value.isModelAvailable) {
-            println("AiLab: AcademicAnalysisViewModel loadModel skipped because isModelAvailable is false")
+            AppLog.d("AiLab: AcademicAnalysisViewModel loadModel skipped because isModelAvailable is false")
             return
         }
         viewModelScope.launch {
@@ -96,7 +97,7 @@ class AcademicAnalysisViewModel(
             if (CampusAiEngine.lastGpuCrashDetected()) {
                 com.suseoaa.projectoaa.util.ToastManager.showToast("检测到 GPU 驱动异常，已自动降级至 CPU 推理，建议前往设置切换。")
             }
-            println("AiLab: AcademicAnalysisViewModel CampusAiEngine.loadModel() returned $success")
+            AppLog.d("AiLab: AcademicAnalysisViewModel CampusAiEngine.loadModel() returned $success")
             if (!success) {
                 _uiState.update { it.copy(error = "模型加载失败，请重试。") }
             }

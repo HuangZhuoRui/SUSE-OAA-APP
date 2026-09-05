@@ -37,6 +37,7 @@ import com.suseoaa.projectoaa.ui.component.common.AdaptivePageScaffold
 import com.suseoaa.projectoaa.ui.theme.AppDimensions
 import com.suseoaa.projectoaa.util.ToastManager
 import org.koin.compose.viewmodel.koinViewModel
+import com.suseoaa.projectoaa.presentation.teachingplan.StudyRequirementUiState
 
 /**
  * 修读要求查询界面
@@ -112,7 +113,7 @@ fun StudyRequirementScreen(
 
 @Composable
 private fun StudyRequirementTabletLayout(
-    uiState: com.suseoaa.projectoaa.shared.domain.model.teachingplan.StudyRequirementUiState,
+    uiState: StudyRequirementUiState,
     selectedCollegeObj: CollegeOption?,
     selectedMajorObj: MajorOption?,
     viewModel: StudyRequirementViewModel,
@@ -150,7 +151,7 @@ private fun StudyRequirementTabletLayout(
 
 @Composable
 private fun StudyRequirementCompactLayout(
-    uiState: com.suseoaa.projectoaa.shared.domain.model.teachingplan.StudyRequirementUiState,
+    uiState: StudyRequirementUiState,
     selectedCollegeObj: CollegeOption?,
     selectedMajorObj: MajorOption?,
     viewModel: StudyRequirementViewModel,
@@ -185,7 +186,7 @@ private fun StudyRequirementCompactLayout(
 
 @Composable
 private fun StudyRequirementContent(
-    uiState: com.suseoaa.projectoaa.shared.domain.model.teachingplan.StudyRequirementUiState,
+    uiState: StudyRequirementUiState,
     selectedMajorObj: MajorOption?,
     viewModel: StudyRequirementViewModel,
     modifier: Modifier

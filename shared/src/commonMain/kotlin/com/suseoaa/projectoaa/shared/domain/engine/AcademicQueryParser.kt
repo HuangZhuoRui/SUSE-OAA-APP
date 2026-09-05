@@ -1,6 +1,6 @@
 package com.suseoaa.projectoaa.shared.domain.engine
 
-import com.suseoaa.projectoaa.shared.data.repository.GradeEntity
+import com.suseoaa.projectoaa.shared.domain.model.grade.GradeEntity
 
 /**
  * 学业问答的查询解析：分词、归一化、相关度打分与学期表达式解析。

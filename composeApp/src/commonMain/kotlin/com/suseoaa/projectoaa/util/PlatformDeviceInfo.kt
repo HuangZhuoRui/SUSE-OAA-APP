@@ -1,5 +1,7 @@
 package com.suseoaa.projectoaa.util
 
+import com.suseoaa.projectoaa.shared.data.remote.ApiConfig
+
 /**
  * 跨平台设备硬件信息接口
  * Android 实现读取真实系统 API；iOS 实现通过 UIDevice/sysctl 获取
@@ -70,14 +72,14 @@ val AvailableAiModels = listOf(
         id = "gemma-4-e2b-int4",
         name = "Gemma 4 E2B (混合量化)",
         sizeDesc = "约 2.41 GB",
-        downloadUrl = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm",
+        downloadUrl = "${ApiConfig.MODEL_HOST}/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm",
         recommendedLevel = ModelRecommendationLevel.E2B_RECOMMENDED
     ),
     AiModelMetadata(
         id = "gemma-4-e2b-qualcomm",
         name = "Gemma 4 E2B (高通 SM8750 专版)",
         sizeDesc = "约 2.81 GB",
-        downloadUrl = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_qualcomm_sm8750.litertlm",
+        downloadUrl = "${ApiConfig.MODEL_HOST}/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_qualcomm_sm8750.litertlm",
         recommendedLevel = ModelRecommendationLevel.E2B_RECOMMENDED,
         targetSocModels = setOf("sm8750")
     ),
@@ -85,7 +87,7 @@ val AvailableAiModels = listOf(
         id = "gemma-4-e4b-int4",
         name = "Gemma 4 E4B (混合量化)",
         sizeDesc = "约 3.41 GB",
-        downloadUrl = "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm",
+        downloadUrl = "${ApiConfig.MODEL_HOST}/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm",
         recommendedLevel = ModelRecommendationLevel.E4B_RECOMMENDED
     )
 )

@@ -1,6 +1,6 @@
 package com.suseoaa.projectoaa.shared.domain.engine
 
-import com.suseoaa.projectoaa.shared.data.repository.GradeEntity
+import com.suseoaa.projectoaa.shared.domain.model.grade.GradeEntity
 
 enum class AcademicToolIntent {
     TEACHER_LIST,

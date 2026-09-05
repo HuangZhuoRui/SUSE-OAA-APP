@@ -10,6 +10,7 @@ import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
+import com.suseoaa.projectoaa.shared.util.AppLog
 
 /**
  * 可清除的 Cookie 存储 (使用协程 Mutex 实现线程安全)
@@ -24,10 +25,10 @@ class ClearableCookiesStorage : CookiesStorage {
             storage.removeAll { it.name == cookie.name && it.domain == cookie.domain }
 
             if (cookie.value.equals("deleteMe", ignoreCase = true) || (cookie.maxAge ?: 1) <= 0) {
-                println("[Cookie] 已剔除失效 Cookie: ${cookie.name}")
+                AppLog.d("[Cookie] 已剔除失效 Cookie: ${cookie.name}")
             } else {
                 storage.add(cookie)
-                println("[Cookie] 已添加 Cookie: ${cookie.name}=${cookie.value.take(20)}...")
+                AppLog.d("[Cookie] 已添加 Cookie: ${cookie.name}=${cookie.value.take(20)}...")
             }
         }
     }
@@ -40,7 +41,7 @@ class ClearableCookiesStorage : CookiesStorage {
                         requestUrl.host.endsWith(cookie.domain ?: "") ||
                         cookie.domain == requestUrl.host)
             }
-            println("[Cookie] 读取域名 ${requestUrl.host} 的 Cookie: ${cookies.map { it.name }}")
+            AppLog.d("[Cookie] 读取域名 ${requestUrl.host} 的 Cookie: ${cookies.map { it.name }}")
             cookies
         }
     }
@@ -51,7 +52,7 @@ class ClearableCookiesStorage : CookiesStorage {
 
     suspend fun clear() {
         mutex.withLock {
-            println("[Cookie] 已清空全部 Cookie")
+            AppLog.d("[Cookie] 已清空全部 Cookie")
             storage.clear()
         }
     }

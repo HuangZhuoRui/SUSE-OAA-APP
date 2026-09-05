@@ -3,9 +3,8 @@ package com.suseoaa.projectoaa.presentation.gpa
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.suseoaa.projectoaa.shared.data.local.TokenManager
-import com.suseoaa.projectoaa.shared.data.repository.GpaCourseWrapper
-import com.suseoaa.projectoaa.shared.data.repository.GpaRepository
+import com.suseoaa.projectoaa.shared.domain.model.gpa.GpaCourseWrapper
+import com.suseoaa.projectoaa.shared.domain.repository.GpaRepository
 import kotlin.math.pow
 import kotlin.math.round
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,6 +13,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.suseoaa.projectoaa.shared.data.local.store.SessionStore
+import com.suseoaa.projectoaa.shared.domain.engine.scoreToGpaPoint
+import com.suseoaa.projectoaa.domain.gpa.FilterType
+import com.suseoaa.projectoaa.domain.gpa.GpaCalculator
+import com.suseoaa.projectoaa.domain.gpa.SortOrder
 
 // KMP 兼容的格式化函数（四舍五入）
 private fun Double.format(decimals: Int): String {
@@ -34,16 +38,6 @@ private fun Double.format(decimals: Int): String {
     }
 }
 
-enum class SortOrder {
-    DESCENDING, // 从高到低
-    ASCENDING   // 从低到高
-}
-
-enum class FilterType {
-    ALL,        // 全部课程
-    DEGREE_ONLY // 仅学位课
-}
-
 @Immutable
 data class GpaUiState(
     val isLoading: Boolean = false,
@@ -61,7 +55,7 @@ data class GpaUiState(
 )
 
 class GpaViewModel(
-    private val tokenManager: TokenManager,
+    private val sessionStore: SessionStore,
     private val gpaRepository: GpaRepository
 ) : ViewModel() {
 
@@ -74,7 +68,7 @@ class GpaViewModel(
 
             try {
                 // 获取当前登录的学生ID
-                val studentId = tokenManager.currentStudentId.first()
+                val studentId = sessionStore.currentStudentId.first()
 
                 if (studentId.isNullOrEmpty()) {
                     _uiState.update {
@@ -99,7 +93,7 @@ class GpaViewModel(
                             val term = parts.getOrNull(1)?.toIntOrNull() ?: 0
                             year * 100 + term
                         }
-                    val stats = calculateTotalStats(sortedCourses)
+                    val stats = GpaCalculator.stats(sortedCourses)
 
                     _uiState.update {
                         it.copy(
@@ -134,6 +128,7 @@ class GpaViewModel(
         }
     }
 
+    /** 筛选、排序、统计三步都在 GpaCalculator 里，这里只负责把结果搬进 UiState。 */
     private fun applyFiltersAndSort(
         state: GpaUiState,
         allCourses: List<GpaCourseWrapper>,
@@ -141,20 +136,12 @@ class GpaViewModel(
         type: FilterType,
         order: SortOrder
     ): GpaUiState {
-        val termFiltered = if (term == "ALL") allCourses
-        else allCourses.filter { "${it.originalEntity.xnm}_${it.originalEntity.xqm}" == term }
-
-        val stats = calculateTotalStats(termFiltered)
-
-        val typeFiltered = if (type == FilterType.DEGREE_ONLY) termFiltered.filter { it.isDegreeCourse } else termFiltered
-
-        val sorted = when (order) {
-            SortOrder.DESCENDING -> typeFiltered.sortedByDescending { it.scoreValue }
-            SortOrder.ASCENDING -> typeFiltered.sortedBy { it.scoreValue }
-        }
+        val termFiltered = GpaCalculator.filterByTerm(allCourses, term)
+        val stats = GpaCalculator.stats(termFiltered)
+        val visible = GpaCalculator.sort(GpaCalculator.filterByType(termFiltered, type), order)
 
         return state.copy(
-            courseList = sorted,
+            courseList = visible,
             selectedTerm = term,
             filterType = type,
             sortOrder = order,
@@ -181,7 +168,7 @@ class GpaViewModel(
         _uiState.update { state ->
             val updatedAllCourses = state.allCourses.map { course ->
                 if (course.originalEntity.courseId == courseId || course.originalEntity.courseName == courseId) {
-                    val newGpa = calculateSingleGpa(newScore)
+                    val newGpa = scoreToGpaPoint(newScore)
                     course.copy(simulatedScore = newScore, simulatedGpa = newGpa)
                 } else {
                     course
@@ -210,59 +197,4 @@ class GpaViewModel(
         updateSimulatedScoreByCourseId(item.originalEntity.courseId.ifEmpty { item.originalEntity.courseName }, newScore)
     }
 
-    /**
-     * 计算单科绩点
-     * 与 Android 版本保持一致
-     */
-    private fun calculateSingleGpa(score: Double): Double {
-        return when {
-            score >= 95.0 -> 4.5
-            score < 60.0 -> 0.0
-            else -> {
-                val base = 1.0
-                val steps = ((score - 60) / 5).toInt()
-                base + steps * 0.5
-            }
-        }
-    }
-
-    private data class GpaStats(
-        val totalGpa: String,
-        val totalCredits: String,
-        val degreeGpa: String,
-        val degreeCredits: String
-    )
-
-    private fun calculateTotalStats(courses: List<GpaCourseWrapper>): GpaStats {
-        var totalPoints = 0.0
-        var totalCredits = 0.0
-        var degreePoints = 0.0
-        var degreeCredits = 0.0
-
-        courses.forEach { item ->
-            if (!item.isIncludedInCalculation) return@forEach
-            
-            val credit = item.credit
-            if (credit > 0.0) {
-                // 所有课程都参与绩点计算
-                totalPoints += item.gpaValue * credit
-                totalCredits += credit
-
-                if (item.isDegreeCourse) {
-                    degreePoints += item.gpaValue * credit
-                    degreeCredits += credit
-                }
-            }
-        }
-
-        val finalTotalGpa = if (totalCredits > 0) totalPoints / totalCredits else 0.0
-        val finalDegreeGpa = if (degreeCredits > 0) degreePoints / degreeCredits else 0.0
-
-        return GpaStats(
-            totalGpa = finalTotalGpa.format(2),
-            totalCredits = totalCredits.format(1),
-            degreeGpa = finalDegreeGpa.format(2),
-            degreeCredits = degreeCredits.format(1)
-        )
-    }
 }

@@ -3,6 +3,7 @@ package com.suseoaa.projectoaa.util
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import com.suseoaa.projectoaa.shared.data.local.store.AppSettingsStore
 
 /**
  * 系统导航模式。
@@ -52,8 +53,8 @@ fun AppPredictiveBackHandler(
     onCancel: () -> Unit = {},
     onBack: () -> Unit
 ) {
-    val tokenManager: com.suseoaa.projectoaa.shared.data.local.TokenManager = org.koin.compose.koinInject()
-    val isGlobalEnabled by tokenManager.predictiveBackEnabledFlow.collectAsState(initial = true)
+    val appSettingsStore: com.suseoaa.projectoaa.shared.data.local.store.AppSettingsStore = org.koin.compose.koinInject()
+    val isGlobalEnabled by appSettingsStore.predictiveBackEnabledFlow.collectAsState(initial = true)
 
     PlatformPredictiveBackHandler(
         enabled = enabled,

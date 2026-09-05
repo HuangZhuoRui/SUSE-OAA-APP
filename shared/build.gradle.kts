@@ -16,12 +16,18 @@ kotlin {
 
     android {
         namespace = "com.suseoaa.projectoaa.shared"
-        compileSdk = 36
+        // 与 composeApp / androidApp 保持一致；此前是 36，三个模块编译用的
+        // android.jar 不同版本，属于容易埋雷的不一致。
+        compileSdk = 37
         minSdk = 28
 
         compilerOptions {
             jvmTarget.set(JvmTarget.fromTarget("25"))
         }
+
+        // 打开 JVM 侧的单元测试。此前 commonTest 只在 iOS 模拟器目标上编译运行，
+        // 意味着这些测试只有 macOS 开发机跑得动，Linux CI 上等于没有测试。
+        withHostTest { }
     }
 
     listOf(

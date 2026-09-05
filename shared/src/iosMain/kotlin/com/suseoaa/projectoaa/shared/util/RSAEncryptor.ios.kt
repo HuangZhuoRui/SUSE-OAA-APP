@@ -65,7 +65,7 @@ actual object RSAEncryptor {
             // Base64 编码
             return encryptedBytes.toNSData().base64EncodedStringWithOptions(0u)
         } catch (e: Exception) {
-            println("[RSA] Encryption error: ${e.message}")
+            AppLog.e("[RSA] Encryption error: ${e.message}")
             throw RuntimeException("RSA加密失败: ${e.message}")
         }
     }

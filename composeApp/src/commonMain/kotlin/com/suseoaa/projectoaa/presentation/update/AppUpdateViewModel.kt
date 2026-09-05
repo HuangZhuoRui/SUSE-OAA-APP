@@ -3,7 +3,6 @@ package com.suseoaa.projectoaa.presentation.update
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.suseoaa.projectoaa.shared.data.local.TokenManager
 import com.suseoaa.projectoaa.data.repository.AppUpdateRepository
 import com.suseoaa.projectoaa.data.repository.GithubRelease
 import kotlinx.coroutines.Job
@@ -15,6 +14,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.suseoaa.projectoaa.shared.data.remote.ApiConfig
+import com.suseoaa.projectoaa.shared.data.local.store.AppSettingsStore
 
 /**
  * 应用更新 UI 状态
@@ -57,7 +58,7 @@ expect fun getAppVersionName(): String
  */
 class AppUpdateViewModel(
     private val appUpdateRepository: AppUpdateRepository,
-    private val tokenManager: TokenManager
+    private val appSettingsStore: AppSettingsStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AppUpdateUiState())
@@ -141,7 +142,7 @@ class AppUpdateViewModel(
                 .onSuccess { release ->
                     if (release != null) {
                         // 检查是否已经为这个版本弹过窗
-                        val hasShown = tokenManager.hasShownUpdateDialogForVersion(release.tagName)
+                        val hasShown = appSettingsStore.hasShownUpdateDialogForVersion(release.tagName)
 
                         _uiState.value = _uiState.value.copy(
                             isChecking = false,
@@ -251,7 +252,7 @@ class AppUpdateViewModel(
     fun markDialogShown() {
         val version = _uiState.value.latestRelease?.tagName ?: return
         viewModelScope.launch {
-            tokenManager.markUpdateDialogShown(version)
+            appSettingsStore.markUpdateDialogShown(version)
             _uiState.value = _uiState.value.copy(hasShownAutoDialog = true)
         }
     }
@@ -275,7 +276,7 @@ class AppUpdateViewModel(
         }
 
         val url =
-            if (isProxy) apkAsset.downloadUrl.replace("https://github.com/", "https://update.vincenthzr.org:8443/download/") else apkAsset.downloadUrl
+            if (isProxy) apkAsset.downloadUrl.replace(ApiConfig.GITHUB_DOWNLOAD_PREFIX, ApiConfig.UPDATE_DOWNLOAD_PREFIX) else apkAsset.downloadUrl
 
         // 调用我们已经定义好的带代理和 digest 参数的方法
         downloadApk(url, apkAsset.name, apkAsset.digest, isProxy, release.tagName)

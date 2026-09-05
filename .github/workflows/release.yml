@@ -130,6 +130,8 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           chmod +x ./gradlew
+          # 发版前同样跑一遍架构检查，避免直推 main 绕过 CI
+          ./gradlew --no-daemon checkArchitecture
           ./gradlew --no-daemon :androidApp:assembleRelease
 
           APK_DIR="androidApp/build/outputs/apk/release"

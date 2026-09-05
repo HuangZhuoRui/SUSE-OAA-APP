@@ -3,7 +3,7 @@ package com.suseoaa.projectoaa.presentation.checkin
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.suseoaa.projectoaa.scheduling.PlatformCheckinScheduler
-import com.suseoaa.projectoaa.shared.data.repository.CheckinRepository
+import com.suseoaa.projectoaa.shared.domain.repository.CheckinRepository
 import com.suseoaa.projectoaa.shared.domain.model.checkin.CheckinAccountData
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,6 +11,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.suseoaa.projectoaa.domain.checkin.CheckinScheduler
+import com.suseoaa.projectoaa.domain.checkin.ScheduledCheckinManager
+import com.suseoaa.projectoaa.domain.checkin.SchedulerConfig
+import com.suseoaa.projectoaa.domain.checkin.SchedulerStatus
 
 /**
  * 定时签到弹窗 UI 状态

@@ -38,6 +38,7 @@ import com.suseoaa.projectoaa.ui.component.useTabletLayout
 import com.suseoaa.projectoaa.util.ToastManager
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.math.roundToInt
+import com.suseoaa.projectoaa.presentation.teachingplan.AcademicStatusFilter
 
 /**
  * 格式化浮点数为字符串（跨平台兼容）

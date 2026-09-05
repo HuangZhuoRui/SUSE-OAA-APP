@@ -2,8 +2,7 @@ package com.suseoaa.projectoaa.presentation.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.suseoaa.projectoaa.shared.data.local.TokenManager
-import com.suseoaa.projectoaa.shared.data.repository.ValueCalculatorRepository
+import com.suseoaa.projectoaa.shared.domain.repository.ValueCalculatorRepository
 import com.suseoaa.projectoaa.shared.database.ValueCalculatorItem
 import com.suseoaa.projectoaa.shared.util.OaaClock
 import kotlinx.coroutines.flow.*
@@ -12,6 +11,7 @@ import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.daysUntil
 import kotlinx.datetime.toLocalDateTime
+import com.suseoaa.projectoaa.shared.data.local.store.AppSettingsStore
 
 enum class SortType(val label: String) {
     PRICE_ASC("价格(升)"),
@@ -24,7 +24,7 @@ enum class SortType(val label: String) {
 
 class ValueCalculatorViewModel(
     private val repository: ValueCalculatorRepository,
-    private val tokenManager: TokenManager
+    private val appSettingsStore: AppSettingsStore
 ) : ViewModel() {
 
     private val _sortType = MutableStateFlow(SortType.DAYS_ASC)
@@ -40,7 +40,7 @@ class ValueCalculatorViewModel(
 
     private fun loadInitialSortType() {
         viewModelScope.launch {
-            tokenManager.assetSortTypeFlow.firstOrNull()?.let { savedName ->
+            appSettingsStore.assetSortTypeFlow.firstOrNull()?.let { savedName ->
                 try {
                     _sortType.value = SortType.valueOf(savedName)
                 } catch (e: Exception) {
@@ -89,7 +89,7 @@ class ValueCalculatorViewModel(
     fun updateSortType(newSortType: SortType) {
         _sortType.value = newSortType
         viewModelScope.launch {
-            tokenManager.saveAssetSortType(newSortType.name)
+            appSettingsStore.saveAssetSortType(newSortType.name)
         }
     }
 

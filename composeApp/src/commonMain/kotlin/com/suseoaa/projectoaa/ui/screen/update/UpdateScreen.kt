@@ -33,6 +33,7 @@ import com.suseoaa.projectoaa.ui.component.OaaMarkdownText
 import com.suseoaa.projectoaa.presentation.update.isIosPlatform
 import com.suseoaa.projectoaa.ui.component.common.SharedTransitionPageContainer
 import org.koin.compose.viewmodel.koinViewModel
+import com.suseoaa.projectoaa.shared.data.remote.ApiConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -623,7 +624,7 @@ private fun ReleaseCardActionButtons(
             Button(
                 onClick = {
                     viewModel.downloadApk(
-                        url = apkAsset.downloadUrl.replace("https://github.com/", "https://update.vincenthzr.org:8443/download/"),
+                        url = apkAsset.downloadUrl.replace(ApiConfig.GITHUB_DOWNLOAD_PREFIX, ApiConfig.UPDATE_DOWNLOAD_PREFIX),
                         fileName = apkAsset.name,
                         digest = apkAsset.digest,
                         isProxy = true,

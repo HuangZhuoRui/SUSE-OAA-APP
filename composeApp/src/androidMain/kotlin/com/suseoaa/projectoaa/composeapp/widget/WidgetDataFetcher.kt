@@ -1,12 +1,11 @@
 package com.suseoaa.projectoaa.composeapp.widget
 
-import com.suseoaa.projectoaa.presentation.course.DailySchedulePost2025
-import com.suseoaa.projectoaa.presentation.course.TimeSlotConfig
-import com.suseoaa.projectoaa.presentation.course.dailyScheduleFor
-import com.suseoaa.projectoaa.shared.data.local.TokenManager
-import com.suseoaa.projectoaa.shared.data.repository.LocalCourseRepository
-import com.suseoaa.projectoaa.shared.data.repository.SchoolInfoRepository
-import com.suseoaa.projectoaa.shared.data.repository.ExamCacheEntity
+import com.suseoaa.projectoaa.domain.course.DailySchedulePost2025
+import com.suseoaa.projectoaa.domain.course.TimeSlotConfig
+import com.suseoaa.projectoaa.domain.course.dailyScheduleFor
+import com.suseoaa.projectoaa.shared.domain.repository.LocalCourseRepository
+import com.suseoaa.projectoaa.shared.domain.repository.SchoolInfoRepository
+import com.suseoaa.projectoaa.shared.domain.model.exam.ExamCacheEntity
 import com.suseoaa.projectoaa.shared.domain.course.CourseScheduleParser
 import com.suseoaa.projectoaa.shared.domain.course.SemesterCalendar
 import com.suseoaa.projectoaa.shared.domain.course.PeriodSpan
@@ -21,6 +20,8 @@ import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.minus
 import kotlinx.datetime.DateTimeUnit
 import org.koin.core.context.GlobalContext
+import com.suseoaa.projectoaa.shared.data.local.store.SemesterStore
+import com.suseoaa.projectoaa.shared.data.local.store.SessionStore
 
 object WidgetDataFetcher {
 
@@ -32,11 +33,12 @@ object WidgetDataFetcher {
     suspend fun getActiveCourses(): List<CourseWithTimes> {
         return try {
             val koin = GlobalContext.get()
-            val tokenManager = koin.get<TokenManager>()
+            val semesterStore = koin.get<SemesterStore>()
+            val sessionStore = koin.get<SessionStore>()
             val courseRepo = koin.get<LocalCourseRepository>()
 
             // 获取当前学生 ID
-            val studentId = tokenManager.currentStudentId.first() ?: return emptyList()
+            val studentId = sessionStore.currentStudentId.first() ?: return emptyList()
 
             val (xnm, xqm) = calculateCurrentRealTerm()
             val allCourses = courseRepo.getCourses(studentId, xnm, xqm).first()
@@ -51,10 +53,11 @@ object WidgetDataFetcher {
     suspend fun getCurrentWeek(): Int {
         return try {
             val koin = GlobalContext.get()
-            val tokenManager = koin.get<TokenManager>()
+            val semesterStore = koin.get<SemesterStore>()
+            val sessionStore = koin.get<SessionStore>()
             
-            val savedDateStr = tokenManager.getSemesterStartDate()
-            val hasWeekZero = tokenManager.getSemesterHasWeekZero()
+            val savedDateStr = semesterStore.getSemesterStartDate()
+            val hasWeekZero = semesterStore.getSemesterHasWeekZero()
 
             val startDate = if (savedDateStr != null) {
                 try {
@@ -281,10 +284,11 @@ object WidgetDataFetcher {
     suspend fun getExamsSummary(): ExamsSummary {
         return try {
             val koin = GlobalContext.get()
-            val tokenManager = koin.get<TokenManager>()
+            val semesterStore = koin.get<SemesterStore>()
+            val sessionStore = koin.get<SessionStore>()
             val schoolInfoRepo = koin.get<SchoolInfoRepository>()
 
-            val studentId = tokenManager.currentStudentId.first() ?: return ExamsSummary(emptyList(), 0, 0)
+            val studentId = sessionStore.currentStudentId.first() ?: return ExamsSummary(emptyList(), 0, 0)
             
             // 从本地缓存获取所有考试
             val exams = schoolInfoRepo.observeExams(studentId).first()

@@ -3,8 +3,7 @@ package com.suseoaa.projectoaa.presentation.course
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.suseoaa.projectoaa.shared.data.local.BackgroundPageIds
-import com.suseoaa.projectoaa.shared.data.local.TokenManager
+import com.suseoaa.projectoaa.shared.data.local.store.BackgroundPageIds
 import com.suseoaa.projectoaa.shared.domain.course.CourseScheduleParser
 import com.suseoaa.projectoaa.shared.domain.course.SemesterCalendar
 import com.suseoaa.projectoaa.shared.domain.course.PeriodSpan
@@ -12,9 +11,9 @@ import com.suseoaa.projectoaa.shared.domain.model.course.ClassTimeEntity
 import com.suseoaa.projectoaa.shared.domain.model.course.CourseAccountEntity
 import com.suseoaa.projectoaa.shared.domain.model.course.CourseWithTimes
 import com.suseoaa.projectoaa.shared.domain.model.course.PracticeCourseEntity
-import com.suseoaa.projectoaa.shared.data.repository.LocalCourseRepository
-import com.suseoaa.projectoaa.shared.data.repository.SchoolAuthRepository
-import com.suseoaa.projectoaa.shared.data.repository.SchoolCourseRepository
+import com.suseoaa.projectoaa.shared.domain.repository.LocalCourseRepository
+import com.suseoaa.projectoaa.shared.domain.repository.SchoolAuthRepository
+import com.suseoaa.projectoaa.shared.domain.repository.SchoolCourseRepository
 import com.suseoaa.projectoaa.util.encodeBackgroundImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -22,6 +21,18 @@ import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.datetime.*
+import com.suseoaa.projectoaa.shared.util.AppLog
+import com.suseoaa.projectoaa.domain.course.DailySchedulePost2025
+import com.suseoaa.projectoaa.domain.course.SlotType
+import com.suseoaa.projectoaa.domain.course.TimeSlotConfig
+import com.suseoaa.projectoaa.domain.course.dailyScheduleFor
+import com.suseoaa.projectoaa.shared.data.local.store.AppearanceStore
+import com.suseoaa.projectoaa.shared.data.local.store.SemesterStore
+import com.suseoaa.projectoaa.shared.data.local.store.SessionStore
+import com.suseoaa.projectoaa.domain.course.CourseOverlapCalculator
+import com.suseoaa.projectoaa.domain.course.CourseOverlapDetail
+import com.suseoaa.projectoaa.domain.course.CourseOverlapStatus
+import com.suseoaa.projectoaa.domain.course.SectionSpan
 
 /**
  * 学期选项
@@ -59,19 +70,6 @@ fun buildScheduleLayoutOverlapKey(item: ScheduleLayoutItem): String {
     ).joinToString("|")
 }
 
-enum class CourseOverlapStatus {
-    NO_OVERLAP,
-    OVERLAP,
-    PARTIAL_OVERLAP
-}
-
-@Immutable
-data class CourseOverlapDetail(
-    val status: CourseOverlapStatus,
-    val overlappedAccounts: List<String> = emptyList(),
-    val overlappedCourses: List<String> = emptyList()
-)
-
 /**
  * UI状态
  */
@@ -87,22 +85,15 @@ class CourseViewModel(
     private val localRepository: LocalCourseRepository,
     private val schoolAuthRepository: SchoolAuthRepository,
     private val schoolCourseRepository: SchoolCourseRepository,
-    private val tokenManager: TokenManager
+    private val appearanceStore: AppearanceStore,
+    private val semesterStore: SemesterStore,
+    private val sessionStore: SessionStore
 ) : ViewModel() {
 
     private data class OverlapQueryConfig(
         val participantIds: List<String>,
         val xnm: String,
         val xqm: String
-    )
-
-    private data class SectionSpan(
-        val studentId: String,
-        val dayIndex: Int,
-        val startSection: Int,
-        val endSection: Int,
-        val accountName: String,
-        val courseName: String
     )
 
     // ==================== 日期计算 ====================
@@ -162,7 +153,7 @@ class CourseViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val currentAccount: StateFlow<CourseAccountEntity?> = tokenManager.currentStudentId
+    val currentAccount: StateFlow<CourseAccountEntity?> = sessionStore.currentStudentId
         .flatMapLatest { selectedId ->
             savedAccounts.map { accounts ->
                 if (accounts.isEmpty()) null
@@ -211,7 +202,6 @@ class CourseViewModel(
             }
         }
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
-
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val activeQueryCount: StateFlow<Int> = overlapCoursesByAccount
@@ -267,7 +257,6 @@ class CourseViewModel(
     }.flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
 
-
     val overlapDetailByWeek: StateFlow<Map<Int, Map<String, CourseOverlapDetail>>> = combine(
         weekLayoutMap,
         overlapCoursesByAccount,
@@ -308,7 +297,7 @@ class CourseViewModel(
             }
             .stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
 
-    val courseBackgroundImageBase64: StateFlow<String?> = tokenManager.appBackgroundImagesFlow
+    val courseBackgroundImageBase64: StateFlow<String?> = appearanceStore.appBackgroundImagesFlow
         .map { images -> images[BackgroundPageIds.COURSE] }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
@@ -340,7 +329,7 @@ class CourseViewModel(
     private fun setupAutoRefresh() {
         // 防止重复执行
         if (hasAutoRefreshed) {
-            println("[CourseVM] setupAutoRefresh: 已执行过，跳过")
+            AppLog.d("[CourseVM] setupAutoRefresh: 已执行过，跳过")
             return
         }
         hasAutoRefreshed = true
@@ -358,7 +347,7 @@ class CourseViewModel(
                 .let { (account, xnm, xqm) ->
                     // 等待足够时间确保所有网络组件完全初始化
                     kotlinx.coroutines.delay(2000)
-                    println("[CourseVM] setupAutoRefresh: 开始自动刷新课表")
+                    AppLog.d("[CourseVM] setupAutoRefresh: 开始自动刷新课表")
                     // 直接调用完整的登录+获取流程（和手动刷新一样）
                     fetchAndSaveCourseSchedule(account.studentId, account.password, xnm, xqm)
                 }
@@ -368,14 +357,14 @@ class CourseViewModel(
     private fun loadSemesterStart() {
         viewModelScope.launch {
             // 从DataStore加载开学日期和第0周标志
-            val savedDate = tokenManager.getSemesterStartDate()
-            _hasWeekZero.value = tokenManager.getSemesterHasWeekZero()
+            val savedDate = semesterStore.getSemesterStartDate()
+            _hasWeekZero.value = semesterStore.getSemesterHasWeekZero()
             if (savedDate != null) {
                 try {
                     _semesterStartDate.value = LocalDate.parse(savedDate)
                 } catch (e: Exception) {
                     // 解析失败使用默认值
-                    println("[Course] Failed to parse saved semester start date: $savedDate")
+                    AppLog.e("[Course] Failed to parse saved semester start date: $savedDate")
                 }
             }
             updateRealCurrentWeek()
@@ -414,14 +403,14 @@ class CourseViewModel(
         }
 
         viewModelScope.launch {
-            tokenManager.saveBackgroundImageForPages(encoded, setOf(BackgroundPageIds.COURSE))
+            appearanceStore.saveBackgroundImageForPages(encoded, setOf(BackgroundPageIds.COURSE))
             _uiState.value = _uiState.value.copy(successMessage = "课表背景图已更新")
         }
     }
 
     fun clearCourseBackgroundImage() {
         viewModelScope.launch {
-            tokenManager.clearBackgroundImageForPages(setOf(BackgroundPageIds.COURSE))
+            appearanceStore.clearBackgroundImageForPages(setOf(BackgroundPageIds.COURSE))
             _uiState.value = _uiState.value.copy(successMessage = "课表背景图已清除")
         }
     }
@@ -444,7 +433,7 @@ class CourseViewModel(
             _uiState.value = _uiState.value.copy(errorMessage = "请先添加教务账号")
             return
         }
-        println("[CourseVM] refreshSchedule: studentId=${account.studentId}, password length=${account.password.length}, password hash=${account.password.hashCode()}")
+        AppLog.d("[CourseVM] refreshSchedule: studentId=${account.studentId}, password length=${account.password.length}, password hash=${account.password.hashCode()}")
         fetchAndSaveCourseSchedule(
             account.studentId,
             account.password,
@@ -455,7 +444,7 @@ class CourseViewModel(
 
     fun switchUser(account: CourseAccountEntity) {
         viewModelScope.launch {
-            tokenManager.saveCurrentStudentId(account.studentId)
+            sessionStore.saveCurrentStudentId(account.studentId)
         }
     }
 
@@ -476,7 +465,7 @@ class CourseViewModel(
         viewModelScope.launch {
             _semesterStartDate.value = date
             // 持久化到 DataStore
-            tokenManager.saveSemesterStartDate(date.toString())
+            semesterStore.saveSemesterStartDate(date.toString())
             updateRealCurrentWeek()
         }
     }
@@ -521,7 +510,7 @@ class CourseViewModel(
         xqm: String = selectedXqm.value
     ) {
         viewModelScope.launch {
-            println("[CourseVM] fetchAndSaveCourseSchedule: username=$username, password length=${password.length}, password hash=${password.hashCode()}")
+            AppLog.d("[CourseVM] fetchAndSaveCourseSchedule: username=$username, password length=${password.length}, password hash=${password.hashCode()}")
             _uiState.value = _uiState.value.copy(
                 isLoading = true,
                 statusMessage = "正在登录教务系统...",
@@ -530,13 +519,13 @@ class CourseViewModel(
             )
 
             // 1. 登录
-            println("[CourseVM] 开始调用 login...")
+            AppLog.d("[CourseVM] 开始调用 login...")
             val loginResult = schoolAuthRepository.login(username, password)
-            println("[CourseVM] login 返回: isSuccess=${loginResult.isSuccess}, error=${loginResult.exceptionOrNull()?.message}")
+            AppLog.e("[CourseVM] login 返回: isSuccess=${loginResult.isSuccess}, error=${loginResult.exceptionOrNull()?.message}")
 
             if (loginResult.isFailure) {
                 val errorMsg = loginResult.exceptionOrNull()?.message ?: "教务系统登录失败"
-                println("[CourseVM] 登录失败: $errorMsg")
+                AppLog.e("[CourseVM] 登录失败: $errorMsg")
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     errorMessage = errorMsg,
@@ -545,7 +534,7 @@ class CourseViewModel(
                 return@launch
             }
 
-            println("[CourseVM] 登录成功，开始获取课表...")
+            AppLog.d("[CourseVM] 登录成功，开始获取课表...")
 
             // 2. 获取课表
             _uiState.value = _uiState.value.copy(statusMessage = "正在获取课表 ($xnm-$xqm)...")
@@ -557,7 +546,7 @@ class CourseViewModel(
                 localRepository.saveFromResponse(username, password, courseData)
 
                 // 切换到新导入的账号
-                tokenManager.saveCurrentStudentId(username)
+                sessionStore.saveCurrentStudentId(username)
 
                 // 3. 获取校历（开学日期和是否有第0周）
                 _uiState.value = _uiState.value.copy(statusMessage = "正在同步校历...")
@@ -566,12 +555,12 @@ class CourseViewModel(
                     if (calendarInfo != null) {
                         val parsedDate = LocalDate.parse(calendarInfo.startDate)
                         _hasWeekZero.value = calendarInfo.hasWeekZero
-                        tokenManager.saveSemesterHasWeekZero(calendarInfo.hasWeekZero)
+                        semesterStore.saveSemesterHasWeekZero(calendarInfo.hasWeekZero)
                         setSemesterStartDate(parsedDate)
                     }
                 } catch (e: Exception) {
                     // 校历获取失败不影响整体流程
-                    println("[Course] Failed to fetch semester start: ${e.message}")
+                    AppLog.e("[Course] Failed to fetch semester start: ${e.message}")
                 }
 
                 _uiState.value = _uiState.value.copy(
@@ -776,54 +765,9 @@ class CourseViewModel(
         item: ScheduleLayoutItem,
         otherSpans: List<SectionSpan>
     ): CourseOverlapDetail {
-        val currentStudentId = item.course.course.studentId
-        val currentSpan = parseSectionSpan(item.time)
+        val currentSpan = parseSectionSpan(item.time, studentId = item.course.course.studentId)
             ?: return CourseOverlapDetail(status = CourseOverlapStatus.NO_OVERLAP)
-
-        val overlaps = otherSpans.filter { other ->
-            other.studentId != currentStudentId &&
-                    other.dayIndex == currentSpan.dayIndex &&
-                    other.startSection <= currentSpan.endSection &&
-                    other.endSection >= currentSpan.startSection
-        }
-
-        if (overlaps.isEmpty()) {
-            return CourseOverlapDetail(status = CourseOverlapStatus.NO_OVERLAP)
-        }
-
-        val hasExactOverlap = overlaps.any { other ->
-            other.startSection == currentSpan.startSection &&
-                    other.endSection == currentSpan.endSection
-        }
-
-        val status = if (hasExactOverlap) {
-            CourseOverlapStatus.OVERLAP
-        } else {
-            CourseOverlapStatus.PARTIAL_OVERLAP
-        }
-
-        val accountNames = overlaps
-            .mapNotNull { other -> other.accountName.ifBlank { null } }
-            .distinct()
-            .sorted()
-
-        val courseNames = overlaps
-            .map { other ->
-                if (other.accountName.isBlank()) {
-                    other.courseName
-                } else {
-                    "${other.courseName}（${other.accountName}）"
-                }
-            }
-            .filter { value -> value.isNotBlank() }
-            .distinct()
-            .sorted()
-
-        return CourseOverlapDetail(
-            status = status,
-            overlappedAccounts = accountNames,
-            overlappedCourses = courseNames
-        )
+        return CourseOverlapCalculator.detail(currentSpan, otherSpans)
     }
 
     private fun parseWeekday(weekday: String): Int =

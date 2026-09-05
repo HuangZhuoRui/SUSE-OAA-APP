@@ -2,8 +2,8 @@ package com.suseoaa.projectoaa.presentation.recruitment
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.suseoaa.projectoaa.shared.data.repository.PersonRepository
-import com.suseoaa.projectoaa.shared.data.repository.RecruitmentRepository
+import com.suseoaa.projectoaa.shared.domain.repository.PersonRepository
+import com.suseoaa.projectoaa.shared.domain.repository.RecruitmentRepository
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.ChangeStatusRequest
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.ChangeTimeRequest
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.RecruitmentApplication

@@ -7,8 +7,8 @@ import com.suseoaa.projectoaa.shared.domain.model.checkin.CheckinLocations
 import com.suseoaa.projectoaa.shared.domain.model.checkin.CheckinResult
 import com.suseoaa.projectoaa.shared.domain.model.checkin.CheckinTask
 import com.suseoaa.projectoaa.shared.domain.model.checkin.EduUserInfo
-import com.suseoaa.projectoaa.shared.data.repository.CheckinRepository
-import com.suseoaa.projectoaa.shared.data.repository.QrCodeCheckinRepository
+import com.suseoaa.projectoaa.shared.domain.repository.CheckinRepository
+import com.suseoaa.projectoaa.shared.domain.repository.QrCodeCheckinRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.datetime.DatePeriod
@@ -20,8 +20,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.suseoaa.projectoaa.shared.util.AppLog
+import com.suseoaa.projectoaa.domain.checkin.AutoLoginResult
+import com.suseoaa.projectoaa.domain.checkin.PasswordAutoLogin
 
-private enum class PasswordLoginEntry {
+/** 密码登录的发起入口，验证码/短信通过后据此决定接着做什么。 */
+internal enum class PasswordLoginEntry {
     CHECKIN,
     TASKS
 }
@@ -42,9 +46,6 @@ class CheckinViewModel(
     private val _uiState = MutableStateFlow(CheckinUiState())
     val uiState: StateFlow<CheckinUiState> = _uiState.asStateFlow()
 
-    // 轮询扫码状态的 Job
-    private var scanPollingJob: Job? = null
-
     // 短信验证码重发倒计时 Job
     private var smsResendCountdownJob: Job? = null
 
@@ -58,41 +59,121 @@ class CheckinViewModel(
     // 标记当前登录入口，用于验证码/短信验证完成后的续流程。
     private var currentPasswordLoginEntry: PasswordLoginEntry = PasswordLoginEntry.CHECKIN
 
+    /**
+     * 账号管理已拆到独立的委派对象；ViewModel 保留同名方法只做转发，
+     * 这样界面侧的调用点一处不用改，拆分对外完全无感。
+     */
+    private val accounts = CheckinAccountsDelegate(_uiState, viewModelScope, passwordRepository)
+
+    /** 任务流程对登录流程的依赖，收敛成显式的四件事（见 CheckinLoginGateway）。 */
+    private val loginGateway = object : CheckinLoginGateway {
+        override var loggedInStudentId: String?
+            get() = loggedInPasswordStudentId
+            set(value) { loggedInPasswordStudentId = value }
+
+        override var loginEntry: PasswordLoginEntry
+            get() = currentPasswordLoginEntry
+            set(value) { currentPasswordLoginEntry = value }
+
+        override suspend fun autoLogin(account: CheckinAccountData): Boolean =
+            autoLoginForPasswordAccount(account)
+
+        override fun requireSmsVerification(account: CheckinAccountData, entry: PasswordLoginEntry) =
+            showSmsVerificationDialog(account, entry)
+
+        override fun requireCaptcha(
+            account: CheckinAccountData,
+            errorMessage: String?,
+            existingCaptchaBytes: ByteArray?,
+            entry: PasswordLoginEntry,
+        ) = showManualCaptchaDialog(account, errorMessage, existingCaptchaBytes, entry)
+
+        override fun refreshAccounts() = loadAccounts()
+    }
+
+    private val tasks = CheckinTasksDelegate(
+        _uiState, viewModelScope, passwordRepository, qrCodeRepository, loginGateway
+    )
+
+    private val webViewLogin = CheckinWebViewLoginDelegate(
+        _uiState, viewModelScope, passwordRepository, qrCodeRepository, ::loadAccounts
+    )
+
+    // ==================== 扫码添加账号（转发给 CheckinWebViewLoginDelegate）====================
+
+    fun showWebViewLoginDialog() = webViewLogin.showWebViewLoginDialog()
+
+    fun hideWebViewLoginDialog() = webViewLogin.hideWebViewLoginDialog()
+
+    fun onWebViewLoginSuccess(cookies: Map<String, String>) =
+        webViewLogin.onWebViewLoginSuccess(cookies)
+
+    fun onWebViewLoginError(error: String) = webViewLogin.onWebViewLoginError(error)
+
+    fun hideReloginDialog() = webViewLogin.hideReloginDialog()
+
+    fun startRelogin() = webViewLogin.startRelogin()
+
+    fun onReloginSuccess(cookies: Map<String, String>) = webViewLogin.onReloginSuccess(cookies)
+
+    fun updateAccountSession(sessionToken: String, sessionExpireTime: String) =
+        webViewLogin.updateAccountSession(sessionToken, sessionExpireTime)
+
+    // ==================== 任务列表（转发给 CheckinTasksDelegate）====================
+
+    fun loadTasksForAccount(account: CheckinAccountData) = tasks.loadTasksForAccount(account)
+
+    fun clearTasks() = tasks.clearTasks()
+
+    fun loadMoreCompletedTasks() = tasks.loadMoreCompletedTasks()
+
+    fun checkinForTask(task: CheckinTask, allowRepeat: Boolean = true) =
+        tasks.checkinForTask(task, allowRepeat)
+
     init {
         loadAccounts()
     }
 
-    /**
-     * 加载所有账号
-     */
-    fun loadAccounts() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            try {
-                val accounts = passwordRepository.getAllAccounts()
-                _uiState.update { it.copy(accounts = accounts, isLoading = false) }
-            } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = "加载账号失败: ${e.message}"
-                    )
-                }
-            }
-        }
-    }
+    // ==================== 账号管理（转发给 CheckinAccountsDelegate）====================
 
-    /**
-     * 设置账号筛选类型
-     */
-    fun setAccountFilter(filter: AccountFilterType) {
-        _uiState.update { it.copy(accountFilter = filter) }
-    }
+    fun loadAccounts() = accounts.loadAccounts()
 
-    /**
-     * 获取筛选后的账号列表
-     */
-    fun getFilteredAccounts(): List<CheckinAccountData> = _uiState.value.filteredAccounts
+    fun setAccountFilter(filter: AccountFilterType) = accounts.setAccountFilter(filter)
+
+    fun getFilteredAccounts(): List<CheckinAccountData> = accounts.filteredAccounts()
+
+    fun addAccount(
+        studentId: String,
+        password: String,
+        name: String = "",
+        remark: String = "",
+        selectedLocation: String = CheckinLocations.DEFAULT_CAMPUS.name
+    ) = accounts.addAccount(studentId, password, name, remark, selectedLocation)
+
+    fun updateAccount(
+        id: Long,
+        studentId: String,
+        password: String,
+        name: String,
+        remark: String,
+        selectedLocation: String = CheckinLocations.DEFAULT_CAMPUS.name
+    ) = accounts.updateAccount(id, studentId, password, name, remark, selectedLocation)
+
+    fun deleteAccount(id: Long) = accounts.deleteAccount(id)
+
+    @Suppress("unused")
+    fun updateLocation(accountId: Long, locationName: String) =
+        accounts.updateLocation(accountId, locationName)
+
+    fun showAddDialog() = accounts.showAddDialog()
+
+    fun hideAddDialog() = accounts.hideAddDialog()
+
+    fun showEditDialog(account: CheckinAccountData) = accounts.showEditDialog(account)
+
+    fun hideEditDialog() = accounts.hideEditDialog()
+
+    fun clearMessages() = accounts.clearMessages()
 
     /**
      * 批量打卡（仅密码登录账号）
@@ -131,7 +212,7 @@ class CheckinViewModel(
                     failCount++
                     val accountName = account.name.ifBlank { account.studentId }
                     com.suseoaa.projectoaa.util.ToastManager.showToast("[$accountName] 打卡异常")
-                    println("[BatchCheckin] 账号 ${account.studentId} 打卡失败: ${e.message}")
+                    AppLog.e("[BatchCheckin] 账号 ${account.studentId} 打卡失败: ${e.message}")
                 }
             }
 
@@ -192,93 +273,6 @@ class CheckinViewModel(
         }
     }
 
-    /**
-     * 添加账号（密码登录）
-     */
-    fun addAccount(
-        studentId: String,
-        password: String,
-        name: String = "",
-        remark: String = "",
-        selectedLocation: String = CheckinLocations.DEFAULT_CAMPUS.name
-    ) {
-        viewModelScope.launch {
-            if (studentId.isBlank() || password.isBlank()) {
-                _uiState.update { it.copy(errorMessage = "学号和密码不能为空") }
-                return@launch
-            }
-
-            if (passwordRepository.isAccountExists(studentId)) {
-                _uiState.update { it.copy(errorMessage = "该学号已存在") }
-                return@launch
-            }
-
-            val result =
-                passwordRepository.addAccount(studentId, password, name, remark, selectedLocation)
-            if (result.isSuccess) {
-                _uiState.update { it.copy(successMessage = "添加成功", showAddDialog = false) }
-                loadAccounts()
-            } else {
-                _uiState.update { it.copy(errorMessage = "添加失败: ${result.exceptionOrNull()?.message}") }
-            }
-        }
-    }
-
-    /**
-     * 更新账号
-     */
-    fun updateAccount(
-        id: Long,
-        studentId: String,
-        password: String,
-        name: String,
-        remark: String,
-        selectedLocation: String = CheckinLocations.DEFAULT_CAMPUS.name
-    ) {
-        viewModelScope.launch {
-            if (studentId.isBlank() || password.isBlank()) {
-                _uiState.update { it.copy(errorMessage = "学号和密码不能为空") }
-                return@launch
-            }
-
-            val result = passwordRepository.updateAccount(
-                id,
-                studentId,
-                password,
-                name,
-                remark,
-                selectedLocation
-            )
-            if (result.isSuccess) {
-                _uiState.update {
-                    it.copy(
-                        successMessage = "更新成功",
-                        showEditDialog = false,
-                        editingAccount = null
-                    )
-                }
-                loadAccounts()
-            } else {
-                _uiState.update { it.copy(errorMessage = "更新失败: ${result.exceptionOrNull()?.message}") }
-            }
-        }
-    }
-
-    /**
-     * 删除账号
-     */
-    fun deleteAccount(id: Long) {
-        viewModelScope.launch {
-            val result = passwordRepository.deleteAccount(id)
-            if (result.isSuccess) {
-                _uiState.update { it.copy(successMessage = "删除成功") }
-                loadAccounts()
-            } else {
-                _uiState.update { it.copy(errorMessage = "删除失败: ${result.exceptionOrNull()?.message}") }
-            }
-        }
-    }
-
     // ==================== 打卡操作（带验证码） ====================
 
     /**
@@ -293,7 +287,7 @@ class CheckinViewModel(
                 var isSessionOk = account.isSessionValid()
                 var currentAccount = account
                 if (!isSessionOk) {
-                    println("[Checkin] startCheckin: Session已过期，尝试自动刷新...")
+                    AppLog.d("[Checkin] startCheckin: Session已过期，尝试自动刷新...")
                     _uiState.update { it.copy(successMessage = "正在更新登录状态...") }
                     val refreshResult = qrCodeRepository.refreshSessionIfExpired(account)
                     if (refreshResult.isSuccess) {
@@ -341,7 +335,7 @@ class CheckinViewModel(
                 val fastLogin = passwordRepository.tryAutoLoginWithRememberMe(account).getOrDefault(false)
                 if (fastLogin) {
                     loggedInPasswordStudentId = account.studentId
-                    println("[AutoCheckin] 使用 rememberMe 快速登录成功")
+                    AppLog.d("[AutoCheckin] 使用 rememberMe 快速登录成功")
 
                     val checkinResult = passwordRepository.performCheckinAfterLogin(account)
                     val message = when (checkinResult) {
@@ -377,20 +371,20 @@ class CheckinViewModel(
                 val ocrResult = try {
                     com.suseoaa.projectoaa.util.PlatformCaptchaOcr.recognize(captchaBytes)
                 } catch (t: Throwable) {
-                    println("[AutoCheckin] OCR 运行时异常: ${t.message}")
+                    AppLog.e("[AutoCheckin] OCR 运行时异常: ${t.message}")
                     showManualCaptchaDialog(account, "OCR组件不可用，已降级为手动验证码", captchaBytes)
                     return@launch
                 }
 
                 if (ocrResult.isFailure || ocrResult.getOrNull()?.length != 4) {
                     // OCR识别失败，显示手动输入对话框
-                    println("[AutoCheckin] OCR识别失败: ${ocrResult.exceptionOrNull()?.message ?: "识别结果长度不正确"}")
+                    AppLog.e("[AutoCheckin] OCR识别失败: ${ocrResult.exceptionOrNull()?.message ?: "识别结果长度不正确"}")
                     showManualCaptchaDialog(account, null, captchaBytes)
                     return@launch
                 }
 
                 val captchaCode = ocrResult.getOrThrow()
-                println("[AutoCheckin] OCR识别成功: $captchaCode")
+                AppLog.d("[AutoCheckin] OCR识别成功: $captchaCode")
 
                 // 3. 自动登录
                 // fetchCaptchaImage 会清除cookies，所以登录状态已失效
@@ -405,7 +399,7 @@ class CheckinViewModel(
                 if (loginResult.isFailure) {
                     val errorMsg = loginResult.exceptionOrNull()?.message ?: ""
                     if (passwordRepository.isSmsVerificationRequired(loginResult.exceptionOrNull())) {
-                        println("[AutoCheckin] 进入短信二次验证流程")
+                        AppLog.d("[AutoCheckin] 进入短信二次验证流程")
                         showSmsVerificationDialog(account, PasswordLoginEntry.CHECKIN)
                         return@launch
                     }
@@ -415,7 +409,7 @@ class CheckinViewModel(
                             ignoreCase = true
                         )) && retryCount < 2
                     ) {
-                        println("[AutoCheckin] 验证码错误，重试第 ${retryCount + 1} 次")
+                        AppLog.e("[AutoCheckin] 验证码错误，重试第 ${retryCount + 1} 次")
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
@@ -426,7 +420,7 @@ class CheckinViewModel(
                         return@launch
                     }
                     // 其他登录错误或重试次数用尽，显示手动输入对话框
-                    println("[AutoCheckin] 登录失败: $errorMsg")
+                    AppLog.e("[AutoCheckin] 登录失败: $errorMsg")
                     showManualCaptchaDialog(account, errorMsg)
                     return@launch
                 }
@@ -454,7 +448,7 @@ class CheckinViewModel(
                 loadAccounts()
 
             } catch (e: Throwable) {
-                println("[AutoCheckin] 异常: ${e.message}")
+                AppLog.e("[AutoCheckin] 异常: ${e.message}")
                 showManualCaptchaDialog(account, e.message)
             }
         }
@@ -676,7 +670,7 @@ class CheckinViewModel(
 
             val result = passwordRepository.sendSmsCodeForPendingLogin()
             if (result.isFailure) {
-                println("[SmsVerification] sendSmsCode failed: ${result.exceptionOrNull()?.message}")
+                AppLog.e("[SmsVerification] sendSmsCode failed: ${result.exceptionOrNull()?.message}")
             }
 
             _uiState.update { it.copy(isSendingSmsCode = false) }
@@ -818,779 +812,22 @@ class CheckinViewModel(
 
     // ==================== 对话框控制 ====================
 
-    fun showAddDialog() {
-        _uiState.update { it.copy(showAddDialog = true) }
-    }
-
-    fun hideAddDialog() {
-        _uiState.update { it.copy(showAddDialog = false) }
-    }
-
-    fun showEditDialog(account: CheckinAccountData) {
-        _uiState.update { it.copy(showEditDialog = true, editingAccount = account) }
-    }
-
-    fun hideEditDialog() {
-        _uiState.update { it.copy(showEditDialog = false, editingAccount = null) }
-    }
-
-    fun clearMessages() {
-        _uiState.update { it.copy(errorMessage = null, successMessage = null) }
-    }
-
     // ==================== WebView 扫码登录操作 ====================
 
-    /**
-     * 显示 WebView 扫码登录对话框
-     * 使用 WebView 加载微信扫码页面，获取 Cookie 后调用 API 获取用户信息
-     */
-    fun showWebViewLoginDialog() {
-        _uiState.update {
-            it.copy(
-                showWebViewLoginDialog = true,
-                scannedUserInfo = null,
-                scannedCookies = null
-            )
-        }
-    }
-
-    /**
-     * 隐藏 WebView 登录对话框
-     */
-    fun hideWebViewLoginDialog() {
-        _uiState.update {
-            it.copy(
-                showWebViewLoginDialog = false,
-                scannedUserInfo = null,
-                scannedCookies = null
-            )
-        }
-    }
-
-    /**
-     * WebView 扫码登录成功后处理
-     * @param cookies WebView 获取的 Cookie 字符串
-     */
-    fun onWebViewLoginSuccess(cookies: Map<String, String>) {
-        if (_uiState.value.isLoading) {
-            println("[Checkin] onWebViewLoginSuccess: 已经在登录处理中，忽略重复的成功回调")
-            return
-        }
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-
-            // 将 Cookie Map 转为字符串
-            val cookieString = cookies.entries.joinToString("; ") { "${it.key}=${it.value}" }
-            println("[Checkin] WebView 登录成功，Cookie: $cookieString")
-
-            var studentId: String? = null
-            var studentName: String = ""
-
-            // 优先尝试从 _sop_session_ JWT 中提取用户信息
-            val sopSession = cookies["_sop_session_"]
-            if (!sopSession.isNullOrBlank()) {
-                val userInfo = qrCodeRepository.extractUserInfoFromSopSession(sopSession)
-                if (userInfo != null) {
-                    studentId = userInfo.studentId
-                    studentName = userInfo.name
-                    println("[Checkin] 从 JWT 获取到用户信息: $studentId, $studentName")
-                }
-            }
-
-            // 如果 JWT 中没有获取到，尝试调用 API
-            if (studentId.isNullOrBlank()) {
-                println("[Checkin] JWT 中未获取到学号，尝试调用 API...")
-                val userInfoResult = qrCodeRepository.getEduUserInfoWithCookies(cookieString)
-
-                if (userInfoResult.isSuccess) {
-                    val userInfo = userInfoResult.getOrThrow()
-                    studentId = userInfo.code
-                    studentName = userInfo.name ?: ""
-                    println("[Checkin] 从 API 获取到用户信息: $studentId, $studentName")
-                } else {
-                    println("[Checkin] API 获取用户信息失败: ${userInfoResult.exceptionOrNull()?.message}")
-                }
-            }
-
-            // 检查是否获取到学号
-            if (studentId.isNullOrBlank()) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = "获取学号失败，请确保已完成微信扫码授权"
-                    )
-                }
-                return@launch
-            }
-
-            println("[Checkin] 最终用户信息: studentId=$studentId, name=$studentName")
-
-            // 检查账号是否已存在
-            val exists = passwordRepository.isAccountExists(studentId)
-            println("[Checkin] 账号是否已存在: $exists")
-
-            if (exists) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = "该学号账号已存在"
-                    )
-                }
-                return@launch
-            }
-
-            // 在保存账号前，必须访问签到页面获取用于 /site/ API 的 SESSION
-            // WebView 返回的 SESSION 是 /edu/ 路径的，签到 API 需要 /xg/app/qddk/admin 返回的 SESSION
-            var fullCookies = cookieString
-            println("[Checkin] 尝试获取签到专用 SESSION...")
-            val ssoResult = qrCodeRepository.completeSsoWithSopSession(cookieString)
-            if (ssoResult.isSuccess) {
-                fullCookies = ssoResult.getOrThrow()
-                println("[Checkin] 获取签到 SESSION 成功")
-            } else {
-                println("[Checkin] 获取签到 SESSION 失败: ${ssoResult.exceptionOrNull()?.message}")
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = "获取签到授权失败，请重试: ${ssoResult.exceptionOrNull()?.message}"
-                    )
-                }
-                return@launch
-            }
-
-            // 保存账号
-            val now = com.suseoaa.projectoaa.shared.util.OaaClock.now()
-                .toLocalDateTime(TimeZone.of("Asia/Shanghai"))
-            val expireTime = "${now.date.plus(DatePeriod(days = 7))} ${now.time}"
-
-            val result = qrCodeRepository.saveQrCodeAccount(
-                studentId = studentId,
-                name = studentName,
-                sessionToken = fullCookies,
-                sessionExpireTime = expireTime,
-                selectedLocation = CheckinLocations.DEFAULT_CAMPUS.name
-            )
-
-            if (result.isSuccess) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        showWebViewLoginDialog = false,
-                        successMessage = "账号添加成功！学号: $studentId, 姓名: $studentName",
-                        scannedUserInfo = null,
-                        scannedCookies = null
-                    )
-                }
-                loadAccounts()
-            } else {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = "添加账号失败: ${result.exceptionOrNull()?.message}"
-                    )
-                }
-            }
-        }
-    }
-
-    /**
-     * WebView 登录失败处理
-     */
-    fun onWebViewLoginError(error: String) {
-        _uiState.update {
-            it.copy(
-                errorMessage = "扫码登录失败: $error"
-            )
-        }
-    }
-
     // ==================== 任务列表操作 ====================
-
-    /**
-     * 加载指定账号的打卡任务列表
-     * @param account 要查看任务的账号
-     */
-    fun loadTasksForAccount(account: CheckinAccountData) {
-        viewModelScope.launch {
-            val initialDisplayCount = 6  // 初始显示的已打卡任务数量
-
-            _uiState.update {
-                it.copy(
-                    isLoadingTasks = true,
-                    selectedAccount = account,
-                    pendingTasks = emptyList(),
-                    completedTasks = emptyList(),
-                    absentTasks = emptyList(),
-                    displayedCompletedCount = initialDisplayCount
-                )
-            }
-
-            try {
-                // 根据登录类型获取任务（初始加载打卡时间的数量与显示数量一致）
-                val (pending, completed, absent) = if (account.isQrCodeLogin) {
-                    var currentCookies = account.sessionToken ?: ""
-                    var isSessionOk = account.isSessionValid()
-                    if (!isSessionOk) {
-                        println("[TaskList] 扫码登录 Session 已过期，尝试自动刷新...")
-                        val refreshResult = qrCodeRepository.refreshSessionIfExpired(account)
-                        if (refreshResult.isSuccess) {
-                            currentCookies = refreshResult.getOrThrow()
-                            isSessionOk = true
-                        }
-                    }
-
-                    if (!isSessionOk) {
-                        _uiState.update {
-                            it.copy(
-                                isLoadingTasks = false,
-                                accountNeedRelogin = account,
-                                showReloginDialog = true
-                            )
-                        }
-                        return@launch
-                    }
-
-                    println("[TaskList] 使用扫码登录的Session Token")
-                    var result: Triple<List<CheckinTask>, List<CheckinTask>, List<CheckinTask>>? = null
-                    try {
-                        result = qrCodeRepository.getAllTasksWithCookies(currentCookies, initialDisplayCount)
-                    } catch (e: Exception) {
-                        val errMsg = e.message ?: ""
-                        if (errMsg.contains("401") || errMsg.contains("未登录") || errMsg.contains("过期")) {
-                            println("[TaskList] 任务请求返回登录已失效(401)，尝试强制刷新 Session...")
-                            val refreshResult = qrCodeRepository.refreshSessionIfExpired(account)
-                            if (refreshResult.isSuccess) {
-                                currentCookies = refreshResult.getOrThrow()
-                                result = qrCodeRepository.getAllTasksWithCookies(currentCookies, initialDisplayCount)
-                            } else {
-                                throw e
-                            }
-                        } else {
-                            throw e
-                        }
-                    }
-                    result ?: Triple(emptyList(), emptyList(), emptyList())
-                } else {
-                    // 密码登录：检查是否需要重新登录
-                    if (loggedInPasswordStudentId != account.studentId) {
-                        currentPasswordLoginEntry = PasswordLoginEntry.TASKS
-                        println("[TaskList] 密码登录账号，需要登录 (当前=${loggedInPasswordStudentId}, 需要=${account.studentId})")
-                        _uiState.update { it.copy(successMessage = "正在自动登录...") }
-                        val loginSuccess = autoLoginForPasswordAccount(account)
-                        if (!loginSuccess) {
-                            if (passwordRepository.hasPendingSmsChallenge()) {
-                                _uiState.update { it.copy(isLoadingTasks = false) }
-                                showSmsVerificationDialog(account, PasswordLoginEntry.TASKS)
-                                return@launch
-                            }
-
-                            _uiState.update { it.copy(isLoadingTasks = false) }
-                            showManualCaptchaDialog(
-                                account = account,
-                                errorMessage = "自动识别失败或验证码已过期",
-                                entry = PasswordLoginEntry.TASKS
-                            )
-                            return@launch
-                        }
-
-                        loggedInPasswordStudentId = account.studentId
-                        println("[TaskList] 自动登录成功")
-                    } else {
-                        println("[TaskList] 密码登录账号，已登录，直接加载任务列表")
-                    }
-                    passwordRepository.getAllTasks(initialDisplayCount)
-                }
-
-                _uiState.update {
-                    it.copy(
-                        isLoadingTasks = false,
-                        pendingTasks = pending,
-                        completedTasks = completed,
-                        absentTasks = absent,
-                        displayedCompletedCount = initialDisplayCount,
-                        successMessage = "加载成功：${pending.size}个待打卡，${completed.size}个已打卡，${absent.size}个缺勤"
-                    )
-                }
-            } catch (e: Exception) {
-                println("[TaskList] 加载失败: ${e.message}")
-                _uiState.update {
-                    it.copy(
-                        isLoadingTasks = false,
-                        errorMessage = "加载任务失败: ${e.message}"
-                    )
-                }
-            }
-        }
-    }
-
-    /**
-     * 清除任务列表（返回账号列表）
-     */
-    fun clearTasks() {
-        _uiState.update {
-            it.copy(
-                selectedAccount = null,
-                pendingTasks = emptyList(),
-                completedTasks = emptyList(),
-                absentTasks = emptyList(),
-                displayedCompletedCount = 6
-            )
-        }
-    }
-
-    /**
-     * 加载更多已打卡任务（显示更多 + 加载打卡时间）
-     * 每次加载 6 个
-     */
-    fun loadMoreCompletedTasks() {
-        val state = _uiState.value
-        val account = state.selectedAccount ?: return
-
-        // 如果已经显示全部，不再加载
-        if (state.displayedCompletedCount >= state.completedTasks.size || state.isLoadingMoreCompleted) {
-            return
-        }
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingMoreCompleted = true) }
-
-            try {
-                val loadCount = 6
-                val startIndex = state.displayedCompletedCount
-                val endIndex = minOf(startIndex + loadCount, state.completedTasks.size)
-
-                // 为新显示的任务加载打卡时间
-                val updatedTasks = if (account.isQrCodeLogin) {
-                    var currentCookies = account.sessionToken ?: ""
-                    var isSessionOk = account.isSessionValid()
-                    if (!isSessionOk) {
-                        val refreshResult = qrCodeRepository.refreshSessionIfExpired(account)
-                        if (refreshResult.isSuccess) {
-                            currentCookies = refreshResult.getOrThrow()
-                            isSessionOk = true
-                        }
-                    }
-                    if (isSessionOk) {
-                        qrCodeRepository.loadCheckinTimeForTasks(
-                            tasks = state.completedTasks,
-                            startIndex = startIndex,
-                            endIndex = endIndex,
-                            cookies = currentCookies
-                        ).getOrNull() ?: state.completedTasks
-                    } else {
-                        state.completedTasks
-                    }
-                } else {
-                    // 密码登录：使用 cookie storage 内部方法
-                    passwordRepository.loadCheckinTimeForTasksInternal(
-                        tasks = state.completedTasks,
-                        startIndex = startIndex,
-                        endIndex = endIndex
-                    ).getOrNull() ?: state.completedTasks
-                }
-
-                _uiState.update {
-                    it.copy(
-                        completedTasks = updatedTasks,
-                        displayedCompletedCount = endIndex,
-                        isLoadingMoreCompleted = false
-                    )
-                }
-            } catch (e: Exception) {
-                println("[TaskList] 加载更多失败: ${e.message}")
-                _uiState.update {
-                    it.copy(
-                        isLoadingMoreCompleted = false,
-                        errorMessage = "加载更多失败: ${e.message}"
-                    )
-                }
-            }
-        }
-    }
-
-    /**
-     * 对指定任务执行打卡
-     * @param task 要打卡的任务
-     * @param allowRepeat 是否允许重复打卡（对已打卡的任务）
-     */
-    fun checkinForTask(task: CheckinTask, allowRepeat: Boolean = true) {
-        val account = _uiState.value.selectedAccount
-        if (account == null) {
-            _uiState.update { it.copy(errorMessage = "请先选择账号") }
-            return
-        }
-
-        // 如果任务在已打卡列表中且不允许重复，提示用户
-        if (!allowRepeat && _uiState.value.completedTasks.any { it.id == task.id }) {
-            _uiState.update { it.copy(errorMessage = "该任务已打卡，不可重复打卡") }
-            return
-        }
-
-        viewModelScope.launch {
-            // 仅标记当前正在打卡的任务ID，不影响全局isLoading
-            _uiState.update {
-                it.copy(checkingTaskId = task.id)
-            }
-
-            var currentAccount = account
-            if (account.isQrCodeLogin) {
-                var isSessionOk = account.isSessionValid()
-                if (!isSessionOk) {
-                    println("[CheckinForTask] 扫码登录 Session 已过期，尝试自动刷新...")
-                    _uiState.update { it.copy(successMessage = "正在自动更新登录凭证...") }
-                    val refreshResult = qrCodeRepository.refreshSessionIfExpired(account)
-                    if (refreshResult.isSuccess) {
-                        isSessionOk = true
-                        val updatedAccount = passwordRepository.getAccountById(account.id)
-                        if (updatedAccount != null) {
-                            currentAccount = updatedAccount
-                        }
-                    }
-                }
-                
-                if (!isSessionOk) {
-                    _uiState.update {
-                        it.copy(
-                            checkingTaskId = null,
-                            accountNeedRelogin = account,
-                            showReloginDialog = true
-                        )
-                    }
-                    return@launch
-                }
-            }
-
-            val result = if (currentAccount.isQrCodeLogin) {
-                // 扫码登录：使用session cookies
-                val sessionToken = currentAccount.sessionToken ?: ""
-                val cookies = if (sessionToken.contains(";") || sessionToken.contains("=")) {
-                    sessionToken
-                } else {
-                    "SESSION=$sessionToken"
-                }
-                qrCodeRepository.checkinForSpecificTask(
-                    cookies = cookies,
-                    taskId = task.id,
-                    account = currentAccount
-                )
-            } else {
-                // 密码登录：检查是否需要登录
-                if (loggedInPasswordStudentId != account.studentId) {
-                    println("[CheckinForTask] 密码登录账号，需要登录...")
-                    val loginSuccess = autoLoginForPasswordAccount(account)
-                    if (!loginSuccess) {
-                        _uiState.update {
-                            it.copy(
-                                checkingTaskId = null,
-                                errorMessage = "自动登录失败，无法执行打卡"
-                            )
-                        }
-                        return@launch
-                    }
-                    loggedInPasswordStudentId = account.studentId
-                }
-                // 对选中的特定任务打卡
-                passwordRepository.checkinForSpecificTaskInternal(
-                    taskId = task.id,
-                    account = account
-                )
-            }
-
-            val message = when (result) {
-                is CheckinResult.Success -> result.message
-                is CheckinResult.AlreadyChecked -> result.message
-                is CheckinResult.NoTask -> result.message
-                is CheckinResult.Failed -> result.error
-            }
-
-            _uiState.update {
-                it.copy(
-                    checkingTaskId = null,
-                    successMessage = if (result is CheckinResult.Failed) null else message,
-                    errorMessage = if (result is CheckinResult.Failed) message else null
-                )
-            }
-
-            // 刷新任务列表
-            if (result is CheckinResult.Success || result is CheckinResult.AlreadyChecked) {
-                delay(500)
-                loadTasksForAccount(account)
-            }
-
-            loadAccounts()
-        }
-    }
 
     // ==================== 旧的扫码登录相关操作（保留兼容）====================
 
     /**
-     * 显示扫码添加账号对话框（旧方式）
+     * 显示扫码添加账号对话框。
+     *
+     * 名字沿用历史：早期是自绘二维码 + 轮询扫码状态，现已全部改走 WebView，
+     * 那套轮询代码（fetchQrCode / refreshQrCode / confirmQrCodeLogin）已无人调用并删除。
+     * 界面调用点仍叫这个名字，这里转发过去。
      */
-    fun showQrCodeDialog() {
-        // 改为使用 WebView 方式
-        showWebViewLoginDialog()
-    }
-
-    /**
-     * 隐藏扫码对话框
-     */
-    @Suppress("unused")
-    fun hideQrCodeDialog() {
-        // 取消轮询
-        scanPollingJob?.cancel()
-
-        _uiState.update {
-            it.copy(
-                showQrCodeDialog = false,
-                qrCodeUrl = null,
-                qrCodeClientId = null,
-                isLoadingQrCode = false,
-                qrCodeScanStatus = QrCodeScanStatus.WAITING,
-                scannedUserInfo = null
-            )
-        }
-    }
-
-    /**
-     * 获取扫码登录二维码（旧方式，保留但不再使用）
-     */
-    private fun fetchQrCode() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingQrCode = true) }
-
-            // 1. 获取 ClientId
-            val clientIdResult = qrCodeRepository.getClientId()
-            if (clientIdResult.isFailure) {
-                _uiState.update {
-                    it.copy(
-                        isLoadingQrCode = false,
-                        errorMessage = "获取 ClientId 失败: ${clientIdResult.exceptionOrNull()?.message}",
-                        qrCodeScanStatus = QrCodeScanStatus.ERROR
-                    )
-                }
-                return@launch
-            }
-
-            val clientId = clientIdResult.getOrThrow()
-
-            // 2. 获取二维码 URL
-            val qrCodeResult = qrCodeRepository.getQrCodeImage(clientId)
-            if (qrCodeResult.isFailure) {
-                _uiState.update {
-                    it.copy(
-                        isLoadingQrCode = false,
-                        errorMessage = "获取二维码失败: ${qrCodeResult.exceptionOrNull()?.message}",
-                        qrCodeScanStatus = QrCodeScanStatus.ERROR
-                    )
-                }
-                return@launch
-            }
-
-            val qrCodeUrl = qrCodeResult.getOrThrow()
-
-            _uiState.update {
-                it.copy(
-                    isLoadingQrCode = false,
-                    qrCodeUrl = qrCodeUrl,
-                    qrCodeClientId = clientId,
-                    qrCodeScanStatus = QrCodeScanStatus.WAITING
-                )
-            }
-
-            // 注意：由于微信扫码登录需要通过 WebView 回调来设置 Session，
-            // 在原生 App 中无法自动检测扫码状态。
-            // 用户需要手动输入学号来添加账号。
-        }
-    }
-
-    /**
-     * 刷新二维码
-     */
-    @Suppress("unused")
-    fun refreshQrCode() {
-        // 取消轮询
-        scanPollingJob?.cancel()
-
-        _uiState.update {
-            it.copy(
-                qrCodeUrl = null,
-                qrCodeClientId = null,
-                qrCodeScanStatus = QrCodeScanStatus.WAITING,
-                scannedUserInfo = null
-            )
-        }
-        fetchQrCode()
-    }
-
-    /**
-     * 确认扫码登录并添加账号
-     * 扫码成功后自动获取用户信息，用户可以直接确认添加
-     */
-    @Suppress("unused")
-    fun confirmQrCodeLogin(
-        studentId: String,
-        name: String,
-        selectedLocation: String = CheckinLocations.DEFAULT_CAMPUS.name
-    ) {
-        viewModelScope.launch {
-            // 取消轮询
-            scanPollingJob?.cancel()
-
-            val finalStudentId = studentId.ifBlank {
-                _uiState.value.scannedUserInfo?.code ?: ""
-            }
-            val finalName = name.ifBlank {
-                _uiState.value.scannedUserInfo?.name ?: ""
-            }
-
-            if (finalStudentId.isBlank()) {
-                _uiState.update { it.copy(errorMessage = "学号不能为空") }
-                return@launch
-            }
-
-            // 检查账号是否已存在
-            if (passwordRepository.isAccountExists(finalStudentId)) {
-                _uiState.update { it.copy(errorMessage = "该学号账号已存在") }
-                return@launch
-            }
-
-            // 创建扫码登录账号
-            val now = com.suseoaa.projectoaa.shared.util.OaaClock.now()
-                .toLocalDateTime(TimeZone.of("Asia/Shanghai"))
-            val expireTime = "${now.date.plus(DatePeriod(days = 7))} ${now.time}"
-
-            // 扫码登录成功后，Session 已经存储在 HttpClient 的 Cookie 中
-            // 这里先保存账号，Session 会在签到时自动使用
-            val result = qrCodeRepository.saveQrCodeAccount(
-                studentId = finalStudentId,
-                name = finalName,
-                sessionToken = "COOKIE_SESSION", // 标记使用 Cookie 中的 Session
-                sessionExpireTime = expireTime,
-                selectedLocation = selectedLocation
-            )
-
-            if (result.isSuccess) {
-                _uiState.update {
-                    it.copy(
-                        successMessage = "账号添加成功！",
-                        showQrCodeDialog = false,
-                        qrCodeUrl = null,
-                        qrCodeClientId = null,
-                        scannedUserInfo = null
-                    )
-                }
-                loadAccounts()
-            } else {
-                _uiState.update {
-                    it.copy(errorMessage = "添加失败: ${result.exceptionOrNull()?.message}")
-                }
-            }
-        }
-    }
-
-    /**
-     * 隐藏重新登录对话框
-     */
-    fun hideReloginDialog() {
-        _uiState.update {
-            it.copy(
-                showReloginDialog = false,
-                accountNeedRelogin = null
-            )
-        }
-    }
-
-    /**
-     * 开始重新扫码登录
-     */
-    fun startRelogin() {
-        val account = _uiState.value.accountNeedRelogin ?: return
-        _uiState.update {
-            it.copy(
-                showReloginDialog = false,
-                accountNeedRelogin = null,
-                showWebViewLoginDialog = true,
-                currentCheckingAccount = account // 记住要更新的账号
-            )
-        }
-    }
-
-    /**
-     * WebView 重新登录成功后处理
-     */
-    @Suppress("unused")
-    fun onReloginSuccess(cookies: Map<String, String>) {
-        val account = _uiState.value.currentCheckingAccount ?: return
-        viewModelScope.launch {
-            val cookieString = cookies.entries.joinToString("; ") { "${it.key}=${it.value}" }
-            val now = com.suseoaa.projectoaa.shared.util.OaaClock.now()
-                .toLocalDateTime(TimeZone.of("Asia/Shanghai"))
-            val expireTime = "${now.date.plus(DatePeriod(days = 7))} ${now.time}"
-
-            val result = passwordRepository.updateSession(account.id, cookieString, expireTime)
-            if (result.isSuccess) {
-                _uiState.update {
-                    it.copy(
-                        successMessage = "重新登录成功",
-                        showWebViewLoginDialog = false,
-                        currentCheckingAccount = null
-                    )
-                }
-                loadAccounts()
-            } else {
-                _uiState.update {
-                    it.copy(errorMessage = "更新Session失败: ${result.exceptionOrNull()?.message}")
-                }
-            }
-        }
-    }
-
-    /**
-     * 更新账号的 Session（重新扫码登录后）
-     */
-    @Suppress("unused")
-    fun updateAccountSession(sessionToken: String, sessionExpireTime: String) {
-        val account = _uiState.value.currentCheckingAccount ?: return
-        viewModelScope.launch {
-            val result =
-                passwordRepository.updateSession(account.id, sessionToken, sessionExpireTime)
-            if (result.isSuccess) {
-                _uiState.update {
-                    it.copy(
-                        successMessage = "登录成功",
-                        showQrCodeDialog = false,
-                        qrCodeUrl = null,
-                        qrCodeClientId = null,
-                        currentCheckingAccount = null
-                    )
-                }
-                loadAccounts()
-            } else {
-                _uiState.update {
-                    it.copy(errorMessage = "更新Session失败: ${result.exceptionOrNull()?.message}")
-                }
-            }
-        }
-    }
-
-    /**
-     * 更新签到地点
-     */
-    @Suppress("unused")
-    fun updateLocation(accountId: Long, locationName: String) {
-        viewModelScope.launch {
-            val result = passwordRepository.updateLocation(accountId, locationName)
-            if (result.isSuccess) {
-                _uiState.update { it.copy(successMessage = "签到地点已更新") }
-                loadAccounts()
-            } else {
-                _uiState.update { it.copy(errorMessage = "更新失败: ${result.exceptionOrNull()?.message}") }
-            }
-        }
-    }
+    fun showQrCodeDialog() = showWebViewLoginDialog()
 
     override fun onCleared() {
-        scanPollingJob?.cancel()
         stopSmsResendCountdown()
         super.onCleared()
     }
