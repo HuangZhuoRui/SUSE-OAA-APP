@@ -1,6 +1,10 @@
 package com.suseoaa.projectoaa.ui.screen.update
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
@@ -534,6 +538,7 @@ fun ReleaseCard(
                     release = release,
                     isThisReleaseReadyToInstall = isThisReleaseReadyToInstall,
                     isThisReleaseDownloading = isThisReleaseDownloading,
+                    downloadProgress = downloadProgress,
                     viewModel = viewModel
                 )
             } else {
@@ -549,6 +554,7 @@ fun ReleaseCard(
                         release = release,
                         isThisReleaseReadyToInstall = isThisReleaseReadyToInstall,
                         isThisReleaseDownloading = isThisReleaseDownloading,
+                        downloadProgress = downloadProgress,
                         viewModel = viewModel
                     )
                 }
@@ -563,6 +569,7 @@ private fun ReleaseCardActionButtons(
     release: GithubRelease,
     isThisReleaseReadyToInstall: Boolean,
     isThisReleaseDownloading: Boolean,
+    downloadProgress: Int,
     viewModel: AppUpdateViewModel
 ) {
     if (apkAsset == null) return
@@ -582,22 +589,10 @@ private fun ReleaseCardActionButtons(
             Text("安装更新", fontWeight = FontWeight.Bold)
         }
     } else if (isThisReleaseDownloading) {
-        OutlinedButton(
-            onClick = { viewModel.cancelDownload() },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
-            shape = CircleShape,
-            border = androidx.compose.foundation.BorderStroke(
-                1.dp,
-                MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
-            ),
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.error
-            )
-        ) {
-            Text("取消下载", fontWeight = FontWeight.Bold)
-        }
+        DownloadProgressCancelButton(
+            progress = downloadProgress,
+            onCancel = { viewModel.cancelDownload() }
+        )
     } else {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -647,5 +642,47 @@ private fun ReleaseCardActionButtons(
                 Text("加速下载", fontWeight = FontWeight.Bold)
             }
         }
+    }
+}
+
+/**
+ * 下载中的按钮：背景由进度条慢慢填满，同时保留取消下载的点击能力
+ */
+@Composable
+private fun DownloadProgressCancelButton(
+    progress: Int,
+    onCancel: () -> Unit
+) {
+    val animatedProgress by animateFloatAsState(
+        targetValue = (progress / 100f).coerceIn(0f, 1f),
+        animationSpec = tween(durationMillis = 300),
+        label = "downloadProgress"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(50.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                shape = CircleShape
+            )
+            .clickable(onClick = onCancel)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(animatedProgress)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
+        )
+        Text(
+            text = "取消下载 · $progress%",
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.align(Alignment.Center)
+        )
     }
 }
