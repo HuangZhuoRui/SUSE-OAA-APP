@@ -633,6 +633,7 @@ fun CourseScreen(
                 termOptions = termOptions,
                 currentXnm = xnm,
                 currentXqm = xqm,
+                enrollmentYear = currentAccount?.njdmId?.take(4)?.toIntOrNull(),
                 onTermSelected = { xnm, xqm ->
                     viewModel.selectTerm(xnm, xqm)
                     showTermSelectionDialog = false

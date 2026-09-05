@@ -39,7 +39,9 @@ data class GradesUiState(
     val totalGpa: String = "0.00",
     val totalDegreeGpa: String = "0.00",
     val currentTermGpa: String = "0.00",
-    val currentTermDegreeGpa: String = "0.00"
+    val currentTermDegreeGpa: String = "0.00",
+    /** 真实入学年份（来自年级代码）；取不到时为 null，学年标签回落到区间写法 */
+    val enrollmentYear: Int? = null,
 )
 
 class GradesViewModel(
@@ -105,8 +107,11 @@ class GradesViewModel(
                 _uiState.update { it.copy(currentAccount = account) }
                 // 更新起始年份
                 account?.let { acc ->
-                    val startYear = acc.njdmId.toIntOrNull() ?: (academicYear - 4)
-                    _uiState.update { it.copy(startYear = startYear) }
+                    // startYear 仅用于生成可选学年区间，取不到年级代码时用固定回退值；
+                    // enrollmentYear 则必须是真实入学年份，否则会把学年算成错误的年级
+                    val enrollmentYear = acc.njdmId.take(4).toIntOrNull()
+                    val startYear = enrollmentYear ?: (academicYear - 4)
+                    _uiState.update { it.copy(startYear = startYear, enrollmentYear = enrollmentYear) }
                 }
             }
         }

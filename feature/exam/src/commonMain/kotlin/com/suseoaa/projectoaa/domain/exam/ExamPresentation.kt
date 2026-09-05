@@ -3,6 +3,7 @@ package com.suseoaa.projectoaa.domain.exam
 import androidx.compose.runtime.Immutable
 import com.suseoaa.projectoaa.shared.domain.model.exam.ExamCacheEntity
 import com.suseoaa.projectoaa.shared.domain.model.exam.ExamApiItem
+import com.suseoaa.projectoaa.shared.util.SemesterNaming
 import com.suseoaa.projectoaa.shared.util.parseExamTimeRange
 import kotlinx.datetime.LocalDateTime
 
@@ -107,14 +108,18 @@ object SemesterOptionsBuilder {
      * @param currentYear / [currentMonth] 当前日期，决定最新一个可选学期
      */
     fun build(njdmId: String, currentYear: Int, currentMonth: Int): List<SemesterOption> {
-        val enrollmentYear = njdmId.toIntOrNull() ?: (currentYear - 4)
+        // 真实入学年份，取不到时为 null——它只用于年级命名，不能拿回退值冒充，
+        // 否则「大一上」会被算成「大五上」
+        val enrollmentYear = njdmId.take(4).toIntOrNull()
+        // 生成可选学年区间时才用回退值
+        val listFromYear = enrollmentYear ?: (currentYear - 4)
 
         // 学年从 8 月起算；8 月-次年 1 月为第 1 学期(3)，2-7 月为第 2 学期(12)
         val currentAcademicYear = if (currentMonth >= 8) currentYear else currentYear - 1
         val currentSemesterCode = if (currentMonth >= 8 || currentMonth <= 1) "3" else "12"
 
         val semesters = mutableListOf<SemesterOption>()
-        for (academicYear in currentAcademicYear downTo enrollmentYear) {
+        for (academicYear in currentAcademicYear downTo listFromYear) {
             val isCurrentAcademicYear = academicYear == currentAcademicYear
 
             val showFirstSemester = !isCurrentAcademicYear ||
@@ -125,11 +130,13 @@ object SemesterOptionsBuilder {
 
             if (showFirstSemester) {
                 semesters += SemesterOption(
-                    academicYear.toString(), "3", "${academicYear}-${academicYear + 1} 第1学期")
+                    academicYear.toString(), "3",
+                    SemesterNaming.short(enrollmentYear, academicYear.toString(), "3"))
             }
             if (showSecondSemester) {
                 semesters += SemesterOption(
-                    academicYear.toString(), "12", "${academicYear}-${academicYear + 1} 第2学期")
+                    academicYear.toString(), "12",
+                    SemesterNaming.short(enrollmentYear, academicYear.toString(), "12"))
             }
         }
 

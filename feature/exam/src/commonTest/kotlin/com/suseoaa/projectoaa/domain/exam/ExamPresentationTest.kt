@@ -160,8 +160,15 @@ class SemesterOptionsBuilderTest {
     }
 
     @Test
-    fun `显示名称按学年区间拼接`() {
+    fun `显示名称按入学年份折算成年级`() {
+        // 2025 级学生的 2025 学年第 1 学期就是大一上
         val option = SemesterOptionsBuilder.build("2025", currentYear = 2025, currentMonth = 10).single()
-        assertEquals("2025-2026 第1学期", option.displayName)
+        assertEquals("大一上", option.displayName)
+    }
+
+    @Test
+    fun `年级代码非法时显示名称回落到学年区间`() {
+        val options = SemesterOptionsBuilder.build("未知", currentYear = 2026, currentMonth = 9)
+        assertEquals("2026-2027学年 第1学期", options.first().displayName)
     }
 }

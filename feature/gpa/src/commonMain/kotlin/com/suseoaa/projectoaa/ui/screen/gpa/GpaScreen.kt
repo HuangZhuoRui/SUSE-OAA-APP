@@ -34,6 +34,7 @@ import com.suseoaa.projectoaa.ui.component.common.AdaptivePageScaffold
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.math.pow
 import kotlin.math.round
+import com.suseoaa.projectoaa.shared.util.SemesterNaming
 
 @Immutable
 private data class GpaCourseUiModel(
@@ -76,22 +77,12 @@ private fun GpaCourseWrapper.toUiModel(): GpaCourseUiModel {
     )
 }
 
-/** 将学期代码转换为易读文本，例如 2023_3 -> 2023-2024 第1学期 */
-private fun formatTerm(termCode: String): String {
+/** 学期代码转显示文本，例如 2023_3 -> 大一上（取不到入学年份时回落到学年写法）。 */
+private fun formatTerm(termCode: String, enrollmentYear: Int?): String {
     if (termCode == "ALL") return "全部学期"
     val parts = termCode.split("_")
-    if (parts.size == 2) {
-        val year = parts[0]
-        val nextYear = (year.toIntOrNull() ?: 0) + 1
-        val termStr = when (parts[1]) {
-            "3" -> "第1学期"
-            "12" -> "第2学期"
-            "16" -> "第3学期"
-            else -> "第${parts[1]}学期"
-        }
-        return "$year-$nextYear $termStr"
-    }
-    return termCode
+    if (parts.size != 2) return termCode
+    return SemesterNaming.short(enrollmentYear, parts[0], parts[1])
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -140,6 +131,7 @@ fun GpaScreen(
                         courseList = uiState.courseList,
                         termList = uiState.termList,
                         selectedTerm = uiState.selectedTerm,
+                        enrollmentYear = uiState.enrollmentYear,
                         totalGpa = uiState.totalGpa,
                         totalCredits = uiState.totalCredits,
                         degreeGpa = uiState.degreeGpa,
@@ -167,6 +159,8 @@ private fun GpaContent(
     courseList: List<GpaCourseWrapper>,
     termList: List<String>,
     selectedTerm: String,
+    /** 入学年份，用于把学期显示成「大一上」 */
+    enrollmentYear: Int?,
     totalGpa: String,
     totalCredits: String,
     degreeGpa: String,
@@ -231,7 +225,7 @@ private fun GpaContent(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = formatTerm(term),
+                                        text = formatTerm(term, enrollmentYear),
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                         color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
@@ -315,7 +309,7 @@ private fun GpaContent(
                         FilterChip(
                             selected = selectedTerm == term,
                             onClick = { onTermChange(term) },
-                            label = { Text(formatTerm(term)) },
+                            label = { Text(formatTerm(term, enrollmentYear)) },
                             leadingIcon = if (selectedTerm == term) {
                                 { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
                             } else null,

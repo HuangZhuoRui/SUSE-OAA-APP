@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import org.koin.compose.viewmodel.koinViewModel
+import com.suseoaa.projectoaa.shared.util.SemesterNaming
 
 @Immutable
 private data class GradeCardUiModel(
@@ -212,6 +213,7 @@ private fun BoxWithConstraintsScope.TabletGradesLayout(
                     selectedYears = uiState.selectedYears,
                     selectedSemesters = uiState.selectedSemesters,
                     startYear = uiState.startYear,
+                    enrollmentYear = uiState.enrollmentYear,
                     onFilterChange = onFilterChange
                 )
 
@@ -268,6 +270,7 @@ private fun BoxWithConstraintsScope.PhoneGradesLayout(
             selectedYears = uiState.selectedYears,
             selectedSemesters = uiState.selectedSemesters,
             startYear = uiState.startYear,
+            enrollmentYear = uiState.enrollmentYear,
             onFilterChange = onFilterChange
         )
 
@@ -365,6 +368,7 @@ private fun VerticalFilterSection(
     selectedYears: Set<String>,
     selectedSemesters: Set<String>,
     startYear: Int,
+    enrollmentYear: Int?,
     onFilterChange: (Set<String>, Set<String>) -> Unit
 ) {
     val isDarkTheme = isSystemInDarkTheme()
@@ -375,11 +379,14 @@ private fun VerticalFilterSection(
 
     val currentYear = com.suseoaa.projectoaa.shared.util.OaaClock.now()
         .toLocalDateTime(TimeZone.currentSystemDefault()).year
-    val yearOptions = remember(startYear) {
+    // 学年标签显示成「大一」「大二」，与下方的「上/下学期」合起来读作「大一上学期」；
+    // 取不到入学年份时回落到学年区间。
+    val yearOptions = remember(startYear, enrollmentYear) {
         val endYear = currentYear + 1
         val list = mutableListOf<Pair<String, String>>()
         for (y in endYear downTo startYear) {
-            list.add("$y-${y + 1}" to y.toString())
+            val label = SemesterNaming.gradeName(enrollmentYear, y) ?: "$y-${y + 1}"
+            list.add(label to y.toString())
         }
         list
     }
@@ -477,15 +484,19 @@ fun FilterSliders(
     selectedYears: Set<String>,
     selectedSemesters: Set<String>,
     startYear: Int,
+    enrollmentYear: Int?,
     onFilterChange: (Set<String>, Set<String>) -> Unit
 ) {
     val currentYear = com.suseoaa.projectoaa.shared.util.OaaClock.now()
         .toLocalDateTime(TimeZone.currentSystemDefault()).year
-    val yearOptions = remember(startYear) {
+    // 学年标签显示成「大一」「大二」，与下方的「上/下学期」合起来读作「大一上学期」；
+    // 取不到入学年份时回落到学年区间。
+    val yearOptions = remember(startYear, enrollmentYear) {
         val endYear = currentYear + 1
         val list = mutableListOf<Pair<String, String>>()
         for (y in endYear downTo startYear) {
-            list.add("$y-${y + 1}" to y.toString())
+            val label = SemesterNaming.gradeName(enrollmentYear, y) ?: "$y-${y + 1}"
+            list.add(label to y.toString())
         }
         list
     }

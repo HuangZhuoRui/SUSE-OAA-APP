@@ -43,6 +43,7 @@ import com.suseoaa.projectoaa.ui.component.common.FakeLandscape
 import org.koin.compose.viewmodel.koinViewModel
 import com.suseoaa.projectoaa.presentation.course.CourseNodeData
 import com.suseoaa.projectoaa.presentation.course.CourseStatisticsViewModel
+import com.suseoaa.projectoaa.shared.util.SemesterNaming
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,6 +55,16 @@ fun CourseStatisticsScreen(
     val timelineData by viewModel.timelineData.collectAsStateWithLifecycle()
     val allAccounts by viewModel.allAccounts.collectAsStateWithLifecycle()
     val selectedAccountIds by viewModel.selectedAccountIds.collectAsStateWithLifecycle()
+
+    // 统计页可同时看多个账号，入学年份因人而异。
+    // 时间轴按学号取各自的入学年份；筛选面板是跨账号的公共列表，
+    // 只有所有账号同届时才用年级命名，否则回落到学年区间。
+    val enrollmentYearByStudent = remember(allAccounts) {
+        allAccounts.associate { it.studentId to it.njdmId.take(4).toIntOrNull() }
+    }
+    val sharedEnrollmentYear = remember(enrollmentYearByStudent) {
+        enrollmentYearByStudent.values.distinct().singleOrNull()
+    }
     val selectedTerms by viewModel.selectedTerms.collectAsStateWithLifecycle()
     val availableTerms by viewModel.availableTerms.collectAsStateWithLifecycle()
     val isSyncing by viewModel.isSyncing.collectAsStateWithLifecycle()
@@ -74,13 +85,13 @@ fun CourseStatisticsScreen(
                     .fillMaxHeight()
                     .background(MaterialTheme.colorScheme.surface)
                 ) {
-                    FilterPanel(false, viewModel, allAccounts, selectedAccountIds, selectedTerms, availableTerms)
+                    FilterPanel(false, viewModel, allAccounts, selectedAccountIds, selectedTerms, availableTerms, sharedEnrollmentYear)
                     VerticalDivider(modifier = Modifier.align(Alignment.CenterEnd), color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
             
             Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                TimelineView(timelineData)
+                TimelineView(timelineData, enrollmentYearByStudent)
                 TopControlButtons(
                     onBack = onBack,
                     isSyncing = isSyncing,
@@ -182,7 +193,9 @@ private fun TopControlButtons(
 
 @Composable
 private fun TimelineView(
-    timelineData: Map<String, Map<Pair<String, String>, Map<String, List<CourseNodeData>>>>
+    timelineData: Map<String, Map<Pair<String, String>, Map<String, List<CourseNodeData>>>>,
+    /** 学号 -> 入学年份，用于把学期显示成「大一上」 */
+    enrollmentYearByStudent: Map<String, Int?>,
 ) {
     if (timelineData.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -254,8 +267,9 @@ private fun TimelineView(
                             ) {
                                 studentTerms.forEach { (termPair, teacherMap) ->
                                     val (xnm, xqm) = termPair
-                                    val termName = "${xnm}-${xnm.toInt() + 1}学年 第${if (xqm == "3") "一" else "二"}学期"
-                                    
+                                    val termName = SemesterNaming.short(
+                                        enrollmentYearByStudent[studentId], xnm, xqm)
+
                                     TermTimelineNode(termName = termName, teacherMap = teacherMap)
                                 }
                             }
@@ -274,7 +288,9 @@ private fun FilterPanel(
     allAccounts: List<com.suseoaa.projectoaa.shared.domain.model.course.CourseAccountEntity>,
     selectedAccountIds: Set<String>,
     selectedTerms: Set<Pair<String, String>>,
-    availableTerms: List<Pair<String, String>>
+    availableTerms: List<Pair<String, String>>,
+    /** 所有账号共同的入学年份；各账号届别不同时为 null，学期回落到学年区间 */
+    enrollmentYear: Int?,
 ) {
     if (isTablet) {
         // 平板端左右分栏布局
@@ -347,7 +363,7 @@ private fun FilterPanel(
                     items(availableTerms) { termPair ->
                         val (xnm, xqm) = termPair
                         val isSelected = selectedTerms.contains(termPair) || selectedTerms.isEmpty()
-                        val termName = "${xnm}-${xnm.toInt() + 1}学年 第${if (xqm == "3") "一" else "二"}学期"
+                        val termName = SemesterNaming.short(enrollmentYear, xnm, xqm)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
@@ -449,7 +465,7 @@ private fun FilterPanel(
             items(availableTerms) { termPair ->
                 val (xnm, xqm) = termPair
                 val isSelected = selectedTerms.contains(termPair) || selectedTerms.isEmpty()
-                val termName = "${xnm}-${xnm.toInt() + 1}学年 第${if (xqm == "3") "一" else "二"}学期"
+                val termName = SemesterNaming.short(enrollmentYear, xnm, xqm)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier

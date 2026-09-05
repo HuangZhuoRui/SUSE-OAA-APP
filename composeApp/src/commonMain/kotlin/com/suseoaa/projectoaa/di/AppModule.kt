@@ -47,7 +47,7 @@ val appModule = module {
     viewModel { AcademicViewModel(get(), get(), get(), get(), get<WidgetRefresher>()) }
     viewModel { ExamViewModel(get(), get(), get(), get(), get<WidgetRefresher>()) }
     viewModel { PersonViewModel(get(), get(), get()) }
-    viewModel { GpaViewModel(get(), get()) }
+    viewModel { GpaViewModel(get(), get(), get()) }
     viewModel { GradesViewModel(get(), get(), get(), get(), get()) }
     // 刻意注册为 single 而非 viewModel：UpdateDialog / UpdateScreen / PersonScreen
     // 三处共用同一实例来共享下载进度（isDownloading / downloadProgress），改成

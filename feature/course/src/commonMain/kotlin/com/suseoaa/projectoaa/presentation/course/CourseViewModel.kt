@@ -33,6 +33,7 @@ import com.suseoaa.projectoaa.domain.course.CourseOverlapCalculator
 import com.suseoaa.projectoaa.domain.course.CourseOverlapDetail
 import com.suseoaa.projectoaa.domain.course.CourseOverlapStatus
 import com.suseoaa.projectoaa.domain.course.SectionSpan
+import com.suseoaa.projectoaa.shared.util.SemesterNaming
 
 /**
  * 学期选项
@@ -783,8 +784,8 @@ class CourseViewModel(
 
         val options = mutableListOf<TermOption>()
         for (y in startYear..currentYear + 1) {
-            options.add(TermOption(y.toString(), "3", "${y}-${y + 1}学年 第1学期"))
-            options.add(TermOption(y.toString(), "12", "${y}-${y + 1}学年 第2学期"))
+            options.add(TermOption(y.toString(), "3", SemesterNaming.full(startYear, y.toString(), "3")))
+            options.add(TermOption(y.toString(), "12", SemesterNaming.full(startYear, y.toString(), "12")))
         }
         _termOptions.value = options.reversed()
     }

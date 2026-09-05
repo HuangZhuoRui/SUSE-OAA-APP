@@ -18,6 +18,7 @@ import com.suseoaa.projectoaa.shared.domain.engine.scoreToGpaPoint
 import com.suseoaa.projectoaa.domain.gpa.FilterType
 import com.suseoaa.projectoaa.domain.gpa.GpaCalculator
 import com.suseoaa.projectoaa.domain.gpa.SortOrder
+import com.suseoaa.projectoaa.shared.data.local.store.UserProfileStore
 
 // KMP 兼容的格式化函数（四舍五入）
 private fun Double.format(decimals: Int): String {
@@ -51,11 +52,14 @@ data class GpaUiState(
     val degreeCredits: String = "0.0",
     val sortOrder: SortOrder = SortOrder.DESCENDING,
     val filterType: FilterType = FilterType.ALL,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    /** 入学年份，用于把学期显示成「大一上」；取不到时学期回落到学年写法 */
+    val enrollmentYear: Int? = null,
 )
 
 class GpaViewModel(
     private val sessionStore: SessionStore,
+    private val userProfileStore: UserProfileStore,
     private val gpaRepository: GpaRepository
 ) : ViewModel() {
 
@@ -69,6 +73,9 @@ class GpaViewModel(
             try {
                 // 获取当前登录的学生ID
                 val studentId = sessionStore.currentStudentId.first()
+                val enrollmentYear = userProfileStore.userInfoFlow.first()["njdm_id"]
+                    ?.take(4)?.toIntOrNull()
+                _uiState.update { it.copy(enrollmentYear = enrollmentYear) }
 
                 if (studentId.isNullOrEmpty()) {
                     _uiState.update {

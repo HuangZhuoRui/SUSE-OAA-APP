@@ -22,6 +22,7 @@ import androidx.compose.ui.window.DialogProperties
 import kotlinx.datetime.*
 import kotlin.math.abs
 import com.suseoaa.projectoaa.presentation.course.TermOption
+import com.suseoaa.projectoaa.shared.util.SemesterNaming
 
 /**
  * 学期选择对话框及其滚轮选择器。
@@ -35,6 +36,8 @@ internal fun TermSelectionDialog(
     termOptions: List<TermOption>,
     currentXnm: String,
     currentXqm: String,
+    /** 入学年份，用于把学年折算成「大一」这样的年级；为 null 时回落到学年写法 */
+    enrollmentYear: Int?,
     onTermSelected: (String, String) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -83,7 +86,7 @@ internal fun TermSelectionDialog(
 
         val selectedLabel = remember(selectedYear, selectedSemester) {
             if (selectedYear.isNotBlank() && selectedSemester.isNotBlank()) {
-                formatTermLabel(selectedYear, selectedSemester)
+                SemesterNaming.full(enrollmentYear, selectedYear, selectedSemester)
             } else {
                 "暂无可选学期"
             }
@@ -140,7 +143,7 @@ internal fun TermSelectionDialog(
                             TermWheelPicker(
                                 options = yearOptions,
                                 selectedValue = selectedYear,
-                                optionLabel = { formatAcademicYearLabel(it) },
+                                optionLabel = { formatAcademicYearLabel(enrollmentYear, it) },
                                 onSelected = { year ->
                                     selectedYear = year
                                 },
@@ -385,13 +388,10 @@ private fun calculateCenteredWheelIndex(
         .coerceIn(0, optionCount - 1)
 }
 
-private fun formatAcademicYearLabel(xnm: String): String {
-    val year = xnm.toIntOrNull()
-    return if (year != null) {
-        "$year-${year + 1} 学年"
-    } else {
-        "${xnm} 学年"
-    }
+/** 学年列显示年级（大一/大二…）；判定不出年级时退回学年区间。 */
+private fun formatAcademicYearLabel(enrollmentYear: Int?, xnm: String): String {
+    val year = xnm.toIntOrNull() ?: return "${xnm} 学年"
+    return SemesterNaming.gradeName(enrollmentYear, year) ?: "$year-${year + 1} 学年"
 }
 
 private fun semesterLabel(xqm: String): String = when (xqm) {
@@ -400,13 +400,3 @@ private fun semesterLabel(xqm: String): String = when (xqm) {
     else -> "学期$xqm"
 }
 
-private fun formatTermLabel(xnm: String, xqm: String): String {
-    val year = xnm.toIntOrNull()
-    val yearLabel = if (year != null) "$year-${year + 1}学年" else "${xnm}学年"
-    val semesterText = when (xqm) {
-        "3" -> "第1学期"
-        "12" -> "第2学期"
-        else -> "学期$xqm"
-    }
-    return "$yearLabel $semesterText"
-}
