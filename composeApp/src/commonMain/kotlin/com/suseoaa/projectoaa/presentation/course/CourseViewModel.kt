@@ -11,6 +11,7 @@ import com.suseoaa.projectoaa.shared.domain.course.PeriodSpan
 import com.suseoaa.projectoaa.shared.domain.model.course.ClassTimeEntity
 import com.suseoaa.projectoaa.shared.domain.model.course.CourseAccountEntity
 import com.suseoaa.projectoaa.shared.domain.model.course.CourseWithTimes
+import com.suseoaa.projectoaa.shared.domain.model.course.PracticeCourseEntity
 import com.suseoaa.projectoaa.shared.data.repository.LocalCourseRepository
 import com.suseoaa.projectoaa.shared.data.repository.SchoolAuthRepository
 import com.suseoaa.projectoaa.shared.data.repository.SchoolCourseRepository
@@ -230,11 +231,26 @@ class CourseViewModel(
         allCourses,
         _hasWeekZero
     ) { list, hasZero ->
-        val min = if (hasZero) 0 else 1
-        (min..25).associateWith { week -> calculateCoursesForWeek(week, list) }
+        val min = SemesterCalendar.minWeek(hasZero)
+        (min..SemesterCalendar.MAX_WEEK).associateWith { week -> calculateCoursesForWeek(week, list) }
     }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
+
+    /**
+     * 整周实践课（实习等）。它们没有星期节次，不进课表格子，由界面单独展示。
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val practiceCourses: StateFlow<List<PracticeCourseEntity>> = combine(
+        currentAccount,
+        selectedXnm,
+        selectedXqm
+    ) { account, xnm, xqm ->
+        Triple(account?.studentId, xnm, xqm)
+    }.flatMapLatest { (studentId, xnm, xqm) ->
+        if (studentId == null) flowOf(emptyList())
+        else localRepository.getPracticeCourses(studentId, xnm, xqm)
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val dailySchedule: StateFlow<List<TimeSlotConfig>> = selectedXnm
         .map { dailyScheduleFor(it) }

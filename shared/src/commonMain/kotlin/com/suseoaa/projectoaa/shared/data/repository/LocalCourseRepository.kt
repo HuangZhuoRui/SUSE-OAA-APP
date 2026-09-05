@@ -145,7 +145,7 @@ class LocalCourseRepository(private val database: CourseDatabase) {
             background = course.background,
             category = course.category,
             assessment = course.assessment,
-            totalHours = course.totalHours
+            totalHours = course.credit
         )
     }
 
@@ -207,15 +207,42 @@ class LocalCourseRepository(private val database: CourseDatabase) {
         xnm: String,
         xqm: String,
         courses: List<CourseEntity>,
-        times: List<ClassTimeEntity>
+        times: List<ClassTimeEntity>,
+        practiceCourses: List<PracticeCourseEntity> = emptyList()
     ) = withContext(Dispatchers.IO) {
         database.transaction {
             // 先删除时间表，再删除课程表（确保完全清除）
             database.classTimeQueries.deleteRemoteByTerm(studentId, xnm, xqm)
             database.courseQueries.deleteRemoteCoursesByTerm(studentId, xnm, xqm)
+            database.practiceCourseQueries.deleteByTerm(studentId, xnm, xqm)
             courses.forEach { insertCourseInternal(it) }
             times.forEach { insertClassTimeInternal(it) }
+            practiceCourses.forEach { insertPracticeCourseInternal(it) }
         }
+    }
+
+    /** 整周实践课（实习等），没有星期节次，不进课表格子，单独查询。 */
+    fun getPracticeCourses(studentId: String, xnm: String, xqm: String): Flow<List<PracticeCourseEntity>> {
+        return database.practiceCourseQueries.selectByTerm(studentId, xnm, xqm)
+            .asFlow()
+            .mapToList(Dispatchers.IO)
+            .map { list -> list.map { it.toEntity() } }
+    }
+
+    private fun insertPracticeCourseInternal(entity: PracticeCourseEntity) {
+        database.practiceCourseQueries.insertOrReplace(
+            studentId = entity.studentId,
+            xnm = entity.xnm,
+            xqm = entity.xqm,
+            courseName = entity.courseName,
+            teacher = entity.teacher,
+            classGroup = entity.classGroup,
+            weeks = entity.weeks,
+            weeksMask = entity.weeksMask,
+            credit = entity.credit,
+            assessment = entity.assessment,
+            campus = entity.campus
+        )
     }
 
     suspend fun insertCustomCourse(course: CourseEntity, time: ClassTimeEntity) =
@@ -304,7 +331,7 @@ class LocalCourseRepository(private val database: CourseDatabase) {
                         nature = item.kcxzmc ?: "",
                         category = item.kclbmc ?: item.kclb ?: "",  // 优先 kclbmc，备选 kclb
                         assessment = item.khfsmc ?: "",
-                        totalHours = item.xf ?: "",
+                        credit = item.xf ?: "",
                         background = "#FFFFFF"
                     )
                 )
@@ -328,8 +355,30 @@ class LocalCourseRepository(private val database: CourseDatabase) {
             )
         }
 
-        updateTermCourses(studentId, xnm, xqm, courseEntities, timeEntities)
-        println("[LocalCourse] Saved ${courseEntities.size} courses and ${timeEntities.size} time slots")
+        // 整周实践课：教务系统放在 sjkList 里，没有星期节次，只有 qsjsz(如 "19-20周")
+        val practiceEntities = (response.sjkList ?: emptyList()).mapNotNull { item ->
+            val courseName = item.kcmc?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            val weeks = item.qsjsz ?: ""
+            PracticeCourseEntity(
+                studentId = studentId,
+                xnm = xnm,
+                xqm = xqm,
+                courseName = courseName,
+                teacher = item.jsxm ?: "",
+                classGroup = item.jxbzh ?: "",
+                weeks = weeks,
+                weeksMask = CourseScheduleParser.weeksToMask(weeks),
+                credit = item.xf ?: "",
+                assessment = item.khfsmc ?: "",
+                campus = item.xqmc ?: ""
+            )
+        }
+
+        updateTermCourses(studentId, xnm, xqm, courseEntities, timeEntities, practiceEntities)
+        println(
+            "[LocalCourse] Saved ${courseEntities.size} courses, ${timeEntities.size} time slots " +
+                "and ${practiceEntities.size} practice courses"
+        )
     }
 
     // ===== 扩展函数: SQLDelight生成类 -> 数据实体 =====
@@ -357,7 +406,7 @@ class LocalCourseRepository(private val database: CourseDatabase) {
         background = background,
         category = category,
         assessment = assessment,
-        totalHours = totalHours
+        credit = totalHours
     )
 
     private fun com.suseoaa.projectoaa.shared.database.ClassTime.toEntity() = ClassTimeEntity(
@@ -377,6 +426,20 @@ class LocalCourseRepository(private val database: CourseDatabase) {
         teacherTitle = teacherTitle,
         politicalStatus = politicalStatus,
         classGroup = classGroup
+    )
+
+    private fun com.suseoaa.projectoaa.shared.database.PracticeCourse.toEntity() = PracticeCourseEntity(
+        studentId = studentId,
+        xnm = xnm,
+        xqm = xqm,
+        courseName = courseName,
+        teacher = teacher,
+        classGroup = classGroup,
+        weeks = weeks,
+        weeksMask = weeksMask,
+        credit = credit,
+        assessment = assessment,
+        campus = campus
     )
 
     /**
@@ -404,7 +467,7 @@ class LocalCourseRepository(private val database: CourseDatabase) {
             nature = "自定义",
             category = "自定义课程",
             assessment = "",
-            totalHours = "",
+            credit = "",
             background = "#7E57C2"
         )
 

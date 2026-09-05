@@ -1,5 +1,6 @@
 package com.suseoaa.projectoaa.presentation.course
 
+import com.suseoaa.projectoaa.shared.domain.course.CourseScheduleParser
 import com.suseoaa.projectoaa.shared.domain.course.SemesterCalendar
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -75,6 +76,7 @@ fun CourseScreen(
     val semesterStartDate by viewModel.semesterStartDate.collectAsStateWithLifecycle()
     val hasWeekZero by viewModel.hasWeekZero.collectAsStateWithLifecycle()
     val courseBackgroundImageBase64 by viewModel.courseBackgroundImageBase64.collectAsStateWithLifecycle()
+    val practiceCourses by viewModel.practiceCourses.collectAsStateWithLifecycle()
     val isMainTabVisible = LocalMainTabVisible.current
 
     // 动态周次范围
@@ -128,6 +130,13 @@ fun CourseScreen(
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
         label = "courseScreenScale"
     )
+
+    // 整周实践课不在课表格子里，按当前显示的周次单独筛出来
+    val practiceCoursesThisWeek = remember(practiceCourses, currentDisplayWeek) {
+        practiceCourses.filter {
+            CourseScheduleParser.isWeekActive(currentDisplayWeek, it.weeks, it.weeksMask)
+        }
+    }
 
     val currentWeekItems = weekLayoutMap[currentDisplayWeek].orEmpty()
     val currentWeekOverlapMap = overlapStatusByWeek[currentDisplayWeek].orEmpty()
@@ -457,30 +466,33 @@ fun CourseScreen(
                 val accountNameById = remember(savedAccounts) {
                     savedAccounts.associate { it.studentId to (it.name.ifBlank { it.studentId }) }
                 }
-                CourseScheduleLayout(
-                    weekLayoutMap = weekLayoutMap,
-                    overlapStatusByWeek = overlapStatusByWeek,
-                    overlapFilter = overlapFilter,
-                    onlyShowOverlap = onlyShowOverlap,
-                    activeQueryCount = activeQueryCount,
-                    accountNameById = accountNameById,
-                    startDate = semesterStartDate,
-                    pagerState = pagerState,
-                    dailySchedule = dailySchedule,
-                    minWeek = minWeek,
-                    bottomPadding = bottomBarHeight,
-                    onCourseClick = { courses, bounds ->
-                        clickedCardBounds = bounds
-                        selectedCourses = CourseDetailSelection(
-                            items = courses,
-                            overlapDetailByKey = courses.associate { item ->
-                                val key = buildScheduleLayoutOverlapKey(item)
-                                key to (currentWeekOverlapDetailMap[key]
-                                    ?: CourseOverlapDetail(status = CourseOverlapStatus.NO_OVERLAP))
-                            }
-                        )
-                    }
-                )
+                Column(Modifier.fillMaxSize()) {
+                    PracticeCourseBanner(practiceCoursesThisWeek)
+                    CourseScheduleLayout(
+                        weekLayoutMap = weekLayoutMap,
+                        overlapStatusByWeek = overlapStatusByWeek,
+                        overlapFilter = overlapFilter,
+                        onlyShowOverlap = onlyShowOverlap,
+                        activeQueryCount = activeQueryCount,
+                        accountNameById = accountNameById,
+                        startDate = semesterStartDate,
+                        pagerState = pagerState,
+                        dailySchedule = dailySchedule,
+                        minWeek = minWeek,
+                        bottomPadding = bottomBarHeight,
+                        onCourseClick = { courses, bounds ->
+                            clickedCardBounds = bounds
+                            selectedCourses = CourseDetailSelection(
+                                items = courses,
+                                overlapDetailByKey = courses.associate { item ->
+                                    val key = buildScheduleLayoutOverlapKey(item)
+                                    key to (currentWeekOverlapDetailMap[key]
+                                        ?: CourseOverlapDetail(status = CourseOverlapStatus.NO_OVERLAP))
+                                }
+                            )
+                        }
+                    )
+                }
             }
 
             // 加载指示器

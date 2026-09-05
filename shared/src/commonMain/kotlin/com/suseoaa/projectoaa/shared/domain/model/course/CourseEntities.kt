@@ -23,7 +23,8 @@ data class CourseEntity(
     val background: String = "",
     val category: String = "",
     val assessment: String = "",
-    val totalHours: String = ""
+    /** 学分。教务系统的 `xf` 字段；数据库列因历史原因仍叫 totalHours。 */
+    val credit: String = ""
 )
 
 data class ClassTimeEntity(
@@ -48,4 +49,21 @@ data class ClassTimeEntity(
 data class CourseWithTimes(
     val course: CourseEntity,
     val times: List<ClassTimeEntity>
+)
+
+/**
+ * 整周实践课（实习、集中实践环节）。没有星期和节次，只有周次范围，因此不进课表格子。
+ */
+data class PracticeCourseEntity(
+    val studentId: String,
+    val xnm: String,
+    val xqm: String,
+    val courseName: String,
+    val teacher: String = "",
+    val classGroup: String = "",
+    val weeks: String = "",
+    val weeksMask: Long = 0L,
+    val credit: String = "",
+    val assessment: String = "",
+    val campus: String = ""
 )

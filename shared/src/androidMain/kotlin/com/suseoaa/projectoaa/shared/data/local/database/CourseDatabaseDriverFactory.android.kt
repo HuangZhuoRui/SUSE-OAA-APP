@@ -54,6 +54,28 @@ actual class CourseDatabaseDriverFactory(private val context: Context) {
             // 忽略创建错误
         }
         
+        // 迁移整周实践课表
+        try {
+            driver.execute(null, """
+                CREATE TABLE IF NOT EXISTS PracticeCourse (
+                    studentId TEXT NOT NULL,
+                    xnm TEXT NOT NULL,
+                    xqm TEXT NOT NULL,
+                    courseName TEXT NOT NULL,
+                    teacher TEXT NOT NULL DEFAULT '',
+                    classGroup TEXT NOT NULL DEFAULT '',
+                    weeks TEXT NOT NULL DEFAULT '',
+                    weeksMask INTEGER NOT NULL DEFAULT 0,
+                    credit TEXT NOT NULL DEFAULT '',
+                    assessment TEXT NOT NULL DEFAULT '',
+                    campus TEXT NOT NULL DEFAULT '',
+                    PRIMARY KEY (studentId, xnm, xqm, courseName)
+                )
+            """.trimIndent(), 0)
+        } catch (_: Exception) {
+            // 表已存在或其他错误，忽略
+        }
+
         return driver
     }
     

@@ -1,5 +1,6 @@
 package com.suseoaa.projectoaa.presentation.course
 
+import com.suseoaa.projectoaa.shared.domain.model.course.PracticeCourseEntity
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -909,6 +910,49 @@ internal fun HighlightTodayColumn(weekStartDate: LocalDate, maxWidth: Dp) {
                 topLeft = Offset(xPx, 0f),
                 size = Size(colWidthPx, size.height)
             )
+        }
+    }
+}
+
+/**
+ * 整周实践课提示条。
+ *
+ * 实习这类课程整周进行、没有固定的星期节次，放不进课表格子，
+ * 教务系统导出的课表也是把它们单列在表格下方，这里沿用同样的呈现方式。
+ * 当前周没有实践课时不占任何高度。
+ */
+@Composable
+internal fun PracticeCourseBanner(
+    practiceCourses: List<PracticeCourseEntity>,
+    modifier: Modifier = Modifier
+) {
+    if (practiceCourses.isEmpty()) return
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            practiceCourses.forEach { course ->
+                val detail = listOfNotNull(
+                    course.teacher.takeIf { it.isNotBlank() },
+                    course.weeks.takeIf { it.isNotBlank() }
+                ).joinToString(" · ")
+                Text(
+                    text = if (detail.isEmpty()) {
+                        "实践课：${course.courseName}"
+                    } else {
+                        "实践课：${course.courseName}（$detail）"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }

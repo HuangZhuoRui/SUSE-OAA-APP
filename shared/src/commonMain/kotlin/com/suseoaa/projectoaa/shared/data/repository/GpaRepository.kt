@@ -62,7 +62,7 @@ class GpaRepository(
                         jxbId = "",
                         courseName = c.courseName,
                         score = "", // 空成绩
-                        credit = c.totalHours.ifEmpty { "0" },
+                        credit = c.credit.ifEmpty { "0" },
                         gpa = "0",
                         courseType = c.nature,
                         examType = c.assessment,
