@@ -213,7 +213,13 @@ fun PersonScreen(
             onSetRetryCount = { scheduledCheckinViewModel.setRetryCount(it) },
             onSetRetryInterval = { scheduledCheckinViewModel.setRetryInterval(it) },
             onToggleAccount = { scheduledCheckinViewModel.toggleAccount(it) },
-            onSave = { scheduledCheckinViewModel.saveConfig() }
+            // saveConfig 会在 viewModelScope 里跑完保存和调度器的启停，不受弹窗关闭影响；
+            // ViewModel 自己也会把 showDialog 置回 false，但这里的入口状态是独立的一份，
+            // 不跟着收起来的话点完保存弹窗会一直留在屏幕上。
+            onSave = {
+                scheduledCheckinViewModel.saveConfig()
+                showScheduledCheckinDialog = false
+            }
         )
     }
 

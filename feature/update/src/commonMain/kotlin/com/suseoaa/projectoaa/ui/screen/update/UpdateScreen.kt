@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
@@ -170,6 +171,7 @@ fun UpdateScreen(
                                     hasUpdate = false,
                                     latestRelease = consolidatedLatestRelease,
                                     isChecking = uiState.isChecking,
+                                    errorMessage = uiState.errorMessage,
                                     downloadingReleaseTag = uiState.downloadingReleaseTag,
                                     downloadedReleaseTag = uiState.downloadedReleaseTag,
                                     isDownloading = uiState.isDownloading,
@@ -227,19 +229,12 @@ fun UpdateScreen(
                                 )
                             }
 
-                            if (releaseNotesReleases.isEmpty() && uiState.isChecking) {
+                            if (releaseNotesReleases.isEmpty()) {
                                 item {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(48.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        CircularProgressIndicator(
-                                            color = MaterialTheme.colorScheme.primary,
-                                            strokeWidth = 4.dp
-                                        )
-                                    }
+                                    ReleaseHistoryPlaceholder(
+                                        isChecking = uiState.isChecking,
+                                        errorMessage = uiState.errorMessage
+                                    )
                                 }
                             } else {
                                 items(releaseNotesReleases) { release ->
@@ -359,12 +354,50 @@ fun HeroVersionSection(hasUpdate: Boolean, latestRelease: GithubRelease?, isTabl
     }
 }
 
+/**
+ * 历史版本列表的空态。拉取失败时必须把原因显示出来——之前这里只处理
+ * "正在加载"，请求一失败就渲染成一片空白，看起来像功能坏了却没有任何线索。
+ */
+@Composable
+private fun ReleaseHistoryPlaceholder(
+    isChecking: Boolean,
+    errorMessage: String?
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(48.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        when {
+            isChecking -> CircularProgressIndicator(
+                color = MaterialTheme.colorScheme.primary,
+                strokeWidth = 4.dp
+            )
+
+            errorMessage != null -> Text(
+                text = "获取历史版本失败：$errorMessage",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center
+            )
+
+            else -> Text(
+                text = "暂无历史版本",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.outline
+            )
+        }
+    }
+}
+
 @Composable
 fun ReleaseHistorySection(
     allReleases: List<GithubRelease>,
     hasUpdate: Boolean,
     latestRelease: GithubRelease?,
     isChecking: Boolean,
+    errorMessage: String?,
     downloadingReleaseTag: String?,
     downloadedReleaseTag: String?,
     isDownloading: Boolean,
@@ -399,18 +432,11 @@ fun ReleaseHistorySection(
             modifier = Modifier.padding(start = 32.dp, top = 32.dp, bottom = 24.dp)
         )
 
-        if (allReleases.isEmpty() && isChecking) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(48.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(
-                    color = MaterialTheme.colorScheme.primary,
-                    strokeWidth = 4.dp
-                )
-            }
+        if (allReleases.isEmpty()) {
+            ReleaseHistoryPlaceholder(
+                isChecking = isChecking,
+                errorMessage = errorMessage
+            )
         } else {
             LazyColumn(
                 contentPadding = PaddingValues(start = 32.dp, end = 32.dp, bottom = 48.dp),
