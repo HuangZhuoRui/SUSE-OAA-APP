@@ -23,9 +23,6 @@ actual class AppUpdateRepository(
     private val json: Json,
     private val currentVersionName: String
 ) {
-    private val OWNER = "HuangZhuoRui"
-    private val REPO = "SUSE-OAA-APP"
-
     actual val currentDownloadId: Long = -1L
 
     /**
@@ -146,7 +143,7 @@ actual class AppUpdateRepository(
      */
     actual fun downloadApk(url: String, fileName: String): Long {
         // iOS 打开 GitHub Release 页面让用户手动获取 IPA 或跳转到 TestFlight
-        val releaseUrl = "${ApiConfig.GITHUB_DOWNLOAD_PREFIX}$OWNER/$REPO/releases"
+        val releaseUrl = ApiConfig.UPDATE_RELEASE_PAGE
         val nsUrl = NSURL.URLWithString(releaseUrl)
         if (nsUrl != null) {
             UIApplication.sharedApplication.openURL(nsUrl)

@@ -38,9 +38,12 @@ import com.suseoaa.projectoaa.shared.domain.repository.TeachingPlanRepository
 import com.suseoaa.projectoaa.shared.domain.repository.ValueCalculatorRepository
 import com.suseoaa.projectoaa.shared.database.CourseDatabase
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.cookies.HttpCookies
+import io.ktor.client.request.header
+import io.ktor.http.HttpHeaders
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import org.koin.core.module.Module
@@ -96,9 +99,15 @@ val sharedModule = module {
 
     // ==================== GitHub API ====================
     // GitHub API HttpClient (不需要认证，AppUpdateRepository 也使用)
+    // 匿名调用 api.github.com 必须带 User-Agent，否则 GitHub 直接返回 403
     single(qualifier = named("github")) {
         val jsonConfig = get<Json>()
         HttpClient {
+            install(DefaultRequest) {
+                header(HttpHeaders.Accept, "application/vnd.github+json")
+                header(HttpHeaders.UserAgent, "SUSE-OAA-APP")
+                header("X-GitHub-Api-Version", "2022-11-28")
+            }
             install(ContentNegotiation) {
                 json(jsonConfig)
             }

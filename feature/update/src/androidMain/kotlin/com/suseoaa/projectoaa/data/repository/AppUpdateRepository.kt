@@ -29,9 +29,6 @@ actual class AppUpdateRepository(
     private val json: Json,
     private val currentVersionName: String
 ) {
-    private val OWNER = "HuangZhuoRui"
-    private val REPO = "SUSE-OAA-APP"
-
     private var _currentDownloadId: Long = -1L
     actual val currentDownloadId: Long
         get() = _currentDownloadId

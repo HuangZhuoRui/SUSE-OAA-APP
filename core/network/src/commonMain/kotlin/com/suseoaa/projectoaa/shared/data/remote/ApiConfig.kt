@@ -37,13 +37,25 @@ object ApiConfig {
         "$QFHY_BASE/site/appware/system/sso/loginUrl?service=$encodedService"
 
     // ==================== 应用更新 ====================
-    const val UPDATE_BASE = "https://update.vincenthzr.org:8443"
-    const val UPDATE_RELEASES = "$UPDATE_BASE/api/releases"
-    const val UPDATE_LATEST_RELEASE = "$UPDATE_BASE/api/releases/latest"
+    /** 发版仓库坐标，Release 元数据与下载直链都由它拼出来。 */
+    const val UPDATE_REPO_OWNER = "HuangZhuoRui"
+    const val UPDATE_REPO_NAME = "SUSE-OAA-APP"
+
+    /**
+     * Release 元数据（检查更新、历史版本）一律走 GitHub 官方 API，
+     * 代理服务器只承担下载加速这一件事。
+     */
+    const val GITHUB_API_BASE = "https://api.github.com"
+    const val UPDATE_RELEASES = "$GITHUB_API_BASE/repos/$UPDATE_REPO_OWNER/$UPDATE_REPO_NAME/releases"
+    const val UPDATE_LATEST_RELEASE = "$UPDATE_RELEASES/latest"
 
     /** GitHub 直链前缀，配合 [UPDATE_DOWNLOAD_PREFIX] 做下载加速替换。 */
     const val GITHUB_DOWNLOAD_PREFIX = "https://github.com/"
-    const val UPDATE_DOWNLOAD_PREFIX = "$UPDATE_BASE/download/"
+    const val UPDATE_RELEASE_PAGE = "$GITHUB_DOWNLOAD_PREFIX$UPDATE_REPO_OWNER/$UPDATE_REPO_NAME/releases"
+
+    /** 下载加速代理，仅用于替换 APK 直链前缀。 */
+    const val UPDATE_PROXY_BASE = "https://update.vincenthzr.org:8443"
+    const val UPDATE_DOWNLOAD_PREFIX = "$UPDATE_PROXY_BASE/download/"
 
     // ==================== 端侧模型 ====================
     const val MODEL_HOST = "https://huggingface.co"
