@@ -9,7 +9,14 @@ import com.suseoaa.projectoaa.shared.data.local.store.UserDataCleaner
 import com.suseoaa.projectoaa.shared.data.local.store.UserProfileStore
 import com.suseoaa.projectoaa.shared.data.local.database.CourseDatabaseDriverFactory
 import com.suseoaa.projectoaa.shared.data.remote.api.CheckinApiService
-import com.suseoaa.projectoaa.shared.data.remote.api.OaaApiService
+import com.suseoaa.projectoaa.shared.data.remote.OaaTokenManager
+import com.suseoaa.projectoaa.shared.data.remote.api.OaaAnnouncementApi
+import com.suseoaa.projectoaa.shared.data.remote.api.OaaAuthApi
+import com.suseoaa.projectoaa.shared.data.remote.api.OaaOrganizationApi
+import com.suseoaa.projectoaa.shared.data.remote.api.OaaRecruitmentApi
+import com.suseoaa.projectoaa.shared.data.remote.api.OaaRequester
+import com.suseoaa.projectoaa.shared.data.remote.api.OaaUserApi
+import com.suseoaa.projectoaa.shared.data.remote.network.OaaSessionEvents
 import com.suseoaa.projectoaa.shared.data.remote.api.QrCodeCheckinApiService
 import com.suseoaa.projectoaa.shared.data.remote.api.SchoolApiService
 import com.suseoaa.projectoaa.shared.data.remote.network.ClearableCookieStorage
@@ -27,6 +34,8 @@ import com.suseoaa.projectoaa.shared.domain.repository.GpaRepository
 import com.suseoaa.projectoaa.shared.domain.repository.LocalCourseRepository
 import com.suseoaa.projectoaa.shared.domain.repository.OaaAuthRepository
 import com.suseoaa.projectoaa.shared.domain.repository.OaaRegisterRepository
+import com.suseoaa.projectoaa.shared.domain.repository.OrganizationRepository
+import com.suseoaa.projectoaa.shared.domain.repository.UserManagementRepository
 import com.suseoaa.projectoaa.shared.domain.repository.PersonRepository
 import com.suseoaa.projectoaa.shared.domain.repository.QrCodeCheckinRepository
 import com.suseoaa.projectoaa.shared.domain.repository.RecruitmentRepository
@@ -58,6 +67,8 @@ import com.suseoaa.projectoaa.shared.data.repository.LocalCourseRepositoryImpl
 import com.suseoaa.projectoaa.shared.data.repository.NearFieldCheckinRepositoryImpl
 import com.suseoaa.projectoaa.shared.data.repository.OaaAuthRepositoryImpl
 import com.suseoaa.projectoaa.shared.data.repository.OaaRegisterRepositoryImpl
+import com.suseoaa.projectoaa.shared.data.repository.OrganizationRepositoryImpl
+import com.suseoaa.projectoaa.shared.data.repository.UserManagementRepositoryImpl
 import com.suseoaa.projectoaa.shared.data.repository.PersonRepositoryImpl
 import com.suseoaa.projectoaa.shared.data.repository.RecruitmentRepositoryImpl
 import com.suseoaa.projectoaa.shared.data.repository.SchoolAuthRepositoryImpl
@@ -119,27 +130,46 @@ val sharedModule = module {
     }
 
     // ==================== OAA 后端 API ====================
-    // OAA 后端 HttpClient (需要 Token)
-    single(qualifier = named("oaa")) {
-        val sessionStore: SessionStore = get()
-        OaaHttpClient.create(get()) {
-            sessionStore.cachedToken
-        }
+    // 登录态失效的全局通知，由应用壳层监听后跳回登录页
+    single { OaaSessionEvents() }
+
+    // 刷新 token 专用：不带 401 拦截，避免刷新请求自己触发刷新
+    single(qualifier = named("oaaBare")) { OaaHttpClient.createBare(get()) }
+
+    single {
+        val cleaner = get<UserDataCleaner>()
+        OaaTokenManager(
+            sessionStore = get(),
+            bareRequester = OaaRequester(get(qualifier = named("oaaBare")), get()),
+            sessionEvents = get(),
+            clearSession = { cleaner.clearSession() }
+        )
     }
 
-    // OAA API 服务
-    single { OaaApiService(get(qualifier = named("oaa")), get()) }
+    // OAA 后端 HttpClient：自动带 token，401 时用 refresh token 续期后重放
+    single(qualifier = named("oaa")) {
+        OaaHttpClient.create(get(), get<OaaTokenManager>())
+    }
+
+    single { OaaRequester(get(qualifier = named("oaa")), get()) }
+    single { OaaAuthApi(get()) }
+    single { OaaUserApi(get()) }
+    single { OaaOrganizationApi(get()) }
+    single { OaaAnnouncementApi(get()) }
+    single { OaaRecruitmentApi(get()) }
 
     // OAA 仓库
-    single<OaaAuthRepository> { OaaAuthRepositoryImpl(get<OaaApiService>()) }
-    single<OaaRegisterRepository> { OaaRegisterRepositoryImpl(get<OaaApiService>(), get()) }
-    single<PersonRepository> { PersonRepositoryImpl(get<OaaApiService>(), get()) }
-    single<AnnouncementRepository> { AnnouncementRepositoryImpl(get<OaaApiService>()) }
+    single<OaaAuthRepository> {
+        val cleaner = get<UserDataCleaner>()
+        OaaAuthRepositoryImpl(get(), get(), get()) { cleaner.clearSession() }
+    }
+    single<OaaRegisterRepository> { OaaRegisterRepositoryImpl(get()) }
+    single<OrganizationRepository> { OrganizationRepositoryImpl(get()) }
+    single<PersonRepository> { PersonRepositoryImpl(get(), get(), get(), get()) }
+    single<UserManagementRepository> { UserManagementRepositoryImpl(get()) }
+    single<AnnouncementRepository> { AnnouncementRepositoryImpl(get(), get()) }
+    single<RecruitmentRepository> { RecruitmentRepositoryImpl(get(), get()) }
 
-
-//    招新换届
-    single { com.suseoaa.projectoaa.shared.data.remote.api.RecruitmentApiService() }
-    single<RecruitmentRepository> { RecruitmentRepositoryImpl(get()) }
     // ==================== 教务系统 API ====================
     // 教务系统专用 HttpClient
     single(qualifier = named("school")) {

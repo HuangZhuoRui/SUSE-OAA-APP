@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.BluetoothSearching
 import androidx.compose.material.icons.filled.BluetoothSearching
+import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.Calculate
@@ -17,18 +18,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.suseoaa.projectoaa.shared.domain.model.person.PersonData
+import com.suseoaa.projectoaa.shared.domain.model.person.CurrentUser
+import com.suseoaa.projectoaa.shared.domain.permission.OaaPermission
 import com.suseoaa.projectoaa.ui.component.common.PullUpFeatureDrawer
 import com.suseoaa.projectoaa.ui.component.FeatureCard
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeWithDrawer(
-    userInfo: PersonData?,
+    currentUser: CurrentUser?,
     isExpanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     onNavigateToRecruitment: () -> Unit,
     onNavigateToUserQuery: () -> Unit,
+    onNavigateToOrganization: () -> Unit,
     onNavigateToActivityCheckin: () -> Unit,
     onNavigateToValueCalculator: () -> Unit,
     bottomBarHeight: Dp = 0.dp,
@@ -93,8 +96,7 @@ fun HomeWithDrawer(
                 )
             }
 
-            val invalidRoles = listOf("会员", "普通成员", "")
-            if (userInfo != null && userInfo.role !in invalidRoles) {
+            if (OaaPermission.canAccessUserManagement(currentUser)) {
                 item(key = "feature_user_management") {
                     FeatureCard(
                         name = "权利的游戏",
@@ -106,6 +108,22 @@ fun HomeWithDrawer(
                             onNavigateToUserQuery()
                         },
                         sharedBoundKey = "user_management_feature"
+                    )
+                }
+            }
+
+            if (OaaPermission.canManageOrganization(currentUser)) {
+                item(key = "feature_organization") {
+                    FeatureCard(
+                        name = "组织架构",
+                        icon = Icons.Default.AccountTree,
+                        color = MaterialTheme.colorScheme.surface,
+                        onColor = MaterialTheme.colorScheme.primary,
+                        onClick = {
+                            onExpandedChange(true)
+                            onNavigateToOrganization()
+                        },
+                        sharedBoundKey = "organization_feature"
                     )
                 }
             }

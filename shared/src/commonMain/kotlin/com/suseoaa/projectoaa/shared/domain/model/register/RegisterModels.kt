@@ -3,6 +3,7 @@ package com.suseoaa.projectoaa.shared.domain.model.register
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+/** POST /auth/register。新用户默认加入「开放原子开源协会」，职位为「会员」。 */
 @Serializable
 data class RegisterRequest(
     @SerialName("name") val name: String,
@@ -11,13 +12,3 @@ data class RegisterRequest(
     @SerialName("username") val username: String,
     @SerialName("email") val email: String
 )
-
-@Serializable
-data class RegisterResponse(
-    @SerialName("code") val code: Int,
-    @SerialName("data") val data: RegisterData? = null,
-    @SerialName("message") val message: String = ""
-)
-
-@Serializable
-class RegisterData

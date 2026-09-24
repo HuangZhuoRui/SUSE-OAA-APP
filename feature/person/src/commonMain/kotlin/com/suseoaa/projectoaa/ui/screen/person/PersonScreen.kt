@@ -329,8 +329,8 @@ fun PersonScreen(
                                 userInfo = uiState.userInfo,
                                 onLogout = { viewModel.logout() },
                                 onAvatarClick = { showAvatarDialog = true },
-                                onEditInfo = { username, name, email ->
-                                    viewModel.updateInfo(username, name, email)
+                                onEditInfo = { username, email ->
+                                    viewModel.updateInfo(username, email)
                                 }
                             )
                         }

@@ -29,6 +29,7 @@ import com.suseoaa.projectoaa.ui.screen.update.UpdateScreen
 import com.suseoaa.projectoaa.ui.screen.course.CourseStatisticsScreen
 import com.suseoaa.projectoaa.ui.screen.home.ValueCalculatorScreen
 import com.suseoaa.projectoaa.util.DeepLinkManager
+import com.suseoaa.projectoaa.util.ToastManager
 
 @Composable
 fun AppNavHost(
@@ -41,6 +42,17 @@ fun AppNavHost(
     onBottomBarHeightChanged: (Int) -> Unit
 ) {
     val pendingDeepLink by DeepLinkManager.pendingDeepLink.collectAsState()
+
+    // refresh token 也失效时数据层已清空会话，这里负责把人送回登录页
+    LaunchedEffect(Unit) {
+        mainViewModel.sessionExpired.collect {
+            if (navController.currentDestination?.route == Screen.Login.route) return@collect
+            ToastManager.showToast("登录已过期，请重新登录")
+            navController.navigate(Screen.Login.route) {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+    }
 
     LaunchedEffect(pendingDeepLink) {
         val link = pendingDeepLink ?: return@LaunchedEffect
@@ -121,6 +133,11 @@ fun AppNavHost(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
+        composable(Screen.Organization.route) {
+            com.suseoaa.projectoaa.ui.screen.organization.OrganizationScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
         composable(
             route = Screen.Main.route
         ) {
@@ -135,6 +152,9 @@ fun AppNavHost(
                 },
                 onNavigateToUserQuery = {
                     navController.navigate(Screen.UserManagement.route)
+                },
+                onNavigateToOrganization = {
+                    navController.navigate(Screen.Organization.route)
                 },
                 onNavigateToChangePassword = {
                     navController.navigate(Screen.ChangePassword.route)
@@ -234,8 +254,8 @@ fun AppNavHost(
             DepartmentDetailScreen(
                 departmentName = department,
                 onBack = { navController.popBackStack() },
-                onNavigateToEdit = {
-                    navController.navigate(Screen.DepartmentEdit.createRoute(department))
+                onNavigateToEdit = { announcementId ->
+                    navController.navigate(Screen.DepartmentEdit.createRoute(department, announcementId))
                 }
             )
         }
@@ -245,8 +265,10 @@ fun AppNavHost(
             arguments = Screen.DepartmentEdit.arguments
         ) { backStackEntry ->
             val department = backStackEntry.savedStateHandle.get<String>("department") ?: ""
+            val announcementId = backStackEntry.savedStateHandle.get<Int>("announcementId")?.takeIf { it > 0 }
             DepartmentEditScreen(
                 departmentName = department,
+                announcementId = announcementId,
                 onBack = { navController.popBackStack() }
             )
         }

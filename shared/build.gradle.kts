@@ -108,6 +108,9 @@ kotlin {
 
         commonTest.dependencies {
             implementation(kotlin("test"))
+            // OAA 数据层测试：用 MockEngine 模拟后端，验证请求体、401 续期与响应解析
+            implementation(libs.ktor.client.mock)
+            implementation(libs.kotlinx.coroutines.test)
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.suseoaa.projectoaa.shared.domain.repository
 
+import com.suseoaa.projectoaa.shared.domain.model.person.CurrentUser
 import com.suseoaa.projectoaa.shared.domain.model.person.PersonData
 
 /**
@@ -9,28 +10,17 @@ import com.suseoaa.projectoaa.shared.domain.model.person.PersonData
  * 测试中才能替换为假实现。
  */
 interface PersonRepository {
-
-    suspend fun logout(): Unit
+    /** 注销后端的本设备会话并清空本地数据；后端调用失败也会清本地。 */
+    suspend fun logout()
 
     suspend fun getPersonInfo(): Result<PersonData>
 
-    suspend fun changePassword(
-        account: String,
-        newPassword: String,
-        emailCode: String
-        ): Result<String>
+    /** 当前用户及其职位等级，用于决定界面上显示哪些管理入口。 */
+    suspend fun getCurrentUser(): Result<CurrentUser>
 
-    suspend fun getEmailCode(account: String): Result<String>
+    /** 修改用户名与邮箱，姓名不可修改。 */
+    suspend fun updateProfile(username: String, email: String): Result<String>
 
-    suspend fun updateUserInfo(username: String, name: String, email: String): Result<String>
-
+    /** 上传头像并设为当前头像。 */
     suspend fun uploadAvatar(imageData: ByteArray): Result<String>
-
-    suspend fun queryUsers(
-        department: String,
-        name: String,
-        role: String
-        ): Result<List<com.suseoaa.projectoaa.shared.domain.model.person.UserQueryData>>
-
-    suspend fun changeUserMessage(users: List<com.suseoaa.projectoaa.shared.domain.model.person.UserQueryData>): Result<String>
 }

@@ -2,56 +2,66 @@ package com.suseoaa.projectoaa.ui.screen.home
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.relocation.BringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.suseoaa.projectoaa.presentation.home.HomeViewModel
-import com.suseoaa.projectoaa.ui.component.OaaMarkdownText
-import com.suseoaa.projectoaa.ui.component.common.SharedTransitionPageContainer
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.suseoaa.projectoaa.presentation.home.AnnouncementViewModel
+import com.suseoaa.projectoaa.shared.domain.model.announcement.Announcement
 import com.suseoaa.projectoaa.ui.animation.pageShellBounds
 import com.suseoaa.projectoaa.ui.animation.sharedBoundsTransition
-import com.suseoaa.projectoaa.ui.theme.*
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import com.suseoaa.projectoaa.ui.component.OaaMarkdownText
+import com.suseoaa.projectoaa.util.ToastManager
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
- * 部门详情页面
+ * 部门详情：当前公告、草稿（有权限时）与历史公告。
+ *
+ * @param onNavigateToEdit 传入公告 ID 编辑已有公告，传 null 新建
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DepartmentDetailScreen(
     departmentName: String,
     onBack: () -> Unit,
-    onNavigateToEdit: () -> Unit,
-    viewModel: HomeViewModel = koinViewModel()
+    onNavigateToEdit: (announcementId: Int?) -> Unit,
+    viewModel: AnnouncementViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var pendingDelete by remember { mutableStateOf<Announcement?>(null) }
 
-    // 加载详情
-    LaunchedEffect(departmentName) {
-        viewModel.fetchDetailInfo(departmentName)
+    // 从编辑页返回时也要刷新，所以挂在 ON_RESUME 上
+    DisposableEffect(lifecycleOwner, departmentName) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.load(departmentName)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(uiState.message) {
+        uiState.message?.let {
+            ToastManager.showToast(it)
+            viewModel.clearMessage()
+        }
     }
 
     Surface(
@@ -81,6 +91,9 @@ fun DepartmentDetailScreen(
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
+                if (uiState.isSubmitting) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -89,47 +102,34 @@ fun DepartmentDetailScreen(
                     contentAlignment = Alignment.TopStart
                 ) {
                     when {
-                        // 加载中
-                        uiState.isLoadingDetail && !uiState.isUpdating -> {
+                        uiState.isLoading && uiState.active.isEmpty() && uiState.history.isEmpty() -> {
                             CircularProgressIndicator(
                                 modifier = Modifier.align(Alignment.Center),
                                 color = MaterialTheme.colorScheme.primary
                             )
                         }
-                        // 错误
-                        uiState.detailError != null -> {
+                        uiState.error != null && uiState.active.isEmpty() -> {
                             ErrorContent(
-                                error = uiState.detailError ?: "未知错误",
-                                onRetry = { viewModel.fetchDetailInfo(departmentName) },
+                                error = uiState.error ?: "未知错误",
+                                onRetry = { viewModel.load(departmentName) },
                                 modifier = Modifier.align(Alignment.Center)
                             )
                         }
-                        // 显示内容
-                        uiState.detailData != null -> {
-                            LazyColumn(
-                                contentPadding = PaddingValues(
-                                    top = 16.dp,
-                                    bottom = 88.dp
-                                )
-                            ) {
-                                item {
-                                    OaaMarkdownText(
-                                        markdown = uiState.detailData!!.data,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        color = MaterialTheme.colorScheme.onBackground,
-                                        style = MaterialTheme.typography.bodyLarge.copy(
-                                            lineHeight = 28.sp
-                                        )
-                                    )
-                                }
-                            }
-                        }
+                        else -> AnnouncementList(
+                            active = uiState.active,
+                            drafts = uiState.drafts,
+                            history = uiState.history,
+                            canManage = uiState.canManage,
+                            onEdit = { onNavigateToEdit(it.id) },
+                            onPublish = viewModel::publish,
+                            onDelete = { pendingDelete = it }
+                        )
                     }
                 }
             }
 
             AnimatedVisibility(
-                visible = uiState.canEditCurrent && uiState.detailData != null,
+                visible = uiState.canManage,
                 enter = scaleIn() + fadeIn(),
                 exit = scaleOut() + fadeOut(),
                 modifier = Modifier
@@ -139,217 +139,209 @@ fun DepartmentDetailScreen(
             ) {
                 FloatingActionButton(
                     modifier = Modifier.sharedBoundsTransition("department_edit_$departmentName"),
-                    onClick = onNavigateToEdit,
+                    onClick = { onNavigateToEdit(null) },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 ) {
-                    Icon(Icons.Default.Edit, "编辑")
+                    Icon(Icons.Default.Add, "新建公告")
                 }
             }
         }
+    }
+
+    pendingDelete?.let { announcement ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("删除公告") },
+            text = { Text("确定删除「${announcement.title}」吗？") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.delete(announcement)
+                        pendingDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("删除") }
+            },
+            dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("取消") } }
+        )
     }
 }
 
-/**
- * Department full-screen editor with shared transition.
- */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DepartmentEditScreen(
-    departmentName: String,
-    onBack: () -> Unit,
-    viewModel: HomeViewModel = koinViewModel()
+private fun AnnouncementList(
+    active: List<Announcement>,
+    drafts: List<Announcement>,
+    history: List<Announcement>,
+    canManage: Boolean,
+    onEdit: (Announcement) -> Unit,
+    onPublish: (Announcement) -> Unit,
+    onDelete: (Announcement) -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    var shouldCloseAfterSave by remember { mutableStateOf(false) }
-    val focusRequester = remember { FocusRequester() }
-    val bringIntoViewRequester = remember { BringIntoViewRequester() }
-    val containerScrollState = rememberScrollState()
-    val scope = rememberCoroutineScope()
-    var editorValue by remember(departmentName) { mutableStateOf(TextFieldValue("")) }
-    var hasAppliedInitialSelection by remember(departmentName) { mutableStateOf(false) }
-    var editorHasFocus by remember { mutableStateOf(false) }
+    var historyExpanded by remember { mutableStateOf(false) }
+    var expandedHistoryId by remember { mutableStateOf<Int?>(null) }
 
-    LaunchedEffect(departmentName) {
-        viewModel.fetchDetailInfo(departmentName)
-    }
-
-    LaunchedEffect(uiState.isUpdating, uiState.detailError, shouldCloseAfterSave) {
-        if (shouldCloseAfterSave && !uiState.isUpdating) {
-            if (uiState.detailError == null) {
-                onBack()
-            }
-            shouldCloseAfterSave = false
-        }
-    }
-
-    LaunchedEffect(departmentName, uiState.isLoadingDetail, uiState.editContent, uiState.isUpdating) {
-        if (!hasAppliedInitialSelection && !uiState.isLoadingDetail) {
-            val end = uiState.editContent.length
-            editorValue = TextFieldValue(
-                text = uiState.editContent,
-                selection = TextRange(end)
-            )
-            hasAppliedInitialSelection = true
-            focusRequester.requestFocus()
-            delay(120)
-            bringIntoViewRequester.bringIntoView()
-        } else if (hasAppliedInitialSelection && editorValue.text != uiState.editContent && !uiState.isUpdating) {
-            val maxIndex = uiState.editContent.length
-            val newStart = editorValue.selection.start.coerceIn(0, maxIndex)
-            val newEnd = editorValue.selection.end.coerceIn(0, maxIndex)
-            editorValue = TextFieldValue(
-                text = uiState.editContent,
-                selection = TextRange(newStart, newEnd)
-            )
-        }
-    }
-
-    LaunchedEffect(editorValue.selection, editorHasFocus) {
-        if (editorHasFocus) {
-            delay(40)
-            bringIntoViewRequester.bringIntoView()
-        }
-    }
-
-    SharedTransitionPageContainer(
-        transitionKey = "department_edit_$departmentName"
+    LazyColumn(
+        contentPadding = PaddingValues(top = 16.dp, bottom = 88.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .height(64.dp)
-                    .padding(horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
-                }
+        if (active.isEmpty()) {
+            item {
                 Text(
-                    text = "编辑$departmentName",
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f).padding(start = 8.dp)
+                    "该部门暂无公告",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 24.dp)
                 )
-                TextButton(
-                    enabled = !uiState.isUpdating && uiState.editContent.isNotBlank(),
-                    onClick = {
-                        shouldCloseAfterSave = true
-                        viewModel.submitUpdate()
+            }
+        }
+        items(active, key = { "active_${it.id}" }) { announcement ->
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    announcement.title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    announcement.metaLine(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OaaMarkdownText(
+                    markdown = announcement.content,
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.onBackground,
+                    style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 28.sp)
+                )
+                if (canManage) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { onEdit(announcement) }) { Text("编辑") }
                     }
-                ) {
-                    Text("保存", fontWeight = FontWeight.Bold)
                 }
             }
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .imePadding()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 12.dp)
-            ) {
-                when {
-                    uiState.isLoadingDetail && uiState.editContent.isBlank() -> {
-                        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+        }
+
+        if (canManage && drafts.isNotEmpty()) {
+            item { SectionTitle("草稿（${drafts.size}）") }
+            items(drafts, key = { "draft_${it.id}" }) { draft ->
+                AnnouncementCard(
+                    announcement = draft,
+                    subtitle = "最后修改 ${formatDateTime(draft.updatedAt)}",
+                    actions = {
+                        TextButton(onClick = { onEdit(draft) }) { Text("编辑") }
+                        TextButton(onClick = { onPublish(draft) }) { Text("发布") }
+                        TextButton(onClick = { onDelete(draft) }) {
+                            Text("删除", color = MaterialTheme.colorScheme.error)
+                        }
                     }
+                )
+            }
+        }
 
-                    uiState.detailError != null && uiState.detailData == null -> {
-                        ErrorContent(
-                            error = uiState.detailError ?: "加载失败",
-                            onRetry = { viewModel.fetchDetailInfo(departmentName) },
-                            modifier = Modifier.align(Alignment.Center)
-                        )
-                    }
-
-                    else -> {
-                        Card(
-                            modifier = Modifier.fillMaxSize(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surface
-                            ),
-                            shape = RoundedCornerShape(20.dp)
-                        ) {
-                            Column(modifier = Modifier.fillMaxSize()) {
-                                if (uiState.isUpdating) {
-                                    LinearProgressIndicator(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .verticalScroll(containerScrollState)
-                                        .imePadding()
-                                        .padding(horizontal = 14.dp, vertical = 10.dp)
-                                ) {
-                                    TextField(
-                                        value = editorValue,
-                                        onValueChange = { value ->
-                                            editorValue = value
-                                            viewModel.onEditContentChange(value.text)
-                                            if (editorHasFocus) {
-                                                scope.launch {
-                                                    delay(30)
-                                                    bringIntoViewRequester.bringIntoView()
-                                                }
-                                            }
-                                        },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .heightIn(min = 420.dp)
-                                            .focusRequester(focusRequester)
-                                            .bringIntoViewRequester(bringIntoViewRequester)
-                                            .onFocusChanged { state ->
-                                                editorHasFocus = state.isFocused
-                                                if (state.isFocused) {
-                                                    scope.launch {
-                                                        delay(30)
-                                                        bringIntoViewRequester.bringIntoView()
-                                                    }
-                                                }
-                                            },
-                                        colors = TextFieldDefaults.colors(
-                                            focusedContainerColor = Color.Transparent,
-                                            unfocusedContainerColor = Color.Transparent,
-                                            disabledContainerColor = Color.Transparent,
-                                            focusedIndicatorColor = Color.Transparent,
-                                            unfocusedIndicatorColor = Color.Transparent
-                                        ),
-                                        placeholder = {
-                                            Text(
-                                                "在此输入 Markdown 内容...",
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        },
-                                        textStyle = MaterialTheme.typography.bodyLarge.copy(
-                                            lineHeight = 26.sp
-                                        ),
-                                        minLines = 18,
-                                        maxLines = Int.MAX_VALUE
-                                    )
+        if (history.isNotEmpty()) {
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { historyExpanded = !historyExpanded },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    SectionTitle("历史公告（${history.size}）", modifier = Modifier.weight(1f))
+                    Icon(
+                        if (historyExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (historyExpanded) "收起" else "展开"
+                    )
+                }
+            }
+            if (historyExpanded) {
+                items(history, key = { "history_${it.id}" }) { item ->
+                    val expanded = expandedHistoryId == item.id
+                    AnnouncementCard(
+                        announcement = item,
+                        subtitle = item.metaLine(),
+                        onClick = { expandedHistoryId = if (expanded) null else item.id },
+                        body = if (expanded) item.content else null,
+                        actions = {
+                            if (canManage) {
+                                TextButton(onClick = { onDelete(item) }) {
+                                    Text("删除", color = MaterialTheme.colorScheme.error)
                                 }
                             }
                         }
-                    }
+                    )
                 }
             }
         }
     }
 }
+
+@Composable
+private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
+        modifier = modifier.padding(top = 12.dp)
+    )
+}
+
+@Composable
+private fun AnnouncementCard(
+    announcement: Announcement,
+    subtitle: String,
+    onClick: (() -> Unit)? = null,
+    body: String? = null,
+    actions: @Composable RowScope.() -> Unit = {}
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(announcement.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (body != null) {
+                OaaMarkdownText(
+                    markdown = body,
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                content = actions
+            )
+        }
+    }
+}
+
+private fun Announcement.metaLine(): String = buildString {
+    if (publisherName.isNotBlank()) {
+        append(publisherName)
+        if (publisherRole.isNotBlank()) append(" · ").append(publisherRole)
+        append("　")
+    }
+    append("发布于 ").append(formatDateTime(publishedAt.orEmpty()))
+}
+
+/** 2026-09-01T00:00:00+08:00 -> 2026-09-01 00:00 */
+internal fun formatDateTime(raw: String): String =
+    raw.take(16).replace('T', ' ').ifBlank { "未知时间" }
 
 /**
  * 错误内容
  */
 @Composable
-private fun ErrorContent(
+internal fun ErrorContent(
     error: String,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
@@ -380,4 +372,3 @@ private fun ErrorContent(
         }
     }
 }
-

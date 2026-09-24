@@ -26,7 +26,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.suseoaa.projectoaa.presentation.home.HomeViewModel
-import com.suseoaa.projectoaa.shared.domain.model.announcement.AnnouncementData
+import com.suseoaa.projectoaa.shared.domain.model.announcement.Announcement
+import com.suseoaa.projectoaa.shared.domain.model.org.Department
+import com.suseoaa.projectoaa.shared.domain.model.org.DepartmentTypes
 import com.suseoaa.projectoaa.ui.animation.sharedBoundsTransition
 import com.suseoaa.projectoaa.ui.component.AdaptiveLayout
 import com.suseoaa.projectoaa.ui.component.AdaptiveLayoutConfig
@@ -47,6 +49,7 @@ fun HomeScreen(
     onNavigateToRecruitment: () -> Unit,
     onNavigateToUserQuery: () -> Unit,
     onNavigateToActivityCheckin: () -> Unit,
+    onNavigateToOrganization: () -> Unit = {},
     onNavigateToValueCalculator: () -> Unit,
     bottomBarHeight: Dp = 0.dp,
     featureDrawerExpanded: Boolean = false,
@@ -56,7 +59,6 @@ fun HomeScreen(
     val isMainTabVisible = LocalMainTabVisible.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val uiState by viewModel.uiState.collectAsState()
-    val departments = viewModel.departments
 
     DisposableEffect(lifecycleOwner, isMainTabVisible) {
         val observer = LifecycleEventObserver { _, event ->
@@ -88,11 +90,12 @@ fun HomeScreen(
     )
 
     HomeWithDrawer(
-        userInfo = uiState.userInfo,
+        currentUser = uiState.currentUser,
         isExpanded = featureDrawerExpanded,
         onExpandedChange = onFeatureDrawerExpandedChange,
         onNavigateToRecruitment = onNavigateToRecruitment,
         onNavigateToUserQuery = onNavigateToUserQuery,
+        onNavigateToOrganization = onNavigateToOrganization,
         onNavigateToActivityCheckin = onNavigateToActivityCheckin,
         onNavigateToValueCalculator = onNavigateToValueCalculator,
         bottomBarHeight = bottomBarHeight,
@@ -111,12 +114,10 @@ fun HomeScreen(
                 Row {
                     //            部门介绍卡片
                     DepartmentGrid(
-                        departments = departments,
-                        cardInfos = uiState.cardInfos,
-                        userInfo = uiState.userInfo,
+                        departments = uiState.departments,
+                        announcements = uiState.activeAnnouncements,
+                        hasLoadedAnnouncements = uiState.hasLoadedAnnouncements,
                         onItemClick = onNavigateToDetail,
-                        onRecruitmentClick = onNavigateToRecruitment,
-                        onUserQueryClick = onNavigateToUserQuery,
                         bottomBarHeight = bottomBarHeight
                     )
                     //
@@ -128,14 +129,17 @@ fun HomeScreen(
 
 @Composable
 fun DepartmentGrid(
-    departments: List<String>,
-    cardInfos: Map<String, AnnouncementData?>,
-    userInfo: com.suseoaa.projectoaa.shared.domain.model.person.PersonData?,
+    departments: List<Department>,
+    announcements: Map<String, Announcement>,
+    hasLoadedAnnouncements: Boolean,
     onItemClick: (String) -> Unit,
-    onRecruitmentClick: () -> Unit,
-    onUserQueryClick: () -> Unit,
     bottomBarHeight: Dp = 0.dp
 ) {
+    fun summaryOf(name: String): String? = announcements[name]?.summary()
+        ?: if (hasLoadedAnnouncements) "暂无公告" else null
+    val association = departments.firstOrNull { it.type == DepartmentTypes.ASSOCIATION }
+    val otherDepts = departments.filter { it != association }
+
     AdaptiveLayout { config ->
         val spanCount = config.gridColumns
         val gridCells = GridCells.Fixed(spanCount)
@@ -175,22 +179,23 @@ fun DepartmentGrid(
             }
 
             // 1. 协会大卡片 (独占一行)
-            item(span = { GridItemSpan(spanCount) }) {
-                BigAssociationCard(
-                    name = "开放原子开源协会", departmentId = "协会",
-                    data = cardInfos["协会"],
-                    onClick = { onItemClick("协会") }
-                )
+            if (association != null) {
+                item(span = { GridItemSpan(spanCount) }) {
+                    BigAssociationCard(
+                        name = association.name,
+                        summary = summaryOf(association.name),
+                        onClick = { onItemClick(association.name) }
+                    )
+                }
             }
 
             // 2. 其他部门卡片
-            val otherDepts = departments.filter { it != "协会" }
-            items(otherDepts) { dept ->
+            items(otherDepts, key = { it.id }) { dept ->
                 DepartmentCard(
-                    name = dept,
-                    data = cardInfos[dept],
-                    icon = getIconForDepartment(dept),
-                    onClick = { onItemClick(dept) }
+                    name = dept.name,
+                    summary = summaryOf(dept.name),
+                    icon = getIconForDepartment(dept.name),
+                    onClick = { onItemClick(dept.name) }
                 )
             }
         }
@@ -201,18 +206,17 @@ fun DepartmentGrid(
 @Composable
 fun BigAssociationCard(
     name: String,
-    departmentId: String = name,
-    data: AnnouncementData?,
+    summary: String?,
     onClick: () -> Unit
 ) {
-    val summary = data?.data?.stripMarkdown() ?: "加载中..."
+    val summaryText = summary ?: "加载中..."
 
     Surface(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
             .height(140.dp)
-            .sharedBoundsTransition("department_$departmentId"),
+            .sharedBoundsTransition("department_$name"),
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.primary,
         shadowElevation = 4.dp
@@ -231,7 +235,7 @@ fun BigAssociationCard(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = summary,
+                    text = summaryText,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f),
                     maxLines = 3,
@@ -252,11 +256,11 @@ fun BigAssociationCard(
 @Composable
 fun DepartmentCard(
     name: String,
-    data: AnnouncementData?,
+    summary: String?,
     icon: ImageVector,
     onClick: () -> Unit
 ) {
-    val summary = data?.data?.stripMarkdown() ?: "..."
+    val summaryText = summary ?: "..."
 
     Surface(
         onClick = onClick,
@@ -299,9 +303,9 @@ fun DepartmentCard(
                 )
             }
             Text(
-                text = summary,
+                text = summaryText,
                 style = MaterialTheme.typography.bodySmall,
-                color = if (data == null) MaterialTheme
+                color = if (summary == null) MaterialTheme
                     .colorScheme
                     .onSurfaceVariant
                     .copy(alpha = 0.5f)
@@ -320,6 +324,12 @@ fun DepartmentCard(
             }
         }
     }
+}
+
+/** 首页卡片摘要：标题 + 去掉 Markdown 的正文。 */
+private fun Announcement.summary(): String {
+    val body = content.stripMarkdown()
+    return if (title.isBlank()) body else "$title：$body"
 }
 
 /**

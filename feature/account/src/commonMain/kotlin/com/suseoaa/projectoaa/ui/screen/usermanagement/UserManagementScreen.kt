@@ -1,9 +1,7 @@
 package com.suseoaa.projectoaa.ui.screen.usermanagement
 
-
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -11,7 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -20,15 +18,20 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.suseoaa.projectoaa.presentation.usermanagement.UserManagementUiState
 import com.suseoaa.projectoaa.presentation.usermanagement.UserManagementViewModel
-import com.suseoaa.projectoaa.shared.domain.model.person.UserQueryData
+import com.suseoaa.projectoaa.shared.domain.model.org.Department
+import com.suseoaa.projectoaa.shared.domain.model.org.Role
+import com.suseoaa.projectoaa.shared.domain.model.person.UserListItem
 import com.suseoaa.projectoaa.ui.component.common.AdaptivePageScaffold
-import com.suseoaa.projectoaa.ui.theme.AppDimensions
+import com.suseoaa.projectoaa.ui.component.common.OptionDropdown
+import com.suseoaa.projectoaa.util.ToastManager
 import org.koin.compose.viewmodel.koinViewModel
+
+/** 下拉框里「不限」这一项。 */
+private const val ANY = ""
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,13 +41,14 @@ fun UserManagementScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    var editingUser by remember { mutableStateOf<UserQueryData?>(null) }
-    var deptFilter by remember { mutableStateOf("") }
-    var nameFilter by remember { mutableStateOf("") }
-    var roleFilter by remember { mutableStateOf("") }
+    var editingUser by remember { mutableStateOf<UserListItem?>(null) }
+    var deletingUser by remember { mutableStateOf<UserListItem?>(null) }
 
-    LaunchedEffect(uiState.updateMessage, uiState.error) {
-        // 这里可以结合 snackbar 提示
+    LaunchedEffect(uiState.message) {
+        uiState.message?.let {
+            ToastManager.showToast(it)
+            viewModel.clearMessage()
+        }
     }
 
     AdaptivePageScaffold(
@@ -52,261 +56,195 @@ fun UserManagementScreen(
         title = "权利的游戏",
         onBack = onNavigateBack,
         compactContent = { modifier ->
-            UserManagementContent(
-                modifier = modifier,
-                uiState = uiState,
-                nameFilter = nameFilter,
-                onNameFilterChange = { nameFilter = it },
-                deptFilter = deptFilter,
-                onDeptFilterChange = { deptFilter = it },
-                roleFilter = roleFilter,
-                onSearch = {
-                    viewModel.updateFilters(
-                        department = deptFilter,
-                        name = nameFilter,
-                        role = roleFilter
-                    )
-                    viewModel.fetchUsers()
-                },
-                onEditClick = { editingUser = it },
-                viewModel = viewModel
-            )
-        },
-        tabletContent = { modifier ->
-            // 平板专属布局：左侧查询栏，右侧结果列表
-            Row(
-                modifier = modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // 左侧筛选栏
+            Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
+                var isFilterExpanded by remember { mutableStateOf(false) }
                 Card(
-                    modifier = Modifier
-                        .weight(0.3f),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).animateContentSize(),
+                    elevation = CardDefaults.cardElevation(0.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .padding(16.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) { isFilterExpanded = !isFilterExpanded },
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("筛选条件", style = MaterialTheme.typography.titleMedium)
+                            Icon(
+                                imageVector = if (isFilterExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = if (isFilterExpanded) "收起筛选" else "展开筛选"
+                            )
+                        }
+                        if (isFilterExpanded) {
+                            FilterFields(
+                                uiState = uiState,
+                                viewModel = viewModel,
+                                modifier = Modifier.padding(top = 12.dp)
+                            )
+                        }
+                    }
+                }
+                UserList(
+                    uiState = uiState,
+                    viewModel = viewModel,
+                    onEditClick = { editingUser = it },
+                    onDeleteClick = { deletingUser = it }
+                )
+            }
+        },
+        tabletContent = { modifier ->
+            // 平板布局：左侧筛选栏，右侧结果列表
+            Row(
+                modifier = modifier.fillMaxSize().padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Card(
+                    modifier = Modifier.weight(0.3f),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             "筛选条件",
                             style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.padding(bottom = 16.dp)
                         )
-                        OutlinedTextField(
-                            value = nameFilter,
-                            onValueChange = { nameFilter = it },
-                            label = { Text("姓名筛选") },
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
-                        )
-                        OutlinedTextField(
-                            value = deptFilter,
-                            onValueChange = { deptFilter = it },
-                            label = { Text("部门筛选") },
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
-                        )
-                        Button(
-                            onClick = {
-                                viewModel.updateFilters(
-                                    department = deptFilter,
-                                    name = nameFilter,
-                                    role = roleFilter
-                                )
-                                viewModel.fetchUsers()
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.Search, contentDescription = null)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("查询")
-                        }
+                        FilterFields(uiState = uiState, viewModel = viewModel)
                     }
                 }
-
-                // 右侧结果列表
-                Box(
-                    modifier = Modifier
-                        .weight(0.7f)
-                        .fillMaxSize()
-                ) {
-                    if (uiState.isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier
-                                .align(Alignment.Center)
-                        )
-                    } else {
-                        LazyColumn(
-                            verticalArrangement = Arrangement
-                                .spacedBy(8.dp)
-                        ) {
-                            items(uiState.users) { user ->
-                                UserCard(
-                                    user = user,
-                                    canEdit = viewModel.canEditUser(user.role),
-                                    onEditClick = { editingUser = user }
-                                )
-                            }
-                        }
-                    }
+                Box(modifier = Modifier.weight(0.7f).fillMaxSize()) {
+                    UserList(
+                        uiState = uiState,
+                        viewModel = viewModel,
+                        onEditClick = { editingUser = it },
+                        onDeleteClick = { deletingUser = it }
+                    )
                 }
             }
         }
     )
 
-    // 编辑弹窗
+    editingUser?.let { user ->
+        EditUserDialog(
+            user = user,
+            departments = uiState.departments.filter { it.isActive },
+            roles = viewModel.assignableRoles(),
+            onDismiss = { editingUser = null },
+            onConfirm = { departmentId, roleId ->
+                viewModel.updateUser(user, departmentId, roleId)
+                editingUser = null
+            }
+        )
+    }
 
-    editingUser?.let { userToEdit ->
-        var editName by remember { mutableStateOf(userToEdit.name) }
-        var editRole by remember { mutableStateOf(userToEdit.role) }
-        var editDept by remember { mutableStateOf(userToEdit.department) }
-
+    deletingUser?.let { user ->
         AlertDialog(
-            containerColor = MaterialTheme.colorScheme.background,
-            onDismissRequest = { editingUser = null },
-            title = { Text("修改用户信息") },
-            text = {
-                Column {
-                    OutlinedTextField(
-                        value = editName,
-                        onValueChange = { editName = it },
-                        label = { Text("姓名") },
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                    )
-                    OutlinedTextField(
-                        value = editDept,
-                        onValueChange = { editDept = it },
-                        label = { Text("部门") },
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                    )
-                    OutlinedTextField(
-                        value = editRole,
-                        onValueChange = { editRole = it },
-                        label = { Text("职位") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
+            onDismissRequest = { deletingUser = null },
+            title = { Text("删除成员") },
+            text = { Text("确定要删除 ${user.name.ifBlank { user.username }}（${user.studentId}）吗？此操作不可撤销。") },
             confirmButton = {
-                Button(onClick = {
-                    viewModel.updateUsers(
-                        listOf(
-                            userToEdit.copy(
-                                name = editName,
-                                role = editRole,
-                                department = editDept
-                            )
-                        )
-                    )
-                    editingUser = null
-                }) {
-                    Text("保存")
-                }
+                Button(
+                    onClick = {
+                        viewModel.deleteUser(user)
+                        deletingUser = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("删除") }
             },
             dismissButton = {
-                TextButton(onClick = { editingUser = null }) {
-                    Text("取消")
-                }
+                TextButton(onClick = { deletingUser = null }) { Text("取消") }
             }
         )
     }
 }
 
 @Composable
-fun UserManagementContent(
-    modifier: Modifier = Modifier,
-    uiState: com.suseoaa.projectoaa.presentation.usermanagement.UserManagementUiState,
-    nameFilter: String,
-    onNameFilterChange: (String) -> Unit,
-    deptFilter: String,
-    onDeptFilterChange: (String) -> Unit,
-    roleFilter: String,
-    onSearch: () -> Unit,
-    onEditClick: (UserQueryData) -> Unit,
-    viewModel: UserManagementViewModel
+private fun FilterFields(
+    uiState: UserManagementUiState,
+    viewModel: UserManagementViewModel,
+    modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        // 筛选栏
-        var isFilterExpanded by remember { mutableStateOf(false) }
-
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp)
-                .animateContentSize(),
-            elevation = CardDefaults.cardElevation(0.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(
+            value = uiState.filterKeyword,
+            onValueChange = { viewModel.updateFilters(keyword = it) },
+            label = { Text("姓名 / 学号 / 用户名") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        OptionDropdown(
+            label = "部门",
+            options = listOf(ANY) + uiState.departments.map { it.name },
+            selected = uiState.filterDepartment,
+            onSelect = { viewModel.updateFilters(department = it) },
+            optionLabel = { it.ifEmpty { "全部部门" } }
+        )
+        OptionDropdown(
+            label = "职位",
+            options = listOf(ANY) + uiState.roles.map { it.name },
+            selected = uiState.filterRole,
+            onSelect = { viewModel.updateFilters(role = it) },
+            optionLabel = { it.ifEmpty { "全部职位" } }
+        )
+        Button(
+            onClick = viewModel::search,
+            modifier = Modifier.align(Alignment.End)
         ) {
-            Column(
-                modifier = Modifier
-                    .padding(16.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) { isFilterExpanded = !isFilterExpanded },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "筛选条件",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Icon(
-                        imageVector = if (isFilterExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = if (isFilterExpanded) "收起筛选" else "展开筛选"
-                    )
-                }
+            Icon(Icons.Default.Search, contentDescription = null)
+            Spacer(modifier = Modifier.width(4.dp))
+            Text("查询")
+        }
+    }
+}
 
-                if (isFilterExpanded) {
-                    Column(modifier = Modifier.padding(top = 12.dp)) {
-                        OutlinedTextField(
-                            value = nameFilter,
-                            onValueChange = onNameFilterChange,
-                            label = { Text("姓名筛选") },
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                        )
-                        OutlinedTextField(
-                            value = deptFilter,
-                            onValueChange = onDeptFilterChange,
-                            label = { Text("部门筛选") },
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                        )
-                        Button(
-                            onClick = onSearch,
-                            modifier = Modifier.align(Alignment.End)
-                        ) {
-                            Icon(Icons.Default.Search, contentDescription = null)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("查询")
+@Composable
+private fun UserList(
+    uiState: UserManagementUiState,
+    viewModel: UserManagementViewModel,
+    onEditClick: (UserListItem) -> Unit,
+    onDeleteClick: (UserListItem) -> Unit
+) {
+    if (uiState.isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (uiState.isUpdating) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+        Text(
+            text = "共 ${uiState.total} 人",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+        )
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(uiState.users, key = { it.userId }) { user ->
+                UserCard(
+                    user = user,
+                    canEdit = viewModel.canEditUser(user),
+                    canDelete = viewModel.canDeleteUser(user),
+                    onEditClick = { onEditClick(user) },
+                    onDeleteClick = { onDeleteClick(user) }
+                )
+            }
+            if (uiState.hasMore) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
+                        if (uiState.isLoadingMore) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        } else {
+                            TextButton(onClick = viewModel::loadMore) { Text("加载更多") }
                         }
                     }
-                }
-            }
-        }
-
-        if (uiState.isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(uiState.users) { user ->
-                    UserCard(
-                        user = user,
-                        canEdit = viewModel.canEditUser(user.role),
-                        onEditClick = { onEditClick(user) }
-                    )
                 }
             }
         }
@@ -315,28 +253,22 @@ fun UserManagementContent(
 
 @Composable
 fun UserCard(
-    user: UserQueryData,
+    user: UserListItem,
     canEdit: Boolean,
-    onEditClick: () -> Unit
+    canDelete: Boolean,
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp), // 外边距，留出阴影空间
+            .padding(horizontal = 12.dp, vertical = 6.dp),
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(
-            // 确保背景颜色随主题变化，通常 Card 使用 surface 或 surfaceContainer
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 4.dp, // 适当的高度，8dp 在列表中可能过于突兀
-            pressedElevation = 8.dp
-        )
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp, pressedElevation = 8.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp), // 内部填充
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -345,10 +277,10 @@ fun UserCard(
                     text = user.name.ifEmpty { "未命名" },
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface // 确保文字颜色适配主题
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "学号: ${user.studentId}",
+                    text = "学号: ${user.studentId}　用户名: ${user.username}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -365,13 +297,72 @@ fun UserCard(
             }
             if (canEdit) {
                 IconButton(onClick = onEditClick) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "编辑",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                    Icon(Icons.Default.Edit, contentDescription = "编辑", tint = MaterialTheme.colorScheme.primary)
+                }
+            }
+            if (canDelete) {
+                IconButton(onClick = onDeleteClick) {
+                    Icon(Icons.Default.Delete, contentDescription = "删除", tint = MaterialTheme.colorScheme.error)
                 }
             }
         }
     }
+}
+
+@Composable
+private fun EditUserDialog(
+    user: UserListItem,
+    departments: List<Department>,
+    roles: List<Role>,
+    onDismiss: () -> Unit,
+    onConfirm: (departmentId: Int, roleId: Int) -> Unit
+) {
+    var department by remember(user) { mutableStateOf(departments.firstOrNull { it.name == user.department }) }
+    var role by remember(user) { mutableStateOf(roles.firstOrNull { it.name == user.role }) }
+
+    AlertDialog(
+        containerColor = MaterialTheme.colorScheme.background,
+        onDismissRequest = onDismiss,
+        title = { Text("调整 ${user.name.ifBlank { user.username }}") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OptionDropdown(
+                    label = "部门",
+                    options = departments,
+                    selected = department,
+                    onSelect = { department = it },
+                    optionLabel = { it.name }
+                )
+                OptionDropdown(
+                    label = "职位",
+                    options = roles,
+                    selected = role,
+                    onSelect = { role = it },
+                    optionLabel = { "${it.name}（等级 ${it.level}）" }
+                )
+                if (roles.isEmpty()) {
+                    Text(
+                        "没有可分配的职位：只能分配比自己等级低的职位",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            val selectedDepartment = department
+            val selectedRole = role
+            Button(
+                enabled = selectedDepartment != null && selectedRole != null,
+                onClick = {
+                    if (selectedDepartment != null && selectedRole != null) {
+                        onConfirm(selectedDepartment.id, selectedRole.id)
+                    }
+                }
+            ) { Text("保存") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        }
+    )
 }

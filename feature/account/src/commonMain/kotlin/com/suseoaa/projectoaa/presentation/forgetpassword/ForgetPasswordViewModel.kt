@@ -3,7 +3,7 @@ package com.suseoaa.projectoaa.presentation.forgetpassword
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.suseoaa.projectoaa.shared.domain.repository.PersonRepository
+import com.suseoaa.projectoaa.shared.domain.repository.OaaAuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * 修改密码界面状态
+ * 忘记密码界面状态
  */
 @Immutable
 data class ForgetPasswordUiState(
@@ -26,10 +26,10 @@ data class ForgetPasswordUiState(
 )
 
 /**
- * 修改密码 ViewModel
+ * 忘记密码 ViewModel：邮箱验证码 + 新密码。
  */
 class ForgetPasswordViewModel(
-    private val personRepository: PersonRepository
+    private val authRepository: OaaAuthRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ForgetPasswordUiState())
@@ -53,53 +53,30 @@ class ForgetPasswordViewModel(
 
     fun changePassword() {
         val currentState = _uiState.value
-
-        // 验证
-        when {
-            currentState.newPassword.isBlank() -> {
-                _uiState.update { it.copy(errorMessage = "请输入新密码") }
-                return
-            }
-
-            currentState.newPassword.length < 6 -> {
-                _uiState.update { it.copy(errorMessage = "新密码长度至少6位") }
-                return
-            }
-
-            currentState.newPassword != currentState.confirmPassword -> {
-                _uiState.update { it.copy(errorMessage = "两次密码输入不一致") }
-                return
-            }
+        val validationError = validatePasswordChange(
+            newPassword = currentState.newPassword,
+            confirmPassword = currentState.confirmPassword
+        ) ?: when {
+            currentState.account.isBlank() -> "请输入账号"
+            currentState.emailCode.isBlank() -> "请输入邮箱验证码"
+            else -> null
+        }
+        if (validationError != null) {
+            _uiState.update { it.copy(errorMessage = validationError) }
+            return
         }
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
-            val result = personRepository.changePassword(
-                currentState.account,
-                currentState.newPassword,
-                currentState.emailCode
-            )
-
-            result.onSuccess { msg ->
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        isSuccess = true,
-                        successMessage = msg
-                    )
-                }
-                // 修改密码后强制登出
-                personRepository.logout()
-            }
-
-            result.onFailure { e ->
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = e.message ?: "修改失败"
-                    )
-                }
+            authRepository.resetPassword(
+                account = currentState.account.trim(),
+                code = currentState.emailCode.trim(),
+                newPassword = currentState.newPassword
+            ).onSuccess { msg ->
+                _uiState.update { it.copy(isLoading = false, isSuccess = true, successMessage = msg) }
+            }.onFailure { e ->
+                _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "重置失败") }
             }
         }
     }
@@ -108,11 +85,9 @@ class ForgetPasswordViewModel(
         _uiState.update { it.copy(errorMessage = null, successMessage = null) }
     }
 
-    //获取邮箱验证码
+    /** 获取邮箱验证码 */
     fun getEmailCode() {
-        val currentState = _uiState.value
-        val account = currentState.account
-        
+        val account = _uiState.value.account.trim()
         if (account.isBlank()) {
             _uiState.update { it.copy(errorMessage = "请输入账号") }
             return
@@ -120,22 +95,17 @@ class ForgetPasswordViewModel(
 
         viewModelScope.launch {
             _uiState.update { it.copy(errorMessage = null) }
-            val result = personRepository.getEmailCode(account)
-            result.onSuccess { msg ->
-                _uiState.update {
-                    it.copy(
-                        successMessage = msg
-                    )
-                }
-            }
-
-            result.onFailure { e ->
-                _uiState.update {
-                    it.copy(
-                        errorMessage = e.message ?: "发送失败"
-                    )
-                }
-            }
+            authRepository.sendResetPasswordCode(account)
+                .onSuccess { msg -> _uiState.update { it.copy(successMessage = msg) } }
+                .onFailure { e -> _uiState.update { it.copy(errorMessage = e.message ?: "发送失败") } }
         }
     }
+}
+
+/** 新密码的本地校验，忘记密码与修改密码共用。 */
+internal fun validatePasswordChange(newPassword: String, confirmPassword: String): String? = when {
+    newPassword.isBlank() -> "请输入新密码"
+    newPassword.length < 6 -> "新密码长度至少6位"
+    newPassword != confirmPassword -> "两次密码输入不一致"
+    else -> null
 }
