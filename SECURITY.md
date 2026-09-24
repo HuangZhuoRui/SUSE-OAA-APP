@@ -8,13 +8,13 @@
 
 ### 1. 网络通信安全 (Network Security)
 
-* **全链路 HTTPS**: 所有与应用后端 (`api.suseoaa.com`) 及学校教务系统 (`jwgl.suse.edu.cn`) 的通信均强制使用 HTTPS 协议，防止中间人攻击 (MITM)。
+* **全链路 HTTPS**: 所有与应用后端 (`v2-api.suseoaa.com`) 及学校教务系统 (`jwgl.suse.edu.cn`) 的通信均强制使用 HTTPS 协议，防止中间人攻击 (MITM)。
 * **RSA 加密传输**: 针对教务系统的登录请求，我们严格遵循学校系统的加密标准。用户的密码在本地使用从学校服务器获取的公钥进行 **RSA 加密** (`RSA/ECB/PKCS1Padding`) 后才进行传输，确保密码在网络传输过程中不以明文形式暴露。
 * **CSRF 防护**: 在模拟登录教务系统时，应用会自动获取并携带 `csrftoken`，不仅为了通过服务器验证，也遵循了标准的 Web 安全规范。
 
 ### 2. 身份认证与会话管理 (Authentication & Session Management)
 
-* **JWT 认证机制**: 对于协会内部服务，采用 JSON Web Token (JWT) 进行无状态认证。Token 仅存储在受保护的 `DataStore` 中，并通过 `AuthInterceptor` 自动添加到请求头 (`Authorization: Bearer ...`)。
+* **JWT 认证机制**: 对于协会内部服务，采用短期 access token + refresh token 认证。两者仅存储在受保护的 `DataStore` 中，access token 由 `OaaHttpClient` 自动添加到请求头 (`Authorization: Bearer ...`)，过期后用 refresh token 自动续期；续期失败即清空会话并要求重新登录。协会账号的密码**不会**保存在设备上（旧版本存下的明文密码会在升级后自动删除）。
 * **会话隔离**: 针对教务系统的 `Cookie` 使用内存级 `SchoolCookieJar` 进行管理。Cookie 仅存在于应用运行期间的内存中，且通过 Hilt 单例模式严格控制其生命周期，防止会话泄露。
 
 ### 3. 数据存储安全 (Data Storage Security)

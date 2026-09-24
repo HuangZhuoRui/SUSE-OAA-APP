@@ -31,18 +31,18 @@ fun UserInfoCard(
     userInfo: com.suseoaa.projectoaa.shared.domain.model.person.PersonData?,
     onLogout: () -> Unit,
     onAvatarClick: () -> Unit,
-    onEditInfo: (String, String, String) -> Unit = { _, _, _ -> }
+    onEditInfo: (username: String, email: String) -> Unit = { _, _ -> }
 ) {
     var showEditDialog by remember { mutableStateOf(false) }
 
     if (showEditDialog && userInfo != null) {
         EditInfoDialog(
             initialUsername = userInfo.username,
-            initialName = userInfo.name,
+            name = userInfo.name,
             initialEmail = userInfo.email,
             onDismiss = { showEditDialog = false },
-            onConfirm = { username, name, email ->
-                onEditInfo(username, name, email)
+            onConfirm = { username, email ->
+                onEditInfo(username, email)
                 showEditDialog = false
             }
         )
@@ -70,7 +70,7 @@ fun UserInfoCard(
                             .clip(CircleShape)
                             .clickable { onAvatarClick() }
                     ) {
-                        if (userInfo?.avatar.isNullOrBlank()) {
+                        if (userInfo?.avatarUrl.isNullOrBlank()) {
                             // 无头像时显示默认图标
                             Box(
                                 modifier = Modifier
@@ -93,7 +93,7 @@ fun UserInfoCard(
                         } else {
                             // 有头像时加载图片
                             AsyncImage(
-                                model = userInfo.avatar,
+                                model = userInfo.avatarUrl,
                                 contentDescription = "用户头像",
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
@@ -145,12 +145,12 @@ fun UserInfoCard(
                         )
                     }
                     Text(
-                        text = userInfo?.department ?: "暂未加入任何部门",
+                        text = userInfo?.department?.ifBlank { null } ?: "暂未加入任何部门",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = userInfo?.role ?: "未加入协会",
+                        text = userInfo?.role?.ifBlank { null } ?: "未加入协会",
                         style = MaterialTheme.typography.bodySmall,
                         color = ElectricBlue
                     )
@@ -175,13 +175,12 @@ fun UserInfoCard(
 @Composable
 fun EditInfoDialog(
     initialUsername: String,
-    initialName: String,
+    name: String,
     initialEmail: String,
     onDismiss: () -> Unit,
-    onConfirm: (String, String, String) -> Unit
+    onConfirm: (username: String, email: String) -> Unit
 ) {
     var username by remember { mutableStateOf(initialUsername) }
-    var name by remember { mutableStateOf(initialName) }
     var email by remember { mutableStateOf(initialEmail) }
 
     AlertDialog(
@@ -190,10 +189,13 @@ fun EditInfoDialog(
         title = { Text("修改个人信息") },
         text = {
             Column {
+                // 姓名与学号绑定，v2 不允许自行修改
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it },
-                    label = { Text("姓名") },
+                    onValueChange = {},
+                    label = { Text("姓名（不可修改）") },
+                    readOnly = true,
+                    enabled = false,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -217,8 +219,8 @@ fun EditInfoDialog(
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(username, name, email) },
-                enabled = username.isNotBlank() && name.isNotBlank()
+                onClick = { onConfirm(username.trim(), email.trim()) },
+                enabled = username.isNotBlank() && email.isNotBlank()
             ) {
                 Text("保存")
             }

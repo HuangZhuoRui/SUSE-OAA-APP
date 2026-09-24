@@ -2,9 +2,16 @@ package com.suseoaa.projectoaa.presentation.usermanagement
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.suseoaa.projectoaa.shared.domain.model.org.Department
+import com.suseoaa.projectoaa.shared.domain.model.org.Role
+import com.suseoaa.projectoaa.shared.domain.model.person.CurrentUser
+import com.suseoaa.projectoaa.shared.domain.model.person.UserBatchItem
+import com.suseoaa.projectoaa.shared.domain.model.person.UserListItem
+import com.suseoaa.projectoaa.shared.domain.model.person.UserQuery
+import com.suseoaa.projectoaa.shared.domain.permission.OaaPermission
+import com.suseoaa.projectoaa.shared.domain.repository.OrganizationRepository
 import com.suseoaa.projectoaa.shared.domain.repository.PersonRepository
-import com.suseoaa.projectoaa.shared.domain.model.person.PersonData
-import com.suseoaa.projectoaa.shared.domain.model.person.UserQueryData
+import com.suseoaa.projectoaa.shared.domain.repository.UserManagementRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,108 +19,173 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class UserManagementUiState(
-    val currentUser: PersonData? = null,
+    val currentUser: CurrentUser? = null,
+    val departments: List<Department> = emptyList(),
+    val roles: List<Role> = emptyList(),
     val isLoading: Boolean = false,
-    val error: String? = null,
-    val users: List<UserQueryData> = emptyList(),
-    // 过滤条件
+    val isLoadingMore: Boolean = false,
+    val users: List<UserListItem> = emptyList(),
+    val total: Int = 0,
+    val page: Int = 1,
+    // 过滤条件：部门、职位按名称筛选，空串表示不限
+    val filterKeyword: String = "",
     val filterDepartment: String = "",
-    val filterName: String = "",
     val filterRole: String = "",
     // 更新状态
     val isUpdating: Boolean = false,
-    val updateMessage: String? = null
-)
+    val message: String? = null
+) {
+    val hasMore: Boolean get() = users.size < total
+}
 
 class UserManagementViewModel(
-    private val personRepository: PersonRepository
+    private val personRepository: PersonRepository,
+    private val userManagementRepository: UserManagementRepository,
+    private val organizationRepository: OrganizationRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(UserManagementUiState())
     val uiState: StateFlow<UserManagementUiState> = _uiState.asStateFlow()
 
     init {
-        loadCurrentUser()
-    }
-
-    private fun loadCurrentUser() {
         viewModelScope.launch {
-            personRepository.getPersonInfo().onSuccess { user ->
-                _uiState.update { it.copy(currentUser = user) }
-                fetchUsers() // 默认请求全部
-            }
+            val departments = organizationRepository.getDepartments().getOrDefault(emptyList())
+            val roles = organizationRepository.getRoles().getOrDefault(emptyList())
+            val currentUser = personRepository.getCurrentUser().getOrNull()
+            _uiState.update { it.copy(currentUser = currentUser, departments = departments, roles = roles) }
+            search()
         }
     }
 
-    fun updateFilters(department: String? = null, name: String? = null, role: String? = null) {
+    fun updateFilters(keyword: String? = null, department: String? = null, role: String? = null) {
         _uiState.update {
             it.copy(
+                filterKeyword = keyword ?: it.filterKeyword,
                 filterDepartment = department ?: it.filterDepartment,
-                filterName = name ?: it.filterName,
                 filterRole = role ?: it.filterRole
             )
         }
     }
 
-    fun fetchUsers() {
+    /** 按当前筛选条件从第一页重新查询。 */
+    fun search() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update { it.copy(isLoading = true) }
             val state = _uiState.value
-            val result = personRepository.queryUsers(
-                department = state.filterDepartment,
-                name = state.filterName,
-                role = state.filterRole
-            )
-            result.onSuccess { data ->
-                val sortedData = data.sortedByDescending { ranks[it.role] ?: -1 }
-                _uiState.update { it.copy(isLoading = false, users = sortedData) }
+            userManagementRepository.listUsers(state.toQuery(page = 1))
+                .onSuccess { page ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            users = sortByLevel(page.list.distinctBy { user -> user.userId }),
+                            total = page.total,
+                            page = 1
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update { it.copy(isLoading = false, message = error.message ?: "获取成员列表失败") }
+                }
+        }
+    }
+
+    fun loadMore() {
+        val state = _uiState.value
+        if (state.isLoading || state.isLoadingMore || !state.hasMore) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingMore = true) }
+            val nextPage = state.page + 1
+            userManagementRepository.listUsers(state.toQuery(page = nextPage))
+                .onSuccess { page ->
+                    _uiState.update {
+                        it.copy(
+                            isLoadingMore = false,
+                            users = sortByLevel((it.users + page.list).distinctBy { user -> user.userId }),
+                            total = page.total,
+                            page = nextPage
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update { it.copy(isLoadingMore = false, message = error.message ?: "加载失败") }
+                }
+        }
+    }
+
+    /** 未知职位按最高等级处理，避免误改。 */
+    fun levelOf(roleName: String): Int =
+        _uiState.value.roles.firstOrNull { it.name == roleName }?.level ?: Int.MAX_VALUE
+
+    fun canEditUser(user: UserListItem): Boolean =
+        user.userId != _uiState.value.currentUser?.person?.userId &&
+            OaaPermission.canEditUser(_uiState.value.currentUser, levelOf(user.role))
+
+    fun canDeleteUser(user: UserListItem): Boolean =
+        OaaPermission.isAdmin(_uiState.value.currentUser) && canEditUser(user)
+
+    /** 可以分配给别人的职位：只能是比自己等级低的。 */
+    fun assignableRoles(): List<Role> {
+        val myLevel = _uiState.value.currentUser?.level ?: 0
+        return _uiState.value.roles.filter { it.isActive && it.level < myLevel }
+    }
+
+    fun updateUser(user: UserListItem, departmentId: Int, roleId: Int) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isUpdating = true) }
+            userManagementRepository.batchUpdate(
+                listOf(UserBatchItem(userId = user.userId, departmentId = departmentId, roleId = roleId))
+            ).onSuccess { failures ->
+                val message = if (failures.isEmpty()) {
+                    "已更新 ${user.name.ifBlank { user.username }}"
+                } else {
+                    failures.joinToString("\n") { "${it.name.ifBlank { it.username }}：${it.errorMessage}" }
+                }
+                _uiState.update { it.copy(isUpdating = false, message = message) }
+                search()
             }.onFailure { error ->
-                _uiState.update { it.copy(isLoading = false, error = error.message) }
+                _uiState.update { it.copy(isUpdating = false, message = "更新失败：${error.message}") }
             }
         }
     }
 
-    // 权限等级字典
-    val ranks = mapOf(
-        "会员" to -1,
-        "普通成员" to -1,
-        "干事" to 0,
-        "副部长" to 1,
-        "部长" to 2,
-        "会长" to 3,
-        "副会长" to 3,
-        "开发者" to 4
-    )
-
-    // 权限校验逻辑
-    fun canEditUser(targetUserRole: String): Boolean {
-        val currentRole = _uiState.value.currentUser?.role ?: return false
-        // 定制职位（不在预设职位列表中的），默认等同于会长的权限等级(3)
-        val currentRank = ranks[currentRole] ?: 3
-        val targetRank = ranks[targetUserRole] ?: 3
-
-        return currentRank > targetRank
-    }
-
-    fun updateUsers(usersToUpdate: List<UserQueryData>) {
+    fun deleteUser(user: UserListItem) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isUpdating = true, updateMessage = null) }
-            val result = personRepository.changeUserMessage(usersToUpdate)
-            result.onSuccess { msg ->
-                _uiState.update { it.copy(isUpdating = false, updateMessage = msg) }
-                fetchUsers() // 刷新数据
-            }.onFailure { error ->
-                _uiState.update {
-                    it.copy(
-                        isUpdating = false,
-                        updateMessage = "更新失败: ${error.message}"
-                    )
+            _uiState.update { it.copy(isUpdating = true) }
+            userManagementRepository.deleteUser(user.userId)
+                .onSuccess {
+                    _uiState.update { state ->
+                        state.copy(
+                            isUpdating = false,
+                            users = state.users.filterNot { it.userId == user.userId },
+                            total = (state.total - 1).coerceAtLeast(0),
+                            message = "已删除 ${user.name.ifBlank { user.username }}"
+                        )
+                    }
                 }
-            }
+                .onFailure { error ->
+                    _uiState.update { it.copy(isUpdating = false, message = "删除失败：${error.message}") }
+                }
         }
     }
 
     fun clearMessage() {
-        _uiState.update { it.copy(updateMessage = null, error = null) }
+        _uiState.update { it.copy(message = null) }
+    }
+
+    private fun UserManagementUiState.toQuery(page: Int) = UserQuery(
+        keyword = filterKeyword.trim(),
+        department = filterDepartment,
+        role = filterRole,
+        page = page,
+        pageSize = PAGE_SIZE
+    )
+
+    private fun sortByLevel(users: List<UserListItem>): List<UserListItem> {
+        val levels = _uiState.value.roles.associate { it.name to it.level }
+        return users.sortedByDescending { levels[it.role] ?: -1 }
+    }
+
+    private companion object {
+        const val PAGE_SIZE = 20
     }
 }

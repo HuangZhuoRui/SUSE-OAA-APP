@@ -13,7 +13,9 @@ import com.suseoaa.projectoaa.presentation.course.CourseViewModel
 import com.suseoaa.projectoaa.presentation.course.CourseStatisticsViewModel
 import com.suseoaa.projectoaa.presentation.gpa.GpaViewModel
 import com.suseoaa.projectoaa.presentation.grades.GradesViewModel
+import com.suseoaa.projectoaa.presentation.home.AnnouncementViewModel
 import com.suseoaa.projectoaa.presentation.home.HomeViewModel
+import com.suseoaa.projectoaa.presentation.organization.OrganizationViewModel
 import com.suseoaa.projectoaa.presentation.home.ValueCalculatorViewModel
 import com.suseoaa.projectoaa.presentation.login.LoginViewModel
 import com.suseoaa.projectoaa.presentation.person.PersonViewModel
@@ -35,13 +37,14 @@ import org.koin.dsl.module
  */
 val appModule = module {
     // ==================== ViewModels ====================
-    viewModel { MainViewModel(get(), get(), get(), get(), get()) }
-    viewModel { LoginViewModel(get(), get(), get()) }
+    viewModel { MainViewModel(get(), get(), get(), get(), get(), get()) }
+    viewModel { LoginViewModel(get()) }
     viewModel { RegisterViewModel(get()) }
     viewModel { ForgetPasswordViewModel(get()) }
-    viewModel { HomeViewModel(get(), get()) }
+    viewModel { HomeViewModel(get(), get(), get()) }
+    viewModel { AnnouncementViewModel(get(), get(), get()) }
     viewModel { ValueCalculatorViewModel(get(), get()) }
-    viewModel { ChangePasswordViewModel(get()) }
+    viewModel { ChangePasswordViewModel(get(), get()) }
     viewModel { CourseViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { CourseStatisticsViewModel(get(), get(), get()) }
     viewModel { AcademicViewModel(get(), get(), get(), get(), get<WidgetRefresher>()) }
@@ -55,8 +58,8 @@ val appModule = module {
     // 正确做法是把下载状态下沉到应用级的 AppUpdateController，ViewModel 只做薄封装，
     // 属于后续阶段的改造，这里先维持现有行为。
     single { AppUpdateViewModel(get(), get()) }
-    viewModel { RegisterViewModel(get()) }
-    viewModel { UserManagementViewModel(get()) }
+    viewModel { UserManagementViewModel(get(), get(), get()) }
+    viewModel { OrganizationViewModel(get()) }
     // 教学计划 ViewModels
     viewModel { StudyRequirementViewModel(get()) }
     viewModel { CourseInfoViewModel(get(), get(), get(), get()) }
@@ -73,7 +76,9 @@ val appModule = module {
     viewModel { ScheduledCheckinViewModel(get(), get(), get(), get()) }
 
     // 招新换届
-    viewModel { com.suseoaa.projectoaa.presentation.recruitment.RecruitmentViewModel(get(), get()) }
+    viewModel { com.suseoaa.projectoaa.presentation.recruitment.RecruitmentViewModel(get(), get(), get()) }
+    viewModel { com.suseoaa.projectoaa.presentation.recruitment.RecruitmentReviewViewModel(get(), get()) }
+    viewModel { com.suseoaa.projectoaa.presentation.recruitment.TermManagementViewModel(get(), get()) }
 
     // 近场活动签到
     viewModel { com.suseoaa.projectoaa.presentation.checkin.ActivityCheckinViewModel(get(), get()) }

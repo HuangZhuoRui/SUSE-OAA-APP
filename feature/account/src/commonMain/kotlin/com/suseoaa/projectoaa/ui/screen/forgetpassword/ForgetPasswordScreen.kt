@@ -81,7 +81,7 @@ fun ForgetPasswordScreen(
             OutlinedTextField(
                 value = uiState.account,
                 onValueChange = viewModel::confirmAccount,
-                label = { Text("学号") },
+                label = { Text("账号（学号 / 用户名 / 邮箱）") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
@@ -167,7 +167,7 @@ fun ForgetPasswordScreen(
                 OutlinedTextField(
                     value = uiState.emailCode,
                     onValueChange = viewModel::updateEmailCode,
-                    label = { Text("输入邮箱验证吗") },
+                    label = { Text("邮箱验证码") },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
@@ -205,7 +205,7 @@ fun ForgetPasswordScreen(
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                 } else {
-                    Text("确认修改")
+                    Text("重置密码")
                 }
             }
         }

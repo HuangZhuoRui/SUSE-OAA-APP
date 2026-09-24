@@ -17,6 +17,7 @@ sealed class Screen(val route: String) {
     data object Exams : Screen("exams")
     data object Recruitment : Screen("recruitment")
     data object UserManagement : Screen("userManagement")
+    data object Organization : Screen("organization")
     data object Update : Screen("update")
     data object Settings : Screen("settings")
 
@@ -47,10 +48,16 @@ sealed class Screen(val route: String) {
         )
     }
 
-    data object DepartmentEdit : Screen("department/{department}/edit") {
-        fun createRoute(department: String) = "department/$department/edit"
+    /** 公告编辑器；announcementId 为 -1 表示新建。 */
+    data object DepartmentEdit : Screen("department/{department}/edit?announcementId={announcementId}") {
+        fun createRoute(department: String, announcementId: Int? = null) =
+            "department/$department/edit?announcementId=${announcementId ?: -1}"
         val arguments = listOf(
-            navArgument("department") { type = NavType.StringType }
+            navArgument("department") { type = NavType.StringType },
+            navArgument("announcementId") {
+                type = NavType.IntType
+                defaultValue = -1
+            }
         )
     }
 }

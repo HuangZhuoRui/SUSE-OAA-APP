@@ -5,16 +5,17 @@ import androidx.lifecycle.viewModelScope
 import com.suseoaa.projectoaa.shared.data.local.store.BackgroundPageIds
 import com.suseoaa.projectoaa.ui.navigation.Screen
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
-import com.suseoaa.projectoaa.shared.domain.repository.OaaAuthRepository
-import com.suseoaa.projectoaa.shared.util.OaaClock
+import com.suseoaa.projectoaa.shared.data.local.store.UserDataCleaner
+import com.suseoaa.projectoaa.shared.data.remote.network.OaaSessionEvents
 import com.suseoaa.projectoaa.shared.data.local.store.AppearanceStore
 import com.suseoaa.projectoaa.shared.data.local.store.CredentialStore
 import com.suseoaa.projectoaa.shared.data.local.store.SessionStore
@@ -28,7 +29,8 @@ class MainViewModel(
     private val credentialStore: CredentialStore,
     private val sessionStore: SessionStore,
     private val appSettingsStore: AppSettingsStore,
-    private val oaaAuthRepository: OaaAuthRepository
+    private val userDataCleaner: UserDataCleaner,
+    sessionEvents: OaaSessionEvents
 ) : ViewModel() {
 
     private val _selectedMainTab = MutableStateFlow(0)
@@ -40,6 +42,15 @@ class MainViewModel(
     private val _academicFeatureDrawerExpanded = MutableStateFlow(false)
     val academicFeatureDrawerExpanded: StateFlow<Boolean> = _academicFeatureDrawerExpanded.asStateFlow()
 
+    /** 升级迁移做完之前不决定起始页，否则旧会话会先把人带进主页再被踢出来。 */
+    private val sessionMigrated = MutableStateFlow(false)
+
+    /**
+     * refresh token 也失效、会话已被清空时发出，应用壳层据此跳回登录页。
+     * token 的续期本身在网络层自动完成，这里只处理续不上的情况。
+     */
+    val sessionExpired: SharedFlow<Unit> = sessionEvents.expired
+
     init {
         // 启动时读取默认起始页并应用
         viewModelScope.launch {
@@ -49,30 +60,14 @@ class MainViewModel(
             }
         }
 
-        // 检查 Token 是否需要刷新
         viewModelScope.launch {
-            val isLoggedIn = sessionStore.isLoggedIn.first()
-            if (isLoggedIn) {
-                val currentStudentId = sessionStore.currentStudentId.first()
-                val userPassword = credentialStore.getPasswordSynchronously()
-
-                if (!currentStudentId.isNullOrEmpty() && !userPassword.isNullOrEmpty()) {
-                    val lastUpdateTime = sessionStore.getTokenLastUpdateTime()
-                    val currentTime = OaaClock.now().toEpochMilliseconds()
-                    val tenDaysInMillis = 10L * 24 * 60 * 60 * 1000
-
-                    if (lastUpdateTime == 0L || (currentTime - lastUpdateTime > tenDaysInMillis)) {
-                        // 执行一次登录以刷新 local token
-                        val result = oaaAuthRepository.login(currentStudentId, userPassword)
-                        result.onSuccess { response ->
-                            response.data?.token?.let { token ->
-                                sessionStore.saveToken(token)
-                            }
-                            sessionStore.saveTokenLastUpdateTime(currentTime)
-                        }
-                    }
-                }
+            // v1 为了定期重新登录把明文密码存在本地；v2 用 refresh token 续期，不再需要，直接删掉
+            credentialStore.clear()
+            // v1 的会话只有 access token，v2 后端不认，清掉让用户重新登录
+            if (sessionStore.isLegacySession()) {
+                userDataCleaner.clearSession()
             }
+            sessionMigrated.value = true
         }
     }
 
@@ -93,12 +88,11 @@ class MainViewModel(
      * 使用 tokenFlow (JWT Token) 而不是 currentStudentId (教务系统学号)
      * 初始值为 null，表示正在加载，防止登录页闪烁
      */
-    val startDestination: StateFlow<String?> = sessionStore.tokenFlow
-        .map { token ->
-            if (token.isNullOrEmpty()) {
-                Screen.Login.route
-            } else {
-                Screen.Main.route
+    val startDestination: StateFlow<String?> = combine(sessionStore.tokenFlow, sessionMigrated) { token, migrated ->
+            when {
+                !migrated -> null
+                token.isNullOrEmpty() -> Screen.Login.route
+                else -> Screen.Main.route
             }
         }
         .stateIn(

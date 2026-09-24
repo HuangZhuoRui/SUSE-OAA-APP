@@ -82,7 +82,7 @@ fun LoginScreen(
         OutlinedTextField(
             value = uiState.account,
             onValueChange = { viewModel.updateAccount(it.normalizeFont()) },
-            label = { Text("学号/用户名") },
+            label = { Text("学号 / 用户名 / 邮箱") },
             leadingIcon = {
                 Icon(imageVector = Icons.Filled.Person, contentDescription = null)
             },

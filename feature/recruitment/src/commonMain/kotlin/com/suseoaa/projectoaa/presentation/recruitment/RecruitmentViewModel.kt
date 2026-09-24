@@ -2,371 +2,183 @@ package com.suseoaa.projectoaa.presentation.recruitment
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.suseoaa.projectoaa.shared.domain.model.org.Department
+import com.suseoaa.projectoaa.shared.domain.model.org.Role
+import com.suseoaa.projectoaa.shared.domain.model.person.CurrentUser
+import com.suseoaa.projectoaa.shared.domain.model.recruitment.Application
+import com.suseoaa.projectoaa.shared.domain.model.recruitment.ApplicationForm
+import com.suseoaa.projectoaa.shared.domain.model.recruitment.Choice
+import com.suseoaa.projectoaa.shared.domain.model.recruitment.Term
+import com.suseoaa.projectoaa.shared.domain.model.recruitment.TermPhase
+import com.suseoaa.projectoaa.shared.domain.model.recruitment.phaseOn
+import com.suseoaa.projectoaa.shared.domain.model.recruitment.pickCurrent
+import com.suseoaa.projectoaa.shared.domain.permission.OaaPermission
+import com.suseoaa.projectoaa.shared.domain.repository.OrganizationRepository
 import com.suseoaa.projectoaa.shared.domain.repository.PersonRepository
 import com.suseoaa.projectoaa.shared.domain.repository.RecruitmentRepository
-import com.suseoaa.projectoaa.shared.domain.model.recruitment.ChangeStatusRequest
-import com.suseoaa.projectoaa.shared.domain.model.recruitment.ChangeTimeRequest
-import com.suseoaa.projectoaa.shared.domain.model.recruitment.RecruitmentApplication
-import com.suseoaa.projectoaa.shared.domain.model.recruitment.RecruitmentResponse
+import com.suseoaa.projectoaa.shared.util.OaaClock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlin.time.Instant
-import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 
-private val TIME_MANAGER_ROLES = setOf("副部长", "部长", "会长", "开发者")
-private val REVIEW_ROLES = setOf("副部长", "部长", "会长", "开发者")
+/** 申请表里的两个志愿。 */
+enum class ChoiceSlot { First, Second }
 
-enum class RecruitmentFilterOption {
-    FirstChoiceCurrentDepartment,
-    SecondChoiceCurrentDepartment,
-    All
-}
-
-@Suppress("ArrayInDataClass")
 data class RecruitmentUiState(
     val isLoading: Boolean = false,
-    val isSubmissionTime: Boolean = true,
+    val isSubmitting: Boolean = false,
     val errorMessage: String? = null,
     val successMessage: String? = null,
-    val applications: List<RecruitmentApplication> = emptyList(),
-    val filteredApplications: List<RecruitmentApplication> = emptyList(),
-    val userRole: String = "",
-    val userDepartment: String = "",
-    val userStudentId: String = "",
-    val canManageTime: Boolean = false,
-    val canReviewApplications: Boolean = false,
-    val startTime: String = "",
-    val endTime: String = "",
-    val activeFilter: RecruitmentFilterOption = RecruitmentFilterOption.FirstChoiceCurrentDepartment,
-    val currentApplication: RecruitmentApplication = RecruitmentApplication(),
-    val pickedAvatar: ByteArray? = null
-)
+    val currentUser: CurrentUser? = null,
+    val terms: List<Term> = emptyList(),
+    val selectedTerm: Term? = null,
+    val phase: TermPhase? = null,
+    val departments: List<Department> = emptyList(),
+    val roles: List<Role> = emptyList(),
+    /** 当前周期里我已提交的申请，没有则为 null */
+    val myApplication: Application? = null,
+    val form: ApplicationForm = ApplicationForm(),
+    /** 两个志愿各自所选部门下可申请的职位 */
+    val firstChoiceRoles: List<Role> = emptyList(),
+    val secondChoiceRoles: List<Role> = emptyList()
+) {
+    val canEdit: Boolean get() = phase == TermPhase.Editing
+    val canReview: Boolean get() = OaaPermission.canReviewApplications(currentUser)
+    val canManageTerms: Boolean get() = OaaPermission.canManageTerms(currentUser)
 
+    fun departmentName(id: Int): String = departments.firstOrNull { it.id == id }?.name ?: "未知部门"
+    fun roleName(id: Int): String = roles.firstOrNull { it.id == id }?.name ?: "未知职位"
+}
+
+/**
+ * 招新换届 —— 申请人视角：选周期、填写 / 修改申请表、查看录取结果。
+ */
 class RecruitmentViewModel(
-    private val repository: RecruitmentRepository,
-    private val personRepository: PersonRepository
+    private val recruitmentRepository: RecruitmentRepository,
+    private val personRepository: PersonRepository,
+    private val organizationRepository: OrganizationRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RecruitmentUiState())
     val uiState: StateFlow<RecruitmentUiState> = _uiState.asStateFlow()
 
+    /** 部门 ID -> 可申请的职位，避免来回切换时重复请求 */
+    private val fillableRolesCache = mutableMapOf<Int, List<Role>>()
+    private var myApplications: List<Application> = emptyList()
+
     init {
         loadInitialData()
     }
 
-    fun loadInitialData(showLoading: Boolean = true) {
+    fun loadInitialData() {
         viewModelScope.launch {
-            if (showLoading) {
-                _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            } else {
-                _uiState.update { it.copy(errorMessage = null) }
-            }
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
-            personRepository.getPersonInfo().onSuccess { personInfo ->
-                val role = personInfo.role.trim()
-                _uiState.update {
-                    it.copy(
-                        userRole = role,
-                        userDepartment = personInfo.department.orEmpty().trim(),
-                        userStudentId = personInfo.studentId,
-                        canManageTime = role in TIME_MANAGER_ROLES,
-                        canReviewApplications = role in REVIEW_ROLES
-                    )
-                }
-            }
+            val user = personRepository.getCurrentUser().getOrNull()
+            val departments = organizationRepository.getDepartments().getOrDefault(emptyList())
+            val roles = organizationRepository.getRoles().getOrDefault(emptyList())
+            _uiState.update { it.copy(currentUser = user, departments = departments, roles = roles) }
 
-            repository.getApplications().onSuccess { response ->
-                val allApplications = response.data.orEmpty()
-                val now = com.suseoaa.projectoaa.shared.util.OaaClock.now()
-                _uiState.update { state ->
-                    val submissionTime = isTimeActive(response.starttime, response.endtime, now)
-                    val ownApplication = findOwnApplication(allApplications, state.userStudentId)
-                    val nextCurrent = if (submissionTime) {
-                        ownApplication ?: RecruitmentApplication()
-                    } else {
-                        state.currentApplication
-                    }
-                    val nextFiltered = applyFilter(
-                        applications = allApplications,
-                        currentDepartment = state.userDepartment,
-                        option = state.activeFilter
-                    )
-
-                    state.copy(
-                        isLoading = false,
-                        applications = allApplications,
-                        filteredApplications = nextFiltered,
-                        startTime = response.starttime.orEmpty(),
-                        endTime = response.endtime.orEmpty(),
-                        isSubmissionTime = submissionTime,
-                        currentApplication = nextCurrent
-                    )
-                }
-            }.onFailure { error ->
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = error.message ?: "加载申请表失败"
-                    )
-                }
+            val terms = recruitmentRepository.getTerms().getOrElse { error ->
+                _uiState.update { it.copy(isLoading = false, errorMessage = error.message ?: "获取招新周期失败") }
+                return@launch
             }
+            // 没提交过申请时后端可能返回错误，按「没有申请」处理
+            myApplications = recruitmentRepository.getMyApplications().getOrDefault(emptyList())
+
+            val previous = _uiState.value.selectedTerm?.resolvedId
+            val selected = terms.firstOrNull { it.resolvedId == previous } ?: terms.pickCurrent(today())
+            _uiState.update { it.copy(isLoading = false, terms = terms) }
+            selectTerm(selected)
         }
     }
 
-    fun updateFormField(updater: (RecruitmentApplication) -> RecruitmentApplication) {
-        _uiState.update { state ->
-            state.copy(currentApplication = updater(state.currentApplication))
-        }
-    }
-
-    fun onAvatarPicked(bytes: ByteArray?) {
-        if (bytes == null || bytes.isEmpty()) {
-            _uiState.update { it.copy(errorMessage = "未选择头像") }
-            return
-        }
+    fun selectTerm(term: Term?) {
+        val application = term?.let { t -> myApplications.firstOrNull { it.termId == t.resolvedId } }
         _uiState.update {
             it.copy(
-                pickedAvatar = bytes,
-                successMessage = "头像已选择，提交时会自动上传"
+                selectedTerm = term,
+                phase = term?.phaseOn(today()),
+                myApplication = application,
+                form = application?.toForm() ?: ApplicationForm(),
+                firstChoiceRoles = emptyList(),
+                secondChoiceRoles = emptyList()
             )
         }
+        application?.let {
+            loadRolesFor(ChoiceSlot.First, it.firstChoice.departmentId)
+            loadRolesFor(ChoiceSlot.Second, it.secondChoice.departmentId)
+        }
+    }
+
+    fun updateForm(updater: (ApplicationForm) -> ApplicationForm) {
+        _uiState.update { it.copy(form = updater(it.form)) }
+    }
+
+    /** 换部门时清空已选职位，因为不同部门可申请的职位不一样。 */
+    fun selectDepartment(slot: ChoiceSlot, department: Department) {
+        updateChoice(slot) { Choice(departmentId = department.id, roleId = 0) }
+        loadRolesFor(slot, department.id)
+    }
+
+    fun selectRole(slot: ChoiceSlot, role: Role) {
+        updateChoice(slot) { it.copy(roleId = role.id) }
     }
 
     fun submitApplication() {
         val state = _uiState.value
-        if (!state.isSubmissionTime) {
+        val term = state.selectedTerm
+        if (term == null || !state.canEdit) {
             _uiState.update { it.copy(errorMessage = "当前不在填写时间内，无法提交或修改") }
             return
         }
-
-        val validationError = validateApplication(state.currentApplication)
-        if (validationError != null) {
-            _uiState.update { it.copy(errorMessage = validationError) }
-            return
-        }
-
-        val isUpdate = state.applications.isNotEmpty()
-        if (!isUpdate && state.pickedAvatar == null && state.currentApplication.avatarUrl.isBlank()) {
-            _uiState.update { it.copy(errorMessage = "请先上传头像") }
+        validate(state.form)?.let { error ->
+            _uiState.update { it.copy(errorMessage = error) }
             return
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            val currentForm = _uiState.value.currentApplication
-            val pickedAvatar = _uiState.value.pickedAvatar
-            var uploadedAvatarUrl: String? = null
-
-            if (pickedAvatar != null) {
-                val uploadResult = repository.uploadImage(
-                    imageBytes = pickedAvatar,
-                    filename = "recruitment-avatar.jpg"
-                )
-                if (uploadResult.isFailure) {
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            errorMessage = uploadResult.exceptionOrNull()?.message ?: "头像上传失败"
-                        )
-                    }
-                    return@launch
-                }
-                val raw = uploadResult.getOrNull().orEmpty()
-                if (raw.startsWith("http")) {
-                    uploadedAvatarUrl = raw
-                }
-            }
-
-            val formWithUploadedAvatar = if (uploadedAvatarUrl.isNullOrBlank()) {
-                currentForm
+            _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
+            val existing = state.myApplication
+            val result = if (existing == null) {
+                recruitmentRepository.createApplication(term.resolvedId, state.form)
             } else {
-                currentForm.copy(avator = uploadedAvatarUrl, avatar = uploadedAvatarUrl)
+                recruitmentRepository.updateApplication(term.resolvedId, existing, state.form)
             }
-
-            if (isUpdate) {
-                repository.updateApplication(formWithUploadedAvatar)
-                    .onSuccess { response ->
-                        handleUpdateResponse(response, formWithUploadedAvatar)
-                    }
-                    .onFailure { error ->
-                        _uiState.update {
-                            it.copy(
-                                isLoading = false,
-                                currentApplication = formWithUploadedAvatar,
-                                errorMessage = error.message ?: "更新失败"
-                            )
-                        }
-                    }
-            } else {
-                repository.createApplication(formWithUploadedAvatar)
-                    .onSuccess { response ->
-                        _uiState.update {
-                            it.copy(
-                                isLoading = false,
-                                pickedAvatar = null,
-                                currentApplication = formWithUploadedAvatar,
-                                startTime = response.starttime ?: it.startTime,
-                                endTime = response.endtime ?: it.endTime,
-                                successMessage = response.message.ifBlank { "提交成功" }
-                            )
-                        }
-                        loadInitialData(showLoading = false)
-                    }
-                    .onFailure { error ->
-                        _uiState.update {
-                            it.copy(
-                                isLoading = false,
-                                errorMessage = error.message ?: "提交失败"
-                            )
-                        }
-                    }
-            }
-        }
-    }
-
-    private fun handleUpdateResponse(
-        response: RecruitmentResponse<RecruitmentApplication>,
-        originalApplication: RecruitmentApplication
-    ) {
-        val responseData = response.data
-        if (responseData == null || isUpdateBlockedResponse(responseData)) {
-            _uiState.update {
-                it.copy(
-                    isLoading = false,
-                    currentApplication = originalApplication,
-                    errorMessage = response.message.ifBlank { "更新失败" }
-                )
-            }
-            return
-        }
-
-        val merged = mergeApplication(originalApplication, responseData)
-        _uiState.update {
-            it.copy(
-                isLoading = false,
-                currentApplication = merged,
-                pickedAvatar = null,
-                successMessage = response.message.ifBlank { "更新成功" }
-            )
-        }
-        loadInitialData(showLoading = false)
-    }
-
-    fun updateTime(start: String, end: String) {
-        if (!_uiState.value.canManageTime) {
-            _uiState.update { it.copy(errorMessage = "仅副部长、部长、会长、开发者可修改填写时间") }
-            return
-        }
-        if (start.isBlank() || end.isBlank()) {
-            _uiState.update { it.copy(errorMessage = "开始时间和结束时间不能为空") }
-            return
-        }
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            repository.updateTime(ChangeTimeRequest(starttime = start, endtime = end)).onSuccess { message ->
-                val submissionTime = isTimeActive(start, end, com.suseoaa.projectoaa.shared.util.OaaClock.now())
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        successMessage = message,
-                        startTime = start,
-                        endTime = end,
-                        isSubmissionTime = submissionTime
-                    )
-                }
-                loadInitialData(showLoading = false)
-            }.onFailure { error ->
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = error.message ?: "修改时间失败"
-                    )
-                }
-            }
-        }
-    }
-
-    fun changeStatus(studentIds: List<String>, statusOptions: List<String>) {
-        if (_uiState.value.isSubmissionTime) {
-            _uiState.update { it.copy(errorMessage = "填写时间内不可进行录取操作") }
-            return
-        }
-        if (!_uiState.value.canReviewApplications) {
-            _uiState.update { it.copy(errorMessage = "当前账号无录取权限") }
-            return
-        }
-        if (studentIds.isEmpty() || statusOptions.isEmpty()) {
-            _uiState.update { it.copy(errorMessage = "学号和录取结果不能为空") }
-            return
-        }
-        if (studentIds.size != statusOptions.size) {
-            _uiState.update { it.copy(errorMessage = "学号和录取结果数量必须一致") }
-            return
-        }
-        val invalidStatus = statusOptions.firstOrNull { !isValidStatusFormat(it) }
-        if (invalidStatus != null) {
-            _uiState.update {
-                it.copy(errorMessage = "录取状态格式错误：$invalidStatus。调剂必须为：调剂到xxx部门xxx职位")
-            }
-            return
-        }
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            // studentIds[i] 与 statusOptions[i] 按索引一一绑定，不做重排。
-            repository.changeStatus(ChangeStatusRequest(studentid = studentIds, status = statusOptions))
-                .onSuccess { message ->
+            result
+                .onSuccess {
                     _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            successMessage = message.ifBlank { "更新成功" }
-                        )
+                        it.copy(isSubmitting = false, successMessage = if (existing == null) "提交成功" else "修改已保存")
                     }
-                    loadInitialData(showLoading = false)
+                    loadInitialData()
                 }
                 .onFailure { error ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            errorMessage = error.message ?: "更新状态失败"
-                        )
-                    }
+                    _uiState.update { it.copy(isSubmitting = false, errorMessage = error.message ?: "提交失败") }
                 }
         }
     }
 
-    fun changeSingleStatus(application: RecruitmentApplication, status: String) {
-        val studentId = application.resolvedStudentId
-        if (studentId.isBlank()) {
-            _uiState.update { it.copy(errorMessage = "该申请缺少学号，无法更新状态") }
+    fun deleteApplication() {
+        val application = _uiState.value.myApplication ?: return
+        if (application.resolvedId == 0) {
+            _uiState.update { it.copy(errorMessage = "后端未返回申请编号，暂时无法删除") }
             return
         }
-        changeStatus(studentIds = listOf(studentId), statusOptions = listOf(status))
-    }
-
-    fun changeStatusInOrder(entries: List<Pair<String, String>>) {
-        if (entries.isEmpty()) {
-            _uiState.update { it.copy(errorMessage = "待更新状态列表不能为空") }
-            return
-        }
-        changeStatus(
-            studentIds = entries.map { it.first },
-            statusOptions = entries.map { it.second }
-        )
-    }
-
-    fun setFilterOption(option: RecruitmentFilterOption) {
-        _uiState.update { state ->
-            state.copy(
-                activeFilter = option,
-                filteredApplications = applyFilter(state.applications, state.userDepartment, option)
-            )
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true) }
+            recruitmentRepository.deleteApplication(application.resolvedId)
+                .onSuccess {
+                    _uiState.update { it.copy(isSubmitting = false, successMessage = "申请已撤回") }
+                    loadInitialData()
+                }
+                .onFailure { error ->
+                    _uiState.update { it.copy(isSubmitting = false, errorMessage = error.message ?: "删除失败") }
+                }
         }
     }
 
@@ -374,120 +186,60 @@ class RecruitmentViewModel(
         _uiState.update { it.copy(errorMessage = null, successMessage = null) }
     }
 
-    private fun validateApplication(application: RecruitmentApplication): String? {
-        val requiredFields = listOf(
-            "申请理由" to application.reason,
-            "第一志愿" to application.choice1,
-            "第二志愿" to application.choice2,
-            "工作经历" to application.experience,
-            "手机号" to application.phone,
-            "性别" to application.gender,
-            "专业" to application.major,
-            "班级" to application.className,
-            "生日" to application.birthday,
-            "QQ" to application.qq,
-            "政治面貌" to application.politic_stance,
-            "申请职位一" to application.role1,
-            "申请职位二" to application.role2
-        )
-        return requiredFields.firstOrNull { it.second.isBlank() }?.let { "${it.first}不能为空" }
-    }
-
-    private fun isUpdateBlockedResponse(application: RecruitmentApplication): Boolean {
-        val keyFields = listOf(
-            application.reason,
-            application.choice1,
-            application.choice2,
-            application.experience,
-            application.phone,
-            application.gender,
-            application.major,
-            application.className,
-            application.birthday,
-            application.qq,
-            application.politic_stance,
-            application.role1,
-            application.role2
-        )
-        return keyFields.all { it.isBlank() }
-    }
-
-    private fun mergeApplication(
-        old: RecruitmentApplication,
-        remote: RecruitmentApplication
-    ): RecruitmentApplication {
-        return old.copy(
-            id = if (remote.id != 0) remote.id else old.id,
-            name = remote.name.ifBlank { old.name },
-            reason = remote.reason.ifBlank { old.reason },
-            choice1 = remote.choice1.ifBlank { old.choice1 },
-            choice2 = remote.choice2.ifBlank { old.choice2 },
-            experience = remote.experience.ifBlank { old.experience },
-            phone = remote.phone.ifBlank { old.phone },
-            gender = remote.gender.ifBlank { old.gender },
-            major = remote.major.ifBlank { old.major },
-            className = remote.className.ifBlank { old.className },
-            birthday = remote.birthday.ifBlank { old.birthday },
-            qq = remote.qq.ifBlank { old.qq },
-            politic_stance = remote.politic_stance.ifBlank { old.politic_stance },
-            adjustment = remote.adjustment,
-            studentId = remote.studentId.ifBlank { old.studentId },
-            studentIdCompat = remote.studentIdCompat.ifBlank { old.studentIdCompat },
-            avator = remote.avator.ifBlank { old.avator },
-            avatar = remote.avatar.ifBlank { old.avatar },
-            createdAt = remote.createdAt.ifBlank { old.createdAt },
-            status = remote.status.ifBlank { old.status },
-            role1 = remote.role1.ifBlank { old.role1 },
-            role2 = remote.role2.ifBlank { old.role2 }
-        )
-    }
-
-    private fun findOwnApplication(
-        applications: List<RecruitmentApplication>,
-        studentId: String
-    ): RecruitmentApplication? {
-        if (applications.isEmpty()) return null
-        if (studentId.isBlank()) return applications.firstOrNull()
-        return applications.firstOrNull { it.resolvedStudentId == studentId } ?: applications.firstOrNull()
-    }
-
-    private fun applyFilter(
-        applications: List<RecruitmentApplication>,
-        currentDepartment: String,
-        option: RecruitmentFilterOption
-    ): List<RecruitmentApplication> {
-        return when (option) {
-            RecruitmentFilterOption.All -> applications
-            RecruitmentFilterOption.FirstChoiceCurrentDepartment -> {
-                if (currentDepartment.isBlank()) applications else applications.filter { it.choice1 == currentDepartment }
-            }
-            RecruitmentFilterOption.SecondChoiceCurrentDepartment -> {
-                if (currentDepartment.isBlank()) applications else applications.filter { it.choice2 == currentDepartment }
+    private fun updateChoice(slot: ChoiceSlot, transform: (Choice) -> Choice) {
+        updateForm { form ->
+            when (slot) {
+                ChoiceSlot.First -> form.copy(firstChoice = transform(form.firstChoice))
+                ChoiceSlot.Second -> form.copy(secondChoice = transform(form.secondChoice))
             }
         }
     }
 
-    private fun isTimeActive(startStr: String?, endStr: String?, now: Instant): Boolean {
-        val start = parseBackendDateTime(startStr)
-        val end = parseBackendDateTime(endStr)
-        if (start == null || end == null) return true
-        return now >= start && now <= end
-    }
-
-    private fun parseBackendDateTime(raw: String?): Instant? {
-        if (raw.isNullOrBlank()) return null
-        return runCatching {
-            LocalDateTime.parse(raw.trim().replace(" ", "T"))
-                .toInstant(TimeZone.currentSystemDefault())
-        }.getOrNull()
-    }
-
-    private fun isValidStatusFormat(status: String): Boolean {
-        val normalized = status.trim()
-        if (normalized.isBlank()) return false
-        if (normalized == "录取第1志愿" || normalized == "录取第2志愿" || normalized == "未通过") {
-            return true
+    private fun loadRolesFor(slot: ChoiceSlot, departmentId: Int) {
+        if (departmentId <= 0) return
+        viewModelScope.launch {
+            val roles = fillableRolesCache[departmentId]
+                ?: recruitmentRepository.getFillableRoles(departmentId).getOrNull()
+                    ?.takeIf { it.isNotEmpty() }
+                    ?.also { fillableRolesCache[departmentId] = it }
+                // 接口拿不到时退回全部启用的职位，由后端在提交时校验
+                ?: _uiState.value.roles.filter { it.isActive }
+            _uiState.update {
+                when (slot) {
+                    ChoiceSlot.First -> it.copy(firstChoiceRoles = roles)
+                    ChoiceSlot.Second -> it.copy(secondChoiceRoles = roles)
+                }
+            }
         }
-        return "^调剂到.+部门.+职位$".toRegex().matches(normalized)
+    }
+
+    private fun validate(form: ApplicationForm): String? {
+        val required = listOf(
+            "学院" to form.college,
+            "专业班级" to form.majorClass,
+            "性别" to form.gender,
+            "手机号" to form.phone,
+            "QQ" to form.qq,
+            "政治面貌" to form.politicalStatus,
+            "出生年月" to form.birthDate,
+            "个人经历" to form.resume,
+            "申请理由" to form.reason
+        )
+        required.firstOrNull { it.second.isBlank() }?.let { return "${it.first}不能为空" }
+        if (!PHONE_REGEX.matches(form.phone.trim())) return "请输入 11 位手机号"
+        if (!QQ_REGEX.matches(form.qq.trim())) return "QQ 号格式不正确"
+        if (!BIRTH_REGEX.matches(form.birthDate.trim())) return "出生年月格式应为 2005-09"
+        if (!form.firstChoice.isComplete) return "请选择第一志愿的部门和职位"
+        if (!form.secondChoice.isComplete) return "请选择第二志愿的部门和职位"
+        return null
+    }
+
+    private fun today(): LocalDate =
+        OaaClock.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+
+    private companion object {
+        val PHONE_REGEX = Regex("^1\\d{10}$")
+        val QQ_REGEX = Regex("^\\d{5,12}$")
+        val BIRTH_REGEX = Regex("^\\d{4}-\\d{2}(-\\d{2})?$")
     }
 }
