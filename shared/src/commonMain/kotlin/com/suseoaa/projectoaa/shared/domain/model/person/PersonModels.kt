@@ -22,7 +22,9 @@ data class PersonData(
     @SerialName("name") val name: String = "",
     @SerialName("email") val email: String = "",
     @SerialName("department") val department: String = "",
-    @SerialName("role") val role: String = ""
+    @SerialName("role") val role: String = "",
+    // 文档没写，但线上接口返回了职位等级；老版本后端没有时为 null
+    @SerialName("role_level") val roleLevel: Int? = null
 ) {
     val avatarUrl: String get() = avatar.url
 }
@@ -30,7 +32,7 @@ data class PersonData(
 /**
  * 当前登录用户及其权限等级。
  *
- * /user/me 只返回职位名称，等级要拿 /role/list 按名称对出来；对不上时按 0 处理，
+ * 等级优先取 /user/me 的 role_level，没有时再拿 /role/list 按名称对出来；都对不上按 0 处理。
  * 界面上只隐藏入口，真正的权限仍以后端校验为准。
  */
 data class CurrentUser(

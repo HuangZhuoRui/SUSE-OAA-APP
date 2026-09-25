@@ -12,7 +12,9 @@ data class UserListItem(
     @SerialName("name") val name: String = "",
     @SerialName("email") val email: String = "",
     @SerialName("department") val department: String = "",
-    @SerialName("role") val role: String = ""
+    @SerialName("role") val role: String = "",
+    @SerialName("avatar") val avatar: StoredFile = StoredFile(),
+    @SerialName("role_level") val roleLevel: Int? = null
 )
 
 @Serializable

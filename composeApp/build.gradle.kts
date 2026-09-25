@@ -44,6 +44,10 @@ kotlin {
             // 链接 SQLite 库
             linkerOpts("-lsqlite3")
             export(project(":shared"))
+            // Swift 侧要实现 IOSOcrRecognizer 并往 IOSOcrRegistry 注册 ddddocr 适配器，
+            // 这两个类型住在 core:platform 的 iosMain 里。不 export 就不会写进
+            // ComposeApp.framework 的头文件，Xcode 只会报 "cannot find type in scope"。
+            export(project(":core:platform"))
             export(libs.kotlinx.datetime)
         }
     }

@@ -38,7 +38,7 @@ class PersonRepositoryImpl(
         return Result.success(
             CurrentUser(
                 person = person,
-                level = role?.level ?: 0,
+                level = person.roleLevel ?: role?.level ?: 0,
                 departmentId = department?.id,
                 roleId = role?.id
             )

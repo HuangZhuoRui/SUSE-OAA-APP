@@ -242,7 +242,19 @@ private fun DecisionDialog(
                         label = "结论",
                         options = uiState.decisions,
                         selected = decision.ifBlank { null },
-                        onSelect = { decision = it },
+                        onSelect = {
+                            decision = it
+                            // 后端的标准结论是「录取第一志愿」「录取第二志愿」这类，选中时顺带把去向切过去
+                            val choice = when {
+                                "第一志愿" in it -> application.firstChoice
+                                "第二志愿" in it -> application.secondChoice
+                                else -> null
+                            }
+                            if (choice != null) {
+                                departmentId = choice.departmentId
+                                roleId = choice.roleId
+                            }
+                        },
                         optionLabel = { it }
                     )
                 } else {

@@ -112,13 +112,13 @@ class UserManagementViewModel(
         }
     }
 
-    /** 未知职位按最高等级处理，避免误改。 */
-    fun levelOf(roleName: String): Int =
-        _uiState.value.roles.firstOrNull { it.name == roleName }?.level ?: Int.MAX_VALUE
+    /** 优先用列表返回的 role_level；都拿不到时按最高等级处理，避免误改。 */
+    fun levelOf(user: UserListItem): Int =
+        user.roleLevel ?: _uiState.value.roles.firstOrNull { it.name == user.role }?.level ?: Int.MAX_VALUE
 
     fun canEditUser(user: UserListItem): Boolean =
         user.userId != _uiState.value.currentUser?.person?.userId &&
-            OaaPermission.canEditUser(_uiState.value.currentUser, levelOf(user.role))
+            OaaPermission.canEditUser(_uiState.value.currentUser, levelOf(user))
 
     fun canDeleteUser(user: UserListItem): Boolean =
         OaaPermission.isAdmin(_uiState.value.currentUser) && canEditUser(user)
@@ -182,7 +182,7 @@ class UserManagementViewModel(
 
     private fun sortByLevel(users: List<UserListItem>): List<UserListItem> {
         val levels = _uiState.value.roles.associate { it.name to it.level }
-        return users.sortedByDescending { levels[it.role] ?: -1 }
+        return users.sortedByDescending { it.roleLevel ?: levels[it.role] ?: -1 }
     }
 
     private companion object {

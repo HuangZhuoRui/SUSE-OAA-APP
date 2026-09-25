@@ -213,6 +213,76 @@ class OaaDataLayerTest {
         assertEquals("9", push["announcement_id"]?.jsonPrimitive?.content)
     }
 
+    /** 以下响应取自线上后端（2026-09 抓取、已脱敏），文档里这几个接口没写结构。 */
+    @Test
+    fun recruitmentReadsMatchRealBackendShapes() = runTest {
+        val stack = OaaTestStack { request ->
+            when (request.url.encodedPath) {
+                "/v2/term/list" -> json(
+                    """{"code":200,"message":"success","data":[{"id":3,"year":2026,"type":"招新","title":"秋招",
+                    "edit_period":{"start_at":"2026-09-11","end_at":"2026-09-12"},
+                    "query_period":{"start_at":"2026-09-13","end_at":"2026-09-30"},
+                    "is_executed":false,"execute_after_at":"2026-10-01T00:00:59+08:00","executed_at":null,
+                    "created_at":"2026-09-11T15:35:31.892+08:00","updated_at":"2026-09-14T14:35:20.81+08:00"}]}"""
+                )
+                "/v2/application/me" -> json("""{"code":200,"message":"success","data":[]}""")
+                "/v2/application/list" -> json(
+                    """{"code":200,"message":"success","data":[{"id":6,"term_id":3,"term_title":"秋招","type":"招新",
+                    "user_id":80,"name":"张三","gender":"男","avatar":{"url":"","uri":""},"student_id":"20240001",
+                    "college":"计科院","major_class":"计科241","political_status":"共青团员","birth_date":"2005-09-01",
+                    "qq":"12345","phone":"13800000000","first_choice":{"department_id":1,"role_id":6},
+                    "second_choice":{"department_id":3,"role_id":6},"allow_adjust":true,"resume":"r","reason":"r",
+                    "decision":"待定","result":{"department_id":0,"role_id":0},"operator_user_id":0,
+                    "decision_remark":"","created_at":"2026-09-13T18:41:56.511+08:00","updated_at":"2026-09-13T18:41:56.511+08:00"}]}"""
+                )
+                "/v2/interviewer/result/list" -> json(
+                    """{"code":200,"message":"success","data":[{"id":1,"term_id":3,"application_id":6,"type":"招新",
+                    "user_id":80,"decision":"录取第一志愿","result_department_id":1,"result_role_id":6,
+                    "old":{"department_id":0,"role_id":0},"executed_at":null,"operator_user_id":80,"remark":"",
+                    "created_at":"2026-09-17T16:08:25.536+08:00","updated_at":"2026-09-17T17:04:29.876+08:00",
+                    "name":"张三","operator_name":"李四"}]}"""
+                )
+                "/v2/application/role" -> json(
+                    """{"code":200,"message":"success","data":[{"id":6,"name":"干事","level":20,"type":"部门",
+                    "is_active":true,"created_at":"2026-09-04T14:36:25.422+08:00","updated_at":"2026-09-04T14:36:25.422+08:00"}]}"""
+                )
+                "/v2/interviewer/result/decision" -> json(
+                    """{"code":200,"message":"success","data":["录取第一志愿","录取第二志愿","未通过"]}"""
+                )
+                else -> error("unexpected ${request.url}")
+            }
+        }
+        val repo = RecruitmentRepositoryImpl(OaaRecruitmentApi(stack.requester), testJson)
+
+        val term = repo.getTerms().getOrThrow().single()
+        assertEquals(3, term.resolvedId, "列表只返回 id，没有 term_id")
+        assertNull(term.executedAt)
+
+        assertTrue(repo.getMyApplications().getOrThrow().isEmpty())
+
+        val application = repo.getApplications(termId = 3, departmentId = null).getOrThrow().single()
+        assertEquals(6, application.resolvedId)
+        assertEquals("张三", application.name)
+        assertEquals(Choice(3, 6), application.secondChoice)
+        assertEquals("3", stack.requestsTo("/application/list").single().url.parameters["term_id"])
+
+        val result = repo.getInterviewResults(termId = 3).getOrThrow().single()
+        assertEquals(1, result.resolvedId)
+        assertEquals(6, result.applicationId)
+        assertEquals(1, result.resultDepartmentId)
+
+        // 可申请职位的 id 必须能解析出来，否则申请表的志愿永远选不完整
+        assertEquals(listOf(6), repo.getFillableRoles(departmentId = 1).getOrThrow().map { it.id })
+        assertEquals(listOf("录取第一志愿", "录取第二志愿", "未通过"), repo.getDecisions().getOrThrow())
+    }
+
+    @Test
+    fun personReadsRoleLevelFromBackend() {
+        val person = testJson.decodeFromString<PersonData>("""{"user_id":33,"role":"开发者","role_level":100}""")
+        assertEquals(100, person.roleLevel)
+        assertNull(testJson.decodeFromString<PersonData>("""{"user_id":33}""").roleLevel)
+    }
+
     @Test
     fun nonJsonServerErrorBecomesHttpError() = runTest {
         val stack = OaaTestStack { respondError(HttpStatusCode.BadGateway, "<html>502 Bad Gateway</html>") }
