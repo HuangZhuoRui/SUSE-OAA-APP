@@ -126,13 +126,13 @@ fun AcademicScreen(
             "学业情况",
             Icons.Default.DateRange,
             "academicStatus",
-            Color(0xFF9C27B0)
+            Color(0xFF5856D6)
         ),
         PortalFunction(
             "教务系统",
             Icons.AutoMirrored.Filled.ExitToApp,
             "jwgl",
-            Color(0xFF1976D2)
+            MaterialTheme.colorScheme.secondary
         )
     )
     PullUpFeatureDrawer(

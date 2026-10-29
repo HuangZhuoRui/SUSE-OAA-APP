@@ -707,7 +707,8 @@ private fun <T> DropdownSelector(
 
         ExposedDropdownMenu(
             expanded = expanded && enabled,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = { expanded = false },
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             options.forEach { option ->
                 DropdownMenuItem(

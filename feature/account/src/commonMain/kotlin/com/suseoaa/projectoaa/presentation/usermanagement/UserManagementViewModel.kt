@@ -27,15 +27,21 @@ data class UserManagementUiState(
     val users: List<UserListItem> = emptyList(),
     val total: Int = 0,
     val page: Int = 1,
-    // 过滤条件：部门、职位按名称筛选，空串表示不限
+    // 过滤条件：部门、职位按名称筛选，年级为四位年份，空串表示不限
     val filterKeyword: String = "",
     val filterDepartment: String = "",
     val filterRole: String = "",
+    val filterGrade: String = "",
+    /** 是否启用 is_all=true 不分页拉取全部匹配成员 */
+    val showAll: Boolean = false,
+    // 批量选择模式（对应 POST /user/batch 一次提交多名成员变更）
+    val isBatchMode: Boolean = false,
+    val selectedUserIds: Set<Int> = emptySet(),
     // 更新状态
     val isUpdating: Boolean = false,
     val message: String? = null
 ) {
-    val hasMore: Boolean get() = users.size < total
+    val hasMore: Boolean get() = !showAll && users.size < total
 }
 
 class UserManagementViewModel(
@@ -57,29 +63,79 @@ class UserManagementViewModel(
         }
     }
 
-    fun updateFilters(keyword: String? = null, department: String? = null, role: String? = null) {
+    fun updateFilters(
+        keyword: String? = null,
+        department: String? = null,
+        role: String? = null,
+        grade: String? = null
+    ) {
         _uiState.update {
             it.copy(
                 filterKeyword = keyword ?: it.filterKeyword,
                 filterDepartment = department ?: it.filterDepartment,
-                filterRole = role ?: it.filterRole
+                filterRole = role ?: it.filterRole,
+                filterGrade = grade ?: it.filterGrade
             )
         }
     }
 
+    fun toggleShowAll() {
+        _uiState.update { it.copy(showAll = !it.showAll) }
+        search()
+    }
+
+    fun toggleBatchMode() {
+        _uiState.update {
+            val next = !it.isBatchMode
+            it.copy(
+                isBatchMode = next,
+                selectedUserIds = if (next) it.selectedUserIds else emptySet()
+            )
+        }
+    }
+
+    fun toggleSelectUser(user: UserListItem) {
+        if (!canEditUser(user)) return
+        _uiState.update { state ->
+            val updated = if (user.userId in state.selectedUserIds) {
+                state.selectedUserIds - user.userId
+            } else {
+                state.selectedUserIds + user.userId
+            }
+            state.copy(selectedUserIds = updated)
+        }
+    }
+
+    fun selectAllEditable() {
+        val editableIds = _uiState.value.users.filter { canEditUser(it) }.map { it.userId }.toSet()
+        _uiState.update { it.copy(selectedUserIds = editableIds) }
+    }
+
+    fun clearSelection() {
+        _uiState.update { it.copy(selectedUserIds = emptySet()) }
+    }
+
     /** 按当前筛选条件从第一页重新查询。 */
     fun search() {
+        val currentGrade = _uiState.value.filterGrade.trim()
+        if (currentGrade.isNotEmpty() && (currentGrade.length != 4 || currentGrade.toIntOrNull() == null)) {
+            _uiState.update { it.copy(message = "请输入有效的四位数字年级（如 2024）") }
+            return
+        }
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val state = _uiState.value
             userManagementRepository.listUsers(state.toQuery(page = 1))
                 .onSuccess { page ->
+                    val deduped = sortByLevel(page.list.distinctBy { user -> user.userId })
+                    val visibleIds = deduped.map { it.userId }.toSet()
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            users = sortByLevel(page.list.distinctBy { user -> user.userId }),
-                            total = page.total,
-                            page = 1
+                            users = deduped,
+                            total = if (it.showAll) maxOf(page.total, deduped.size) else page.total,
+                            page = 1,
+                            selectedUserIds = it.selectedUserIds.intersect(visibleIds)
                         )
                     }
                 }
@@ -148,6 +204,47 @@ class UserManagementViewModel(
         }
     }
 
+    /** 一次提交多名已选成员的部门与职位变更（POST /user/batch）。 */
+    fun batchUpdateSelected(departmentId: Int, roleId: Int) {
+        val ids = _uiState.value.selectedUserIds.toList()
+        if (ids.isEmpty()) {
+            _uiState.update { it.copy(message = "请先选择要调整的成员") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isUpdating = true) }
+            val items = ids.map { UserBatchItem(userId = it, departmentId = departmentId, roleId = roleId) }
+            userManagementRepository.batchUpdate(items)
+                .onSuccess { failures ->
+                    if (failures.isEmpty()) {
+                        _uiState.update {
+                            it.copy(
+                                isUpdating = false,
+                                isBatchMode = false,
+                                selectedUserIds = emptySet(),
+                                message = "已批量更新 ${items.size} 名成员"
+                            )
+                        }
+                    } else {
+                        val successCount = (items.size - failures.size).coerceAtLeast(0)
+                        val detail = failures.joinToString("\n") {
+                            "${it.name.ifBlank { it.username }.ifBlank { it.studentId }}：${it.errorMessage}"
+                        }
+                        _uiState.update {
+                            it.copy(
+                                isUpdating = false,
+                                message = "成功 $successCount 人，失败 ${failures.size} 人：\n$detail"
+                            )
+                        }
+                    }
+                    search()
+                }
+                .onFailure { error ->
+                    _uiState.update { it.copy(isUpdating = false, message = "批量更新失败：${error.message}") }
+                }
+        }
+    }
+
     fun deleteUser(user: UserListItem) {
         viewModelScope.launch {
             _uiState.update { it.copy(isUpdating = true) }
@@ -157,6 +254,7 @@ class UserManagementViewModel(
                         state.copy(
                             isUpdating = false,
                             users = state.users.filterNot { it.userId == user.userId },
+                            selectedUserIds = state.selectedUserIds - user.userId,
                             total = (state.total - 1).coerceAtLeast(0),
                             message = "已删除 ${user.name.ifBlank { user.username }}"
                         )
@@ -176,8 +274,10 @@ class UserManagementViewModel(
         keyword = filterKeyword.trim(),
         department = filterDepartment,
         role = filterRole,
+        grade = filterGrade.trim().takeIf { it.length == 4 }?.toIntOrNull(),
         page = page,
-        pageSize = PAGE_SIZE
+        pageSize = PAGE_SIZE,
+        isAll = true.takeIf { showAll }
     )
 
     private fun sortByLevel(users: List<UserListItem>): List<UserListItem> {

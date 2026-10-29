@@ -127,7 +127,7 @@ fun GradesScreen(
                 DropdownMenu(
                     expanded = menuExpanded,
                     onDismissRequest = { menuExpanded = false },
-                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                    containerColor = MaterialTheme.colorScheme.surface
                 ) {
                     DropdownMenuItem(
                         text = { Text("更新当前学期") },

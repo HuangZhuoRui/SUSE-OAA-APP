@@ -142,7 +142,8 @@ internal fun MainTabPage(
                 featureDrawerExpanded = homeFeatureDrawerExpanded,
                 onFeatureDrawerExpandedChange = onHomeFeatureDrawerExpandedChange,
                 onNavigateToActivityCheckin = onNavigateToActivityCheckin,
-                onNavigateToValueCalculator = onNavigateToValueCalculator
+                onNavigateToValueCalculator = onNavigateToValueCalculator,
+                onNavigateToLogin = onNavigateToLogin
             )
 
             MainTab.COURSE.index -> CourseScreen(

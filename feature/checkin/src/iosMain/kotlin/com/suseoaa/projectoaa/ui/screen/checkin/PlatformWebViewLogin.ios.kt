@@ -1,6 +1,7 @@
 package com.suseoaa.projectoaa.ui.screen.checkin
 
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -16,6 +17,7 @@ actual fun PlatformWebViewLoginDialog(
     onDismiss: () -> Unit
 ) {
     AlertDialog(
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = onDismiss,
         title = { Text("暂不支持") },
         text = { Text("iOS 平台暂不支持扫码登录，请使用密码登录添加账号。") },

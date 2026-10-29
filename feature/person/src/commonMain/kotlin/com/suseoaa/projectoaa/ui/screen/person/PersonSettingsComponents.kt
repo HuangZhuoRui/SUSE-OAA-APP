@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +20,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.suseoaa.projectoaa.presentation.update.getAppVersionName
@@ -31,7 +34,8 @@ fun UserInfoCard(
     userInfo: com.suseoaa.projectoaa.shared.domain.model.person.PersonData?,
     onLogout: () -> Unit,
     onAvatarClick: () -> Unit,
-    onEditInfo: (username: String, email: String) -> Unit = { _, _ -> }
+    onEditInfo: (username: String, email: String, grade: String) -> Unit = { _, _, _ -> },
+    onCancelDeleteClick: (() -> Unit)? = null
 ) {
     var showEditDialog by remember { mutableStateOf(false) }
 
@@ -40,9 +44,10 @@ fun UserInfoCard(
             initialUsername = userInfo.username,
             name = userInfo.name,
             initialEmail = userInfo.email,
+            initialGrade = userInfo.resolvedGrade,
             onDismiss = { showEditDialog = false },
-            onConfirm = { username, email ->
-                onEditInfo(username, email)
+            onConfirm = { username, email, grade ->
+                onEditInfo(username, email, grade)
                 showEditDialog = false
             }
         )
@@ -149,8 +154,12 @@ fun UserInfoCard(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    val roleAndGrade = listOfNotNull(
+                        userInfo?.role?.ifBlank { null },
+                        userInfo?.resolvedGrade?.let { "${it}级" }
+                    ).joinToString(" · ").ifBlank { "未加入协会" }
                     Text(
-                        text = userInfo?.role?.ifBlank { null } ?: "未加入协会",
+                        text = roleAndGrade,
                         style = MaterialTheme.typography.bodySmall,
                         color = ElectricBlue
                     )
@@ -165,8 +174,308 @@ fun UserInfoCard(
                     )
                 }
             }
+
+            if (userInfo?.isDeleting == true) {
+                Spacer(modifier = Modifier.height(14.dp))
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.75f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.WarningAmber,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "账号正处于注销冷静期",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            val deadlineText = userInfo.scheduledDeleteAt
+                                ?.takeIf { it.isNotBlank() }
+                                ?.let { "将于 $it 永久注销" }
+                                ?: "冷静期结束后将永久注销"
+                            Text(
+                                text = deadlineText,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f)
+                            )
+                        }
+                        if (onCancelDeleteClick != null) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            TextButton(
+                                onClick = onCancelDeleteClick,
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            ) {
+                                Text("撤销注销", fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
+}
+
+/** 游客模式下的个人卡片：说明哪些功能需要账号，并提供登录 / 注册入口。 */
+@Composable
+fun GuestCard(onLogin: () -> Unit) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(SoftBlueWait),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Person,
+                    contentDescription = null,
+                    tint = ElectricBlue,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "未登录",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "登录协会账号后可查看公告、参与招新",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(onClick = onLogin) {
+                Text("登录 / 注册")
+            }
+        }
+    }
+}
+
+/**
+ * 注销账号对话框：说明后果 → 向绑定邮箱发验证码 → 输入验证码确认。
+ *
+ * 用邮箱验证码而不是密码确认，是后端的设计；验证码同时防止手机借给别人时被误删。
+ */
+@Composable
+fun DeleteAccountDialog(
+    email: String,
+    isCodeSent: Boolean,
+    isSendingCode: Boolean,
+    isDeleting: Boolean,
+    onSendCode: () -> Unit,
+    onDismiss: () -> Unit,
+    onConfirm: (code: String) -> Unit,
+    onSwitchToCancelDelete: (() -> Unit)? = null
+) {
+    var code by remember { mutableStateOf("") }
+    val busy = isSendingCode || isDeleting
+
+    AlertDialog(
+        containerColor = MaterialTheme.colorScheme.surface,
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text("注销账号") },
+        text = {
+            Column {
+                Text(
+                    "注销后，你的协会账号及个人资料（姓名、学号、邮箱、头像、招新申请等）将被删除。" +
+                        "提交后账号进入冷静期，冷静期结束后删除不可恢复。",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "本机保存的课表、教务账号等数据不受影响，可在 App 内单独删除。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = if (email.isBlank()) "验证码将发送到你绑定的邮箱" else "验证码将发送到 ${email.maskEmail()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = code,
+                        onValueChange = { input -> code = input.filter { it.isDigit() }.take(6) },
+                        label = { Text("邮箱验证码") },
+                        singleLine = true,
+                        enabled = isCodeSent && !busy,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    TextButton(onClick = onSendCode, enabled = !busy) {
+                        if (isSendingCode) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        } else {
+                            Text(if (isCodeSent) "重新发送" else "发送验证码")
+                        }
+                    }
+                }
+                if (onSwitchToCancelDelete != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    TextButton(
+                        onClick = onSwitchToCancelDelete,
+                        enabled = !busy,
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(
+                            "已提交过注销处于冷静期？点此撤销注销",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(code) },
+                enabled = isCodeSent && code.length == 6 && !busy,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                )
+            ) {
+                if (isDeleting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onError
+                    )
+                } else {
+                    Text("确认注销")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !busy) {
+                Text("取消")
+            }
+        }
+    )
+}
+
+/**
+ * 取消冷静期对话框：向绑定邮箱发送 scene=cancel_delete 验证码，验证后调用 POST /user/delete/cancel 恢复账号。
+ */
+@Composable
+fun CancelDeleteAccountDialog(
+    email: String,
+    scheduledDeleteAt: String? = null,
+    isCodeSent: Boolean,
+    isSendingCode: Boolean,
+    isSubmitting: Boolean,
+    onSendCode: () -> Unit,
+    onDismiss: () -> Unit,
+    onConfirm: (code: String) -> Unit
+) {
+    var code by remember { mutableStateOf("") }
+    val busy = isSendingCode || isSubmitting
+
+    AlertDialog(
+        containerColor = MaterialTheme.colorScheme.surface,
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text("撤销账号注销") },
+        text = {
+            Column {
+                val promptText = if (!scheduledDeleteAt.isNullOrBlank()) {
+                    "你的账号正处于注销冷静期，预计将于 $scheduledDeleteAt 永久删除。验证绑定邮箱后即可撤销注销、恢复账号正常使用。"
+                } else {
+                    "你的账号正处于注销冷静期，验证绑定邮箱后即可撤销注销、恢复账号正常使用。"
+                }
+                Text(
+                    promptText,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = if (email.isBlank()) "验证码将发送到你绑定的邮箱" else "验证码将发送到 ${email.maskEmail()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = code,
+                        onValueChange = { input -> code = input.filter { it.isDigit() }.take(6) },
+                        label = { Text("邮箱验证码") },
+                        singleLine = true,
+                        enabled = isCodeSent && !busy,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    TextButton(onClick = onSendCode, enabled = !busy) {
+                        if (isSendingCode) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        } else {
+                            Text(if (isCodeSent) "重新发送" else "发送验证码")
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(code) },
+                enabled = isCodeSent && code.length == 6 && !busy
+            ) {
+                if (isSubmitting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Text("确认恢复")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !busy) {
+                Text("取消")
+            }
+        }
+    )
+}
+
+/** zhangsan@example.com -> zh****@example.com */
+private fun String.maskEmail(): String {
+    val at = indexOf('@')
+    if (at <= 0) return this
+    val name = substring(0, at)
+    return name.take(2) + "****" + substring(at)
 }
 
 /**
@@ -177,14 +486,17 @@ fun EditInfoDialog(
     initialUsername: String,
     name: String,
     initialEmail: String,
+    initialGrade: Int? = null,
     onDismiss: () -> Unit,
-    onConfirm: (username: String, email: String) -> Unit
+    onConfirm: (username: String, email: String, grade: String) -> Unit
 ) {
     var username by remember { mutableStateOf(initialUsername) }
     var email by remember { mutableStateOf(initialEmail) }
+    var gradeText by remember { mutableStateOf(initialGrade?.toString().orEmpty()) }
+    val gradeValid = gradeText.length == 4 || (initialGrade == null && gradeText.isEmpty())
 
     AlertDialog(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = onDismiss,
         title = { Text("修改个人信息") },
         text = {
@@ -213,14 +525,25 @@ fun EditInfoDialog(
                     onValueChange = { email = it },
                     label = { Text("邮箱") },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = gradeText,
+                    onValueChange = { input -> gradeText = input.filter { it.isDigit() }.take(4) },
+                    label = { Text("年级（如 2024）") },
+                    placeholder = { Text("四位入学年份") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(username.trim(), email.trim()) },
-                enabled = username.isNotBlank() && email.isNotBlank()
+                onClick = { onConfirm(username.trim(), email.trim(), gradeText.trim()) },
+                enabled = username.isNotBlank() && email.isNotBlank() && gradeValid
             ) {
                 Text("保存")
             }

@@ -1,7 +1,11 @@
 package com.suseoaa.projectoaa.shared.domain.model.recruitment
 
+import com.suseoaa.projectoaa.shared.domain.model.person.StoredFile
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+
+/** 申请表图片上传的 scene 取值（POST /upload/image）。 */
+const val SCENE_APPLICATION_IMAGE = "application"
 
 /** 表单里的固定选项。 */
 object ApplicationOptions {
@@ -30,10 +34,12 @@ data class Application(
     @SerialName("id") val id: Int = 0,
     @SerialName("user_id") val userId: Int = 0,
     @SerialName("term_id") val termId: Int = 0,
+    @SerialName("term_title") val termTitle: String = "",
     @SerialName("type") val type: String = "",
     @SerialName("name") val name: String = "",
     @SerialName("student_id") val studentId: String = "",
     @SerialName("username") val username: String = "",
+    @SerialName("avatar") val avatar: StoredFile = StoredFile(),
     @SerialName("college") val college: String = "",
     @SerialName("major_class") val majorClass: String = "",
     @SerialName("gender") val gender: String = "",
@@ -49,13 +55,17 @@ data class Application(
     @SerialName("created_at") val createdAt: String = "",
     @SerialName("updated_at") val updatedAt: String = "",
     @SerialName("decision") val decision: String = "",
+    @SerialName("decision_remark") val decisionRemark: String = "",
     @SerialName("result") val result: Choice? = null,
-    @SerialName("operator_id") val operatorId: Int = 0
+    @SerialName("operator_id") val operatorId: Int = 0,
+    @SerialName("operator_user_id") val operatorUserId: Int = 0
 ) {
     /** 文档里 /application/me 没有返回 ID，删除却要 application_id；两个字段都兼容，拿不到时为 0。 */
     val resolvedId: Int get() = if (applicationId != 0) applicationId else id
 
     fun toForm() = ApplicationForm(
+        avatarUri = avatar.uri,
+        avatarUrl = avatar.url,
         college = college,
         majorClass = majorClass,
         gender = gender,
@@ -73,6 +83,10 @@ data class Application(
 
 /** 申请表的可编辑部分，界面状态直接用它。 */
 data class ApplicationForm(
+    /** 对象存储 URI（如 `application/xxx.jpg`），提交给后端用 */
+    val avatarUri: String = "",
+    /** 带签名的临时展示地址，界面预览用 */
+    val avatarUrl: String = "",
     val college: String = "",
     val majorClass: String = "",
     val gender: String = "",
@@ -101,6 +115,7 @@ data class CreateApplicationRequest(
     @SerialName("college") val college: String,
     @SerialName("major_class") val majorClass: String,
     @SerialName("gender") val gender: String,
+    @SerialName("avatar") val avatar: String,
     @SerialName("phone") val phone: String,
     @SerialName("qq") val qq: String,
     @SerialName("political_status") val politicalStatus: String,
@@ -125,6 +140,7 @@ data class UpdateApplicationRequest(
     @SerialName("college") val college: String,
     @SerialName("major_class") val majorClass: String,
     @SerialName("gender") val gender: String,
+    @SerialName("avatar") val avatar: String,
     @SerialName("phone") val phone: String,
     @SerialName("qq") val qq: String,
     @SerialName("political_status") val politicalStatus: String,

@@ -130,7 +130,10 @@ internal fun ParticipantsBottomSheet(
     onSync: () -> Unit,
     onDeleteParticipant: (Long) -> Unit
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).navigationBarsPadding()
         ) {

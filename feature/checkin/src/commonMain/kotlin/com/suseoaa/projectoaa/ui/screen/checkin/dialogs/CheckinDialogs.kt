@@ -258,7 +258,7 @@ internal fun CaptchaDialog(
     }
 
     AlertDialog(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = { if (!isLoggingIn) onDismiss() },
         title = {
             Text("输入验证码")
@@ -429,7 +429,7 @@ internal fun SmsVerificationDialog(
     var smsCode by remember(accountName, maskedPhone) { mutableStateOf("") }
 
     AlertDialog(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = { if (!isSendingSms && !isVerifying) onDismiss() },
         title = { Text("短信二次验证") },
         text = {

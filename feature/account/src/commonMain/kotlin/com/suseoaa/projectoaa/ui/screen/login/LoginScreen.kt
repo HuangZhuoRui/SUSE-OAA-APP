@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.suseoaa.projectoaa.presentation.login.LoginUiState
 import com.suseoaa.projectoaa.presentation.login.LoginViewModel
 import com.suseoaa.projectoaa.ui.navigation.Screen
+import com.suseoaa.projectoaa.util.ToastManager
 import com.suseoaa.projectoaa.util.normalizeFont
 import com.suseoaa.projectoaa.util.showToast
 import org.koin.compose.viewmodel.koinViewModel
@@ -34,6 +35,7 @@ fun LoginScreen(
     onLoginSuccess: () -> Unit,
     onNavigateToRegister: () -> Unit,
     onNavigateToForgetPassword: () -> Unit,
+    onContinueAsGuest: () -> Unit,
     viewModel: LoginViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -42,8 +44,16 @@ fun LoginScreen(
     // 监听登录成功
     LaunchedEffect(uiState.isLoginSuccess) {
         if (uiState.isLoginSuccess) {
+            uiState.loginNotice?.let { ToastManager.showToast(it) }
             viewModel.resetLoginSuccess()
             onLoginSuccess()
+        }
+    }
+
+    LaunchedEffect(uiState.isGuestEntered) {
+        if (uiState.isGuestEntered) {
+            viewModel.resetGuestEntered()
+            onContinueAsGuest()
         }
     }
 
@@ -159,5 +169,24 @@ fun LoginScreen(
                 Text("登录")
             }
         }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedButton(
+            onClick = viewModel::continueAsGuest,
+            enabled = !uiState.isLoading,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text("暂不登录，先逛逛")
+        }
+        Text(
+            text = "课表、教务查询、物品价值计算等功能无需注册即可使用",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.Gray,
+            modifier = Modifier.padding(top = 8.dp)
+        )
     }
 }

@@ -63,9 +63,25 @@ fun OrganizationScreen(
         }
     ) { modifier ->
         Column(modifier = modifier.fillMaxSize()) {
-            PrimaryTabRow(selectedTabIndex = selectedTab) {
-                Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("部门") })
-                Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("职位") })
+            PrimaryTabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary
+            ) {
+                Tab(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    selectedContentColor = MaterialTheme.colorScheme.primary,
+                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = { Text("部门") }
+                )
+                Tab(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    selectedContentColor = MaterialTheme.colorScheme.primary,
+                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = { Text("职位") }
+                )
             }
             if (uiState.isLoading || uiState.isSaving) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -139,7 +155,17 @@ private fun OrgRow(title: String, subtitle: String, isActive: Boolean, onEdit: (
                 )
             }
             if (!isActive) {
-                AssistChip(onClick = {}, enabled = false, label = { Text("已停用") })
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant
+                ) {
+                    Text(
+                        text = "已停用",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
             }
             IconButton(onClick = onEdit) {
                 Icon(Icons.Default.Edit, contentDescription = "编辑", tint = MaterialTheme.colorScheme.primary)
@@ -152,7 +178,17 @@ private fun OrgRow(title: String, subtitle: String, isActive: Boolean, onEdit: (
 private fun ActiveSwitch(isActive: Boolean, onChange: (Boolean) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text("启用", modifier = Modifier.weight(1f))
-        Switch(checked = isActive, onCheckedChange = onChange)
+        Switch(
+            checked = isActive,
+            onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant
+            )
+        )
     }
 }
 
@@ -167,6 +203,7 @@ private fun DepartmentDialog(
     var isActive by remember { mutableStateOf(existing?.isActive ?: true) }
 
     AlertDialog(
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = onDismiss,
         title = { Text(if (existing == null) "新建部门" else "编辑部门") },
         text = {
@@ -206,6 +243,7 @@ private fun RoleDialog(
     var isActive by remember { mutableStateOf(existing?.isActive ?: true) }
 
     AlertDialog(
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = onDismiss,
         title = { Text(if (existing == null) "新建职位" else "编辑职位") },
         text = {

@@ -322,7 +322,7 @@ fun CourseScreen(
                             DropdownMenu(
                                 expanded = menuExpanded,
                                 onDismissRequest = { menuExpanded = false },
-                                modifier = Modifier.background(color = MaterialTheme.colorScheme.surface)
+                                containerColor = MaterialTheme.colorScheme.surface
                             ) {
                                 DropdownMenuItem(
                                     text = { Text("刷新当前课表") },

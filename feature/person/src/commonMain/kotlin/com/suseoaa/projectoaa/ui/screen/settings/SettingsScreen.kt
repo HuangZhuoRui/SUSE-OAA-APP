@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,6 +30,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.suseoaa.projectoaa.presentation.person.PersonViewModel
 import com.suseoaa.projectoaa.ui.component.common.SharedTransitionPageContainer
 import com.suseoaa.projectoaa.ui.theme.*
+import com.suseoaa.projectoaa.util.showToast
 import kotlin.math.abs
 import kotlin.math.pow
 import com.suseoaa.projectoaa.ui.component.SettingCard
@@ -43,6 +45,15 @@ fun SettingsScreen(
     var showStartTabDialog by remember { mutableStateOf(false) }
     var showPaletteDialog by remember { mutableStateOf(false) }
     var showLiquidGlassStyleDialog by remember { mutableStateOf(false) }
+
+    uiState.message?.let { message ->
+        if (message.isNotBlank()) {
+            showToast(message)
+        }
+        LaunchedEffect(message) {
+            viewModel.clearMessage()
+        }
+    }
 
     SharedTransitionPageContainer(transitionKey = "settings") {
         Column(
@@ -176,6 +187,42 @@ fun SettingsScreen(
                         )
                     }
                 }
+
+                // 协会后端服务状态探针检测（GET /livez & GET /healthz）
+                item {
+                    val health = uiState.serverHealthStatus
+                    SettingCard(
+                        icon = Icons.Default.Refresh,
+                        title = "服务状态检测",
+                        subtitle = when {
+                            uiState.isCheckingServerHealth -> "正在检测协会后端服务连接状态..."
+                            health != null -> health.message
+                            uiState.serverHealthError != null -> "连接异常：${uiState.serverHealthError}"
+                            else -> "点击检测协会后端服务存活与就绪状态"
+                        },
+                        trailingContent = if (uiState.isCheckingServerHealth) {
+                            {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            }
+                        } else if (health != null) {
+                            {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (health.isHealthy) Color(0xFF00C853)
+                                            else MaterialTheme.colorScheme.error
+                                        )
+                                )
+                            }
+                        } else null,
+                        onClick = { viewModel.checkServerHealth() }
+                    )
+                }
             }
         }
     }
@@ -271,7 +318,7 @@ fun StartTabDialog(
     var selectedTab by remember { mutableIntStateOf(currentTab) }
 
     AlertDialog(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = onDismiss,
         title = { Text("起始页设置", style = MaterialTheme.typography.titleMedium) },
         text = {
@@ -333,7 +380,7 @@ fun LiquidGlassStyleDialog(
     var selectedStyle by remember { mutableIntStateOf(currentStyle) }
 
     AlertDialog(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = onDismiss,
         title = { Text("液态玻璃样式", style = MaterialTheme.typography.titleMedium) },
         text = {
@@ -397,7 +444,7 @@ val DynamicColorPaletteOptions = listOf(
     DynamicColorPaletteOption("夕阳", Color(0xFFFF7043)),
     DynamicColorPaletteOption("金橙", Color(0xFFFFA000)),
     DynamicColorPaletteOption("秋叶", Color(0xFFFBC02D)),
-    DynamicColorPaletteOption("青柠", Color(0xFFAFEEE)),
+    DynamicColorPaletteOption("青柠", Color(0xFF8BC34A)),
     DynamicColorPaletteOption("松绿", Color(0xFF00695C)),
     DynamicColorPaletteOption("森林", Color(0xFF2E7D32)),
     DynamicColorPaletteOption("墨绿", Color(0xFF1B5E20)),
@@ -597,6 +644,13 @@ fun DynamicColorPaletteDialog(
                             Switch(
                                 checked = isCustomMode,
                                 onCheckedChange = { isCustomMode = it },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                                    uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                                ),
                                 modifier = Modifier.padding(horizontal = 8.dp)
                                     .size(width = 40.dp, height = 24.dp)
                             )

@@ -216,6 +216,7 @@ fun ActivityCheckinScreen(
         }
 
         AlertDialog(
+            containerColor = MaterialTheme.colorScheme.surface,
             onDismissRequest = { showCheckinConfirmDialog = null },
             title = { Text("确认签到信息") },
             text = {
@@ -258,6 +259,7 @@ fun ActivityCheckinScreen(
         val statusOptions = listOf("正常", "迟到", "补签", "自定义")
 
         AlertDialog(
+            containerColor = MaterialTheme.colorScheme.surface,
             onDismissRequest = { showManualAddDialog = null },
             title = { Text("手动补签") },
             text = {
@@ -282,10 +284,23 @@ fun ActivityCheckinScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         statusOptions.forEach { opt ->
+                            val isSelected = status == opt
                             FilterChip(
-                                selected = status == opt,
+                                selected = isSelected,
                                 onClick = { status = opt },
-                                label = { Text(opt) }
+                                label = { Text(opt) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = isSelected,
+                                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                                    selectedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                                )
                             )
                         }
                     }
@@ -322,6 +337,7 @@ fun ActivityCheckinScreen(
     // 3. 删除任务确认
     showDeleteTaskDialog?.let { taskId ->
         AlertDialog(
+            containerColor = MaterialTheme.colorScheme.surface,
             onDismissRequest = { showDeleteTaskDialog = null },
             title = { Text("删除记录") },
             text = { Text("确定要删除该签到任务及其所有签到记录吗？此操作不可撤销。") },
@@ -343,6 +359,7 @@ fun ActivityCheckinScreen(
     // 4. 退出确认对话框
     if (showExitConfirmDialog) {
         AlertDialog(
+            containerColor = MaterialTheme.colorScheme.surface,
             onDismissRequest = { showExitConfirmDialog = false },
             title = { Text("停止签到？") },
             text = { Text("退出页面将停止近场广播，其他同学将无法再搜索到并进行签到。确定要退出吗？") },
@@ -476,12 +493,23 @@ fun ActivityCheckinContent(
             TabRow(
                 selectedTabIndex = selectedTab,
                 containerColor = Color.Transparent,
+                contentColor = MaterialTheme.colorScheme.primary,
                 divider = {}
             ) {
-                Tab(selected = selectedTab == 0, onClick = { onTabSelected(0) }) {
+                Tab(
+                    selected = selectedTab == 0,
+                    onClick = { onTabSelected(0) },
+                    selectedContentColor = MaterialTheme.colorScheme.primary,
+                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                ) {
                     Text("发现任务", modifier = Modifier.padding(16.dp))
                 }
-                Tab(selected = selectedTab == 1, onClick = { onTabSelected(1) }) {
+                Tab(
+                    selected = selectedTab == 1,
+                    onClick = { onTabSelected(1) },
+                    selectedContentColor = MaterialTheme.colorScheme.primary,
+                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                ) {
                     Text("历史记录", modifier = Modifier.padding(16.dp))
                 }
             }

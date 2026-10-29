@@ -2,10 +2,12 @@ package com.suseoaa.projectoaa.shared.domain.repository
 
 import com.suseoaa.projectoaa.shared.domain.model.org.Department
 import com.suseoaa.projectoaa.shared.domain.model.org.Role
+import com.suseoaa.projectoaa.shared.domain.model.person.StoredFile
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.Application
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.ApplicationForm
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.InterviewDecision
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.InterviewResult
+import com.suseoaa.projectoaa.shared.domain.model.recruitment.Interviewer
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.InterviewerEntry
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.Period
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.Term
@@ -20,7 +22,7 @@ interface RecruitmentRepository {
 
     // ==================== 周期 ====================
 
-    suspend fun getTerms(): Result<List<Term>>
+    suspend fun getTerms(year: Int? = null, type: String? = null): Result<List<Term>>
 
     suspend fun createTerm(year: Int, type: String, title: String, editPeriod: Period, queryPeriod: Period): Result<Unit>
 
@@ -29,6 +31,9 @@ interface RecruitmentRepository {
     suspend fun deleteTerm(termId: Int): Result<Unit>
 
     // ==================== 申请 ====================
+
+    /** 上传申请表个人照片（POST /upload/image，scene = application），返回对象存储 URI 与预览 URL。 */
+    suspend fun uploadApplicationAvatar(imageData: ByteArray): Result<StoredFile>
 
     /** 当前账号提交过的所有申请（可能跨多个周期）。 */
     suspend fun getMyApplications(): Result<List<Application>>
@@ -50,6 +55,8 @@ interface RecruitmentRepository {
     suspend fun getFillableDepartments(roleId: Int): Result<List<Department>>
 
     // ==================== 面试 ====================
+
+    suspend fun getInterviewers(termId: Int): Result<List<Interviewer>>
 
     suspend fun createInterviewers(termId: Int, interviewers: List<InterviewerEntry>): Result<Unit>
 

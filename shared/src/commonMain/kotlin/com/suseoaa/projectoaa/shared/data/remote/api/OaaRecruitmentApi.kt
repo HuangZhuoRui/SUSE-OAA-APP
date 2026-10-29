@@ -66,6 +66,9 @@ class OaaRecruitmentApi(private val requester: OaaRequester) {
 
     // ==================== 面试 ====================
 
+    suspend fun interviewers(termId: Int): Result<JsonElement?> =
+        requester.get("/interviewer/list", "获取面试官列表失败", params = mapOf("term_id" to termId))
+
     suspend fun createInterviewers(request: CreateInterviewersRequest): Result<Unit> =
         requester.post("/interviewer/create", request, "添加面试官失败")
 

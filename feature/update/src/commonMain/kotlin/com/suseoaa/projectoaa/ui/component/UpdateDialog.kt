@@ -32,7 +32,7 @@ fun UpdateDialog(
 
     if (shouldShow) {
         AlertDialog(
-            containerColor = MaterialTheme.colorScheme.background,
+            containerColor = MaterialTheme.colorScheme.surface,
             onDismissRequest = {
                 if (!uiState.isChecking) {
                     viewModel.dismissUpdateDialog()

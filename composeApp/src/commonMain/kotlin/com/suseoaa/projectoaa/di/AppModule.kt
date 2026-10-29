@@ -38,10 +38,10 @@ import org.koin.dsl.module
 val appModule = module {
     // ==================== ViewModels ====================
     viewModel { MainViewModel(get(), get(), get(), get(), get(), get()) }
-    viewModel { LoginViewModel(get()) }
+    viewModel { LoginViewModel(get(), get()) }
     viewModel { RegisterViewModel(get()) }
     viewModel { ForgetPasswordViewModel(get()) }
-    viewModel { HomeViewModel(get(), get(), get()) }
+    viewModel { HomeViewModel(get(), get(), get(), get()) }
     viewModel { AnnouncementViewModel(get(), get(), get()) }
     viewModel { ValueCalculatorViewModel(get(), get()) }
     viewModel { ChangePasswordViewModel(get(), get()) }
@@ -49,7 +49,7 @@ val appModule = module {
     viewModel { CourseStatisticsViewModel(get(), get(), get()) }
     viewModel { AcademicViewModel(get(), get(), get(), get(), get<WidgetRefresher>()) }
     viewModel { ExamViewModel(get(), get(), get(), get(), get<WidgetRefresher>()) }
-    viewModel { PersonViewModel(get(), get(), get()) }
+    viewModel { PersonViewModel(get(), get(), get(), get()) }
     viewModel { GpaViewModel(get(), get(), get()) }
     viewModel { GradesViewModel(get(), get(), get(), get(), get()) }
     // 刻意注册为 single 而非 viewModel：UpdateDialog / UpdateScreen / PersonScreen

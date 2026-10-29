@@ -1,22 +1,34 @@
 package com.suseoaa.projectoaa.ui.screen.recruitment
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -24,9 +36,10 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,10 +47,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import com.suseoaa.projectoaa.presentation.recruitment.ChoiceSlot
 import com.suseoaa.projectoaa.presentation.recruitment.RecruitmentUiState
 import com.suseoaa.projectoaa.shared.domain.model.org.Department
@@ -48,17 +64,21 @@ import com.suseoaa.projectoaa.shared.domain.model.recruitment.Choice
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.Term
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.TermPhase
 import com.suseoaa.projectoaa.ui.component.common.OptionDropdown
+import com.suseoaa.projectoaa.util.pickImageForAvatar
 
 // 「我的申请」Tab：周期信息、录取结果、申请表。
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ApplicationTab(
     uiState: RecruitmentUiState,
     onRefresh: () -> Unit,
     onSelectTerm: (Term) -> Unit,
     onUpdateForm: ((ApplicationForm) -> ApplicationForm) -> Unit,
+    onUploadAvatar: (ByteArray) -> Unit,
     onSelectDepartment: (ChoiceSlot, Department) -> Unit,
     onSelectRole: (ChoiceSlot, Role) -> Unit,
+    onClearChoice: (ChoiceSlot) -> Unit,
     onSubmit: () -> Unit,
     onWithdraw: () -> Unit,
     modifier: Modifier = Modifier
@@ -70,30 +90,39 @@ internal fun ApplicationTab(
         return
     }
 
-    Column(
-        modifier = modifier
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+    PullToRefreshBox(
+        isRefreshing = uiState.isLoading && uiState.terms.isNotEmpty(),
+        onRefresh = onRefresh,
+        modifier = modifier.fillMaxSize()
     ) {
-        if (uiState.isLoading || uiState.isSubmitting) {
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (uiState.isLoading || uiState.isSubmitting || uiState.isUploadingAvatar) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
 
-        val term = uiState.selectedTerm
-        if (term == null) {
-            EmptyHint(text = "暂无招新或换届安排", onRefresh = onRefresh)
-        } else {
-            TermContent(
-                term = term,
-                uiState = uiState,
-                onSelectTerm = onSelectTerm,
-                onUpdateForm = onUpdateForm,
-                onSelectDepartment = onSelectDepartment,
-                onSelectRole = onSelectRole,
-                onSubmit = onSubmit,
-                onWithdraw = onWithdraw
-            )
+            val term = uiState.selectedTerm
+            if (term == null) {
+                EmptyHint(text = "暂无招新或换届安排", onRefresh = onRefresh)
+            } else {
+                TermContent(
+                    term = term,
+                    uiState = uiState,
+                    onSelectTerm = onSelectTerm,
+                    onUpdateForm = onUpdateForm,
+                    onUploadAvatar = onUploadAvatar,
+                    onSelectDepartment = onSelectDepartment,
+                    onSelectRole = onSelectRole,
+                    onClearChoice = onClearChoice,
+                    onSubmit = onSubmit,
+                    onWithdraw = onWithdraw
+                )
+            }
         }
     }
 }
@@ -104,8 +133,10 @@ private fun TermContent(
     uiState: RecruitmentUiState,
     onSelectTerm: (Term) -> Unit,
     onUpdateForm: ((ApplicationForm) -> ApplicationForm) -> Unit,
+    onUploadAvatar: (ByteArray) -> Unit,
     onSelectDepartment: (ChoiceSlot, Department) -> Unit,
     onSelectRole: (ChoiceSlot, Role) -> Unit,
+    onClearChoice: (ChoiceSlot) -> Unit,
     onSubmit: () -> Unit,
     onWithdraw: () -> Unit
 ) {
@@ -121,6 +152,7 @@ private fun TermContent(
         if (application != null && (application.decision.isNotBlank() || uiState.phase == TermPhase.Querying)) {
             ResultCard(
                 decision = application.decision,
+                decisionRemark = application.decisionRemark,
                 result = application.result,
                 uiState = uiState
             )
@@ -131,8 +163,10 @@ private fun TermContent(
                 uiState = uiState,
                 isEditable = true,
                 onUpdateForm = onUpdateForm,
+                onUploadAvatar = onUploadAvatar,
                 onSelectDepartment = onSelectDepartment,
                 onSelectRole = onSelectRole,
+                onClearChoice = onClearChoice,
                 onSubmit = onSubmit,
                 onWithdraw = onWithdraw
             )
@@ -140,8 +174,10 @@ private fun TermContent(
                 uiState = uiState,
                 isEditable = false,
                 onUpdateForm = {},
+                onUploadAvatar = {},
                 onSelectDepartment = { _, _ -> },
                 onSelectRole = { _, _ -> },
+                onClearChoice = {},
                 onSubmit = {},
                 onWithdraw = {}
             )
@@ -206,7 +242,7 @@ private fun TermHeaderCard(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Default.Info, contentDescription = null)
+                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Text(
                     text = "${term.displayTitle()} · ${phase.label()}",
                     style = MaterialTheme.typography.titleMedium,
@@ -237,7 +273,7 @@ private fun TermHeaderCard(
 }
 
 @Composable
-private fun ResultCard(decision: String, result: Choice?, uiState: RecruitmentUiState) {
+private fun ResultCard(decision: String, decisionRemark: String, result: Choice?, uiState: RecruitmentUiState) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -253,6 +289,13 @@ private fun ResultCard(decision: String, result: Choice?, uiState: RecruitmentUi
                     color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
             }
+            if (decisionRemark.isNotBlank()) {
+                Text(
+                    "备注：$decisionRemark",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                )
+            }
         }
     }
 }
@@ -262,15 +305,26 @@ private fun ApplicationFormCard(
     uiState: RecruitmentUiState,
     isEditable: Boolean,
     onUpdateForm: ((ApplicationForm) -> ApplicationForm) -> Unit,
+    onUploadAvatar: (ByteArray) -> Unit,
     onSelectDepartment: (ChoiceSlot, Department) -> Unit,
     onSelectRole: (ChoiceSlot, Role) -> Unit,
+    onClearChoice: (ChoiceSlot) -> Unit,
     onSubmit: () -> Unit,
     onWithdraw: () -> Unit
 ) {
     val form = uiState.form
     val hasExisting = uiState.myApplication != null
-    val departments = uiState.departments.filter { it.isActive }
     var confirmWithdraw by remember { mutableStateOf(false) }
+    var showPhotoPicker by remember { mutableStateOf(false) }
+
+    if (showPhotoPicker) {
+        pickImageForAvatar { imageData ->
+            if (imageData != null) {
+                onUploadAvatar(imageData)
+            }
+            showPhotoPicker = false
+        }
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -287,13 +341,12 @@ private fun ApplicationFormCard(
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold
             )
-            uiState.currentUser?.person?.let { person ->
-                Text(
-                    "${person.name}（${person.studentId}）",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+
+            ApplicationPhotoSection(
+                uiState = uiState,
+                isEditable = isEditable,
+                onPickPhoto = { showPhotoPicker = true }
+            )
 
             FormField("学院", form.college, isEditable) { v -> onUpdateForm { it.copy(college = v) } }
             FormField("专业班级（如 计科241）", form.majorClass, isEditable) { v -> onUpdateForm { it.copy(majorClass = v) } }
@@ -320,22 +373,24 @@ private fun ApplicationFormCard(
             ChoiceSelector(
                 title = "第一志愿",
                 choice = form.firstChoice,
-                departments = departments,
-                roles = uiState.firstChoiceRoles,
+                departments = uiState.departmentsFor(ChoiceSlot.First),
+                roles = uiState.rolesFor(ChoiceSlot.First),
                 uiState = uiState,
                 isEditable = isEditable,
                 onSelectDepartment = { onSelectDepartment(ChoiceSlot.First, it) },
-                onSelectRole = { onSelectRole(ChoiceSlot.First, it) }
+                onSelectRole = { onSelectRole(ChoiceSlot.First, it) },
+                onClear = { onClearChoice(ChoiceSlot.First) }
             )
             ChoiceSelector(
                 title = "第二志愿",
                 choice = form.secondChoice,
-                departments = departments,
-                roles = uiState.secondChoiceRoles,
+                departments = uiState.departmentsFor(ChoiceSlot.Second),
+                roles = uiState.rolesFor(ChoiceSlot.Second),
                 uiState = uiState,
                 isEditable = isEditable,
                 onSelectDepartment = { onSelectDepartment(ChoiceSlot.Second, it) },
-                onSelectRole = { onSelectRole(ChoiceSlot.Second, it) }
+                onSelectRole = { onSelectRole(ChoiceSlot.Second, it) },
+                onClear = { onClearChoice(ChoiceSlot.Second) }
             )
 
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -350,7 +405,14 @@ private fun ApplicationFormCard(
                 Switch(
                     checked = form.allowAdjust,
                     onCheckedChange = { checked -> onUpdateForm { it.copy(allowAdjust = checked) } },
-                    enabled = isEditable
+                    enabled = isEditable,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                        uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                    )
                 )
             }
 
@@ -362,7 +424,7 @@ private fun ApplicationFormCard(
             if (isEditable) {
                 Button(
                     onClick = onSubmit,
-                    enabled = !uiState.isSubmitting,
+                    enabled = !uiState.isSubmitting && !uiState.isUploadingAvatar,
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -383,6 +445,7 @@ private fun ApplicationFormCard(
 
     if (confirmWithdraw) {
         AlertDialog(
+            containerColor = MaterialTheme.colorScheme.surface,
             onDismissRequest = { confirmWithdraw = false },
             title = { Text("撤回申请") },
             text = { Text("撤回后申请表将被删除，填写期内可以重新提交。确定撤回吗？") },
@@ -398,6 +461,134 @@ private fun ApplicationFormCard(
 }
 
 @Composable
+private fun ApplicationPhotoSection(
+    uiState: RecruitmentUiState,
+    isEditable: Boolean,
+    onPickPhoto: () -> Unit
+) {
+    val form = uiState.form
+    val previewModel: Any? = uiState.localAvatarBytes ?: form.avatarUrl.ifBlank { null }
+    val hasPhoto = form.avatarUri.isNotBlank() || previewModel != null
+    val canPick = isEditable && !uiState.isUploadingAvatar && !uiState.isSubmitting
+    val frameShape = RoundedCornerShape(12.dp)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                shape = RoundedCornerShape(14.dp)
+            )
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f),
+                shape = RoundedCornerShape(14.dp)
+            )
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(width = 72.dp, height = 92.dp)
+                .clip(frameShape)
+                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f))
+                .border(
+                    width = 1.dp,
+                    color = if (hasPhoto) {
+                        MaterialTheme.colorScheme.outlineVariant
+                    } else {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                    },
+                    shape = frameShape
+                )
+                .then(if (canPick) Modifier.clickable(onClick = onPickPhoto) else Modifier),
+            contentAlignment = Alignment.Center
+        ) {
+            if (previewModel != null) {
+                AsyncImage(
+                    model = previewModel,
+                    contentDescription = "申请表个人照片",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isEditable) Icons.Default.AddAPhoto else Icons.Default.Person,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(26.dp)
+                    )
+                    Text(
+                        text = if (hasPhoto) "已上传" else if (isEditable) "必填" else "无照片",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            if (uiState.isUploadingAvatar) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.width(14.dp))
+
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            uiState.currentUser?.person?.let { person ->
+                val gradeText = person.resolvedGrade?.let { " · ${it}级" }.orEmpty()
+                Text(
+                    text = "${person.name}（${person.studentId}$gradeText）",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Text(
+                text = when {
+                    uiState.isUploadingAvatar -> "正在上传个人照片..."
+                    !isEditable && hasPhoto -> "已提交申请表个人照片"
+                    !isEditable -> "未上传个人照片"
+                    hasPhoto -> "个人照片已上传，点击可重新选择"
+                    else -> "请上传个人近期照片（必填，支持 jpg / png / webp，不超过 4MB）"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (isEditable) {
+                OutlinedButton(
+                    onClick = onPickPhoto,
+                    enabled = canPick,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.padding(top = 2.dp)
+                ) {
+                    Text(
+                        text = if (hasPhoto) "更换照片" else "上传照片",
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ChoiceSelector(
     title: String,
     choice: Choice,
@@ -406,17 +597,33 @@ private fun ChoiceSelector(
     uiState: RecruitmentUiState,
     isEditable: Boolean,
     onSelectDepartment: (Department) -> Unit,
-    onSelectRole: (Role) -> Unit
+    onSelectRole: (Role) -> Unit,
+    onClear: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, style = MaterialTheme.typography.titleSmall)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            if (isEditable && (choice.departmentId > 0 || choice.roleId > 0)) {
+                TextButton(
+                    onClick = onClear,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                ) {
+                    Text("重置", style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OptionDropdown(
                 label = "部门",
                 options = departments,
-                selected = uiState.departments.firstOrNull { it.id == choice.departmentId },
+                selected = (departments + uiState.departments).firstOrNull { it.id == choice.departmentId },
                 onSelect = onSelectDepartment,
                 optionLabel = { it.name },
+                placeholder = "请选择",
                 enabled = isEditable,
                 modifier = Modifier.weight(1f)
             )
@@ -426,8 +633,8 @@ private fun ChoiceSelector(
                 selected = (roles + uiState.roles).firstOrNull { it.id == choice.roleId },
                 onSelect = onSelectRole,
                 optionLabel = { it.name },
-                placeholder = if (choice.departmentId > 0) "请选择" else "先选部门",
-                enabled = isEditable && choice.departmentId > 0,
+                placeholder = "请选择",
+                enabled = isEditable,
                 modifier = Modifier.weight(1f)
             )
         }

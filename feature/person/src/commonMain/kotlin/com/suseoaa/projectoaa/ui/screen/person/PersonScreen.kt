@@ -13,10 +13,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -90,6 +92,8 @@ fun PersonScreen(
     var showPaletteDialog by remember { mutableStateOf(false) }
     var showStartTabDialog by remember { mutableStateOf(false) }
     var showScheduledCheckinDialog by remember { mutableStateOf(false) }
+    var showDeleteAccountDialog by remember { mutableStateOf(false) }
+    var showCancelDeleteDialog by remember { mutableStateOf(false) }
 
     // 监听登出
     LaunchedEffect(uiState.isLoggedOut) {
@@ -104,10 +108,13 @@ fun PersonScreen(
         }
     }
 
-    // 保活模式下，切回“个人”页时主动执行自动检查更新。
+    // 保活模式下，切回“个人”页时主动刷新用户信息（含注销冷静期状态）与自动检查更新。
     LaunchedEffect(isMainTabVisible) {
         if (isMainTabVisible) {
             updateViewModel.checkForUpdateAuto()
+            if (uiState.isSignedIn == true) {
+                viewModel.loadUserInfo()
+            }
         }
     }
 
@@ -193,6 +200,49 @@ fun PersonScreen(
                 showStartTabDialog = false
             }
         )
+    }
+
+    if (showDeleteAccountDialog) {
+        DeleteAccountDialog(
+            email = uiState.userInfo?.email.orEmpty(),
+            isCodeSent = uiState.isDeleteCodeSent,
+            isSendingCode = uiState.isSendingDeleteCode,
+            isDeleting = uiState.isDeletingAccount,
+            onSendCode = viewModel::sendDeleteAccountCode,
+            onDismiss = {
+                showDeleteAccountDialog = false
+                viewModel.resetDeleteAccountFlow()
+            },
+            onConfirm = { code -> viewModel.deleteAccount(code) }
+        )
+    }
+
+    if (showCancelDeleteDialog) {
+        CancelDeleteAccountDialog(
+            email = uiState.userInfo?.email.orEmpty(),
+            scheduledDeleteAt = uiState.userInfo?.scheduledDeleteAt,
+            isCodeSent = uiState.isCancelDeleteCodeSent,
+            isSendingCode = uiState.isSendingCancelDeleteCode,
+            isSubmitting = uiState.isCancelingDelete,
+            onSendCode = viewModel::sendCancelDeleteCode,
+            onDismiss = {
+                showCancelDeleteDialog = false
+                viewModel.resetCancelDeleteFlow()
+            },
+            onConfirm = { code -> viewModel.cancelDeleteAccount(code) }
+        )
+    }
+
+    LaunchedEffect(uiState.isCancelDeleteSucceeded) {
+        if (uiState.isCancelDeleteSucceeded) {
+            showCancelDeleteDialog = false
+            viewModel.resetCancelDeleteFlow()
+        }
+    }
+
+    // 注销成功后弹窗随页面一起离开；失败时留着让用户重试或取消
+    LaunchedEffect(uiState.isLoggedOut) {
+        if (uiState.isLoggedOut) showDeleteAccountDialog = false
     }
 
     // 定时签到弹窗
@@ -323,31 +373,60 @@ fun PersonScreen(
                             Spacer(modifier = Modifier.height(HeaderHeight - 80.dp))
                         }
 
-                        // 用户信息卡片
+                        // 用户信息卡片；游客显示登录入口
                         item(span = { GridItemSpan(maxLineSpan) }) {
-                            UserInfoCard(
-                                userInfo = uiState.userInfo,
-                                onLogout = { viewModel.logout() },
-                                onAvatarClick = { showAvatarDialog = true },
-                                onEditInfo = { username, email ->
-                                    viewModel.updateInfo(username, email)
-                                }
-                            )
+                            if (uiState.isSignedIn != false) {
+                                UserInfoCard(
+                                    userInfo = uiState.userInfo,
+                                    onLogout = { viewModel.logout() },
+                                    onAvatarClick = { showAvatarDialog = true },
+                                    onEditInfo = { username, email, grade ->
+                                        viewModel.updateInfo(username, email, grade)
+                                    },
+                                    onCancelDeleteClick = { showCancelDeleteDialog = true }
+                                )
+                            } else {
+                                GuestCard(onLogin = onNavigateToLogin)
+                            }
                         }
 
                         // 功能入口组
-                        item(span = { GridItemSpan(maxLineSpan) }) {
+                        if (uiState.isSignedIn == true || uiState.isCheckinUnlocked) item(span = { GridItemSpan(maxLineSpan) }) {
                             SettingGroupCard {
-                                SettingRow(
-                                    icon = Icons.Default.Lock,
-                                    title = "修改密码",
-                                    subtitle = "更新您的账户密码",
-                                    modifier = Modifier.sharedBoundsTransition("change_password"),
-                                    onClick = onNavigateToChangePassword
-                                )
-                                
-                                if (uiState.isCheckinUnlocked) {
+                                if (uiState.isSignedIn == true) {
+                                    SettingRow(
+                                        icon = Icons.Default.Lock,
+                                        title = "修改密码",
+                                        subtitle = "更新您的账户密码",
+                                        modifier = Modifier.sharedBoundsTransition("change_password"),
+                                        onClick = onNavigateToChangePassword
+                                    )
                                     androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(start = 80.dp, end = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                    if (uiState.userInfo?.isDeleting == true) {
+                                        val deadline = uiState.userInfo?.scheduledDeleteAt?.takeIf { it.isNotBlank() }
+                                        SettingRow(
+                                            icon = Icons.Default.Restore,
+                                            title = "撤销账号注销",
+                                            subtitle = if (deadline != null) "将于 $deadline 永久注销，点击恢复账号"
+                                            else "账号正处于冷静期，点击验证邮箱以恢复",
+                                            showBadge = true,
+                                            trailingText = "冷静期中",
+                                            onClick = { showCancelDeleteDialog = true }
+                                        )
+                                    } else {
+                                        SettingRow(
+                                            icon = Icons.Default.DeleteForever,
+                                            title = "注销账号",
+                                            subtitle = "永久删除协会账号及个人资料",
+                                            onClick = { showDeleteAccountDialog = true }
+                                        )
+                                    }
+                                }
+
+                                if (uiState.isCheckinUnlocked) {
+                                    if (uiState.isSignedIn == true) {
+                                        androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(start = 80.dp, end = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                    }
                                     SettingRow(
                                         icon = Icons.Default.Edit,
                                         title = "652签到",
@@ -433,7 +512,7 @@ private fun StartTabDialog(
     var selectedTab by remember { mutableIntStateOf(currentTab) }
 
     AlertDialog(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = onDismiss,
         title = {
             Text(

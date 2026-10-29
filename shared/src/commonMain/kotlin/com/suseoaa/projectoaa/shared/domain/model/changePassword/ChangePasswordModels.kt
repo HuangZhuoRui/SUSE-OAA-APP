@@ -3,8 +3,14 @@ package com.suseoaa.projectoaa.shared.domain.model.changePassword
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-/** 邮箱验证码的使用场景，目前后端只定义了重置密码。 */
+/** 邮箱验证码的使用场景。 */
 const val SCENE_RESET_PASSWORD = "reset_password"
+
+/** 注销账号前的邮箱验证。 */
+const val SCENE_DELETE_USER = "delete_user"
+
+/** 取消账号注销冷静期的邮箱验证。 */
+const val SCENE_CANCEL_DELETE = "cancel_delete"
 
 /**
  * POST /auth/send

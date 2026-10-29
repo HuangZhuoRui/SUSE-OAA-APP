@@ -7,7 +7,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,9 +21,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.suseoaa.projectoaa.presentation.register.RegisterViewModel
 import com.suseoaa.projectoaa.ui.component.BackButton
+import com.suseoaa.projectoaa.util.ToastManager
 import com.suseoaa.projectoaa.util.showToast
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -38,6 +38,7 @@ fun RegisterScreen(
     // 监听注册成功
     LaunchedEffect(uiState.isRegisterSuccess) {
         if (uiState.isRegisterSuccess) {
+            ToastManager.showToast("注册成功，请登录")
             onRegisterSuccess()
         }
     }
@@ -155,7 +156,7 @@ fun RegisterScreen(
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Text,
+                    keyboardType = KeyboardType.Email,
                     imeAction = ImeAction.Next
                 )
             )
@@ -181,12 +182,9 @@ fun RegisterScreen(
                 trailingIcon = {
                     IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
                         Icon(
-                            imageVector = Icons.Filled.Lock,
+                            imageVector = if (isPasswordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
                             contentDescription = if (isPasswordVisible) "隐藏密码" else "显示密码",
-                            tint = if (isPasswordVisible)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -213,12 +211,9 @@ fun RegisterScreen(
                 trailingIcon = {
                     IconButton(onClick = { isConfirmPasswordVisible = !isConfirmPasswordVisible }) {
                         Icon(
-                            imageVector = Icons.Filled.Lock,
+                            imageVector = if (isConfirmPasswordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
                             contentDescription = if (isConfirmPasswordVisible) "隐藏密码" else "显示密码",
-                            tint = if (isConfirmPasswordVisible)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }

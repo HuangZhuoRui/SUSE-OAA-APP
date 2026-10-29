@@ -51,6 +51,7 @@ fun HomeScreen(
     onNavigateToActivityCheckin: () -> Unit,
     onNavigateToOrganization: () -> Unit = {},
     onNavigateToValueCalculator: () -> Unit,
+    onNavigateToLogin: () -> Unit = {},
     bottomBarHeight: Dp = 0.dp,
     featureDrawerExpanded: Boolean = false,
     onFeatureDrawerExpandedChange: (Boolean) -> Unit = {},
@@ -93,7 +94,8 @@ fun HomeScreen(
         currentUser = uiState.currentUser,
         isExpanded = featureDrawerExpanded,
         onExpandedChange = onFeatureDrawerExpandedChange,
-        onNavigateToRecruitment = onNavigateToRecruitment,
+        // 招新换届需要协会账号，游客点进去先登录
+        onNavigateToRecruitment = if (uiState.isSignedIn == false) onNavigateToLogin else onNavigateToRecruitment,
         onNavigateToUserQuery = onNavigateToUserQuery,
         onNavigateToOrganization = onNavigateToOrganization,
         onNavigateToActivityCheckin = onNavigateToActivityCheckin,
@@ -118,7 +120,10 @@ fun HomeScreen(
                         announcements = uiState.activeAnnouncements,
                         hasLoadedAnnouncements = uiState.hasLoadedAnnouncements,
                         onItemClick = onNavigateToDetail,
-                        bottomBarHeight = bottomBarHeight
+                        bottomBarHeight = bottomBarHeight,
+                        guestPrompt = if (uiState.isSignedIn != false) null else {
+                            { GuestLoginCard(onLogin = onNavigateToLogin) }
+                        }
                     )
                     //
                 }
@@ -133,7 +138,9 @@ fun DepartmentGrid(
     announcements: Map<String, Announcement>,
     hasLoadedAnnouncements: Boolean,
     onItemClick: (String) -> Unit,
-    bottomBarHeight: Dp = 0.dp
+    bottomBarHeight: Dp = 0.dp,
+    /** 游客模式下代替部门卡片显示的登录引导 */
+    guestPrompt: (@Composable () -> Unit)? = null
 ) {
     fun summaryOf(name: String): String? = announcements[name]?.summary()
         ?: if (hasLoadedAnnouncements) "暂无公告" else null
@@ -178,6 +185,10 @@ fun DepartmentGrid(
                 }
             }
 
+            if (guestPrompt != null) {
+                item(span = { GridItemSpan(spanCount) }) { guestPrompt() }
+            }
+
             // 1. 协会大卡片 (独占一行)
             if (association != null) {
                 item(span = { GridItemSpan(spanCount) }) {
@@ -197,6 +208,37 @@ fun DepartmentGrid(
                     icon = getIconForDepartment(dept.name),
                     onClick = { onItemClick(dept.name) }
                 )
+            }
+        }
+    }
+}
+
+/** 游客模式的首页引导：部门与公告需要协会账号，其余功能在上拉抽屉里可直接用。 */
+@Composable
+private fun GuestLoginCard(onLogin: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+        shadowElevation = 2.dp
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = "登录后查看各部门公告",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "部门公告、招新换届需要协会账号。课表、教务查询和上拉抽屉中的物品价值计算无需登录即可使用。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(onClick = onLogin) {
+                Text("登录 / 注册")
             }
         }
     }

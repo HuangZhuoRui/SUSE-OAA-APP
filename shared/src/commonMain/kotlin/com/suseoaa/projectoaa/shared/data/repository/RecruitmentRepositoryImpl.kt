@@ -1,12 +1,14 @@
 package com.suseoaa.projectoaa.shared.data.repository
 
 import com.suseoaa.projectoaa.shared.data.remote.api.OaaRecruitmentApi
+import com.suseoaa.projectoaa.shared.data.remote.api.OaaUserApi
 import com.suseoaa.projectoaa.shared.data.remote.api.decodeListLenient
 import com.suseoaa.projectoaa.shared.data.remote.api.toStringListLenient
 import com.suseoaa.projectoaa.shared.domain.error.AppError
 import com.suseoaa.projectoaa.shared.domain.error.appFailure
 import com.suseoaa.projectoaa.shared.domain.model.org.Department
 import com.suseoaa.projectoaa.shared.domain.model.org.Role
+import com.suseoaa.projectoaa.shared.domain.model.person.StoredFile
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.Application
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.ApplicationForm
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.ApplicationIdRequest
@@ -16,9 +18,11 @@ import com.suseoaa.projectoaa.shared.domain.model.recruitment.CreateInterviewers
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.CreateTermRequest
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.InterviewDecision
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.InterviewResult
+import com.suseoaa.projectoaa.shared.domain.model.recruitment.Interviewer
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.InterviewerEntry
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.InterviewerIdRequest
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.Period
+import com.suseoaa.projectoaa.shared.domain.model.recruitment.SCENE_APPLICATION_IMAGE
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.Term
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.TermIdRequest
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.UpdateApplicationRequest
@@ -35,13 +39,14 @@ import kotlinx.serialization.json.JsonElement
  */
 class RecruitmentRepositoryImpl(
     private val api: OaaRecruitmentApi,
-    private val json: Json
+    private val json: Json,
+    private val userApi: OaaUserApi? = null
 ) : RecruitmentRepository {
 
     // ==================== 周期 ====================
 
-    override suspend fun getTerms(): Result<List<Term>> =
-        api.terms(year = null, type = null).map { it.orEmpty() }
+    override suspend fun getTerms(year: Int?, type: String?): Result<List<Term>> =
+        api.terms(year = year, type = type?.ifBlank { null }).map { it.orEmpty() }
 
     override suspend fun createTerm(
         year: Int,
@@ -78,6 +83,17 @@ class RecruitmentRepositoryImpl(
 
     // ==================== 申请 ====================
 
+    override suspend fun uploadApplicationAvatar(imageData: ByteArray): Result<StoredFile> {
+        val uploader = userApi
+            ?: return appFailure(AppError.Business(userMessage = "图片上传服务未初始化"))
+        return uploader.uploadImage(
+            scene = SCENE_APPLICATION_IMAGE,
+            bytes = imageData,
+            fileName = "application.jpg",
+            mimeType = "image/jpeg"
+        )
+    }
+
     override suspend fun getMyApplications(): Result<List<Application>> =
         api.myApplications().decodeList("获取我的申请失败")
 
@@ -88,6 +104,7 @@ class RecruitmentRepositoryImpl(
                 college = form.college,
                 majorClass = form.majorClass,
                 gender = form.gender,
+                avatar = form.avatarUri,
                 phone = form.phone,
                 qq = form.qq,
                 politicalStatus = form.politicalStatus,
@@ -108,6 +125,7 @@ class RecruitmentRepositoryImpl(
                 college = form.college,
                 majorClass = form.majorClass,
                 gender = form.gender,
+                avatar = form.avatarUri.ifBlank { existing.avatar.uri },
                 phone = form.phone,
                 qq = form.qq,
                 politicalStatus = form.politicalStatus,
@@ -133,6 +151,9 @@ class RecruitmentRepositoryImpl(
         api.fillableDepartments(roleId).decodeList("获取可申请部门失败")
 
     // ==================== 面试 ====================
+
+    override suspend fun getInterviewers(termId: Int): Result<List<Interviewer>> =
+        api.interviewers(termId).decodeList("获取面试官列表失败")
 
     override suspend fun createInterviewers(termId: Int, interviewers: List<InterviewerEntry>): Result<Unit> =
         api.createInterviewers(CreateInterviewersRequest(termId = termId, interviewers = interviewers))

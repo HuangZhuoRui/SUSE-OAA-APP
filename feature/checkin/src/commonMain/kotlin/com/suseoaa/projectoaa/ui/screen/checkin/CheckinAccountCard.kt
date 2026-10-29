@@ -235,7 +235,7 @@ internal fun AccountCard(
     // 删除确认对话框
     if (showDeleteConfirm) {
         AlertDialog(
-            containerColor = MaterialTheme.colorScheme.background,
+            containerColor = MaterialTheme.colorScheme.surface,
             onDismissRequest = { showDeleteConfirm = false },
             icon = {
                 Icon(

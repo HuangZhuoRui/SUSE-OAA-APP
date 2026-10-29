@@ -49,6 +49,19 @@ internal fun FilterChipRow(
                 selected = selectedFilter == filter,
                 onClick = { onFilterSelect(filter) },
                 label = { Text(filter.displayName) },
+                colors = FilterChipDefaults.filterChipColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedLeadingIconColor = MaterialTheme.colorScheme.primary
+                ),
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = selectedFilter == filter,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    selectedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                ),
                 leadingIcon = if (selectedFilter == filter) {
                     {
                         Icon(

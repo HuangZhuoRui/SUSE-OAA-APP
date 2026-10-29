@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -94,7 +95,10 @@ fun DepartmentDetailScreen(
                 if (uiState.isSubmitting) {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 }
-                Box(
+                val hasCachedContent = uiState.active.isNotEmpty() || uiState.history.isNotEmpty() || uiState.drafts.isNotEmpty()
+                PullToRefreshBox(
+                    isRefreshing = uiState.isLoading && hasCachedContent,
+                    onRefresh = { viewModel.load(departmentName) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
@@ -102,7 +106,7 @@ fun DepartmentDetailScreen(
                     contentAlignment = Alignment.TopStart
                 ) {
                     when {
-                        uiState.isLoading && uiState.active.isEmpty() && uiState.history.isEmpty() -> {
+                        uiState.isLoading && !hasCachedContent -> {
                             CircularProgressIndicator(
                                 modifier = Modifier.align(Alignment.Center),
                                 color = MaterialTheme.colorScheme.primary
@@ -151,6 +155,7 @@ fun DepartmentDetailScreen(
 
     pendingDelete?.let { announcement ->
         AlertDialog(
+            containerColor = MaterialTheme.colorScheme.surface,
             onDismissRequest = { pendingDelete = null },
             title = { Text("删除公告") },
             text = { Text("确定删除「${announcement.title}」吗？") },
@@ -263,6 +268,8 @@ private fun AnnouncementList(
                         body = if (expanded) item.content else null,
                         actions = {
                             if (canManage) {
+                                TextButton(onClick = { onEdit(item) }) { Text("编辑") }
+                                TextButton(onClick = { onPublish(item) }) { Text("设为当前") }
                                 TextButton(onClick = { onDelete(item) }) {
                                     Text("删除", color = MaterialTheme.colorScheme.error)
                                 }

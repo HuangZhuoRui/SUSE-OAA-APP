@@ -74,8 +74,8 @@ class RegisterViewModel(
         val cleanRealName = currentState.realName.trim()
         val cleanUserName = currentState.userName.trim()
         val email = currentState.email.trim()
-        val cleanPassword = currentState.password.trim()
-        val cleanConfirmPassword = currentState.confirmPassword.trim()
+        val password = currentState.password
+        val confirmPassword = currentState.confirmPassword
 
         // 验证
         when {
@@ -94,22 +94,27 @@ class RegisterViewModel(
                 return
             }
 
-            cleanPassword.isBlank() -> {
-                _uiState.update { it.copy(errorMessage = "密码不能为空") }
-                return
-            }
-
             email.isBlank() -> {
+                _uiState.update { it.copy(errorMessage = "邮箱不能为空") }
+                return
+            }
+
+            !EMAIL_REGEX.matches(email) -> {
+                _uiState.update { it.copy(errorMessage = "邮箱格式不正确") }
+                return
+            }
+
+            password.isBlank() -> {
                 _uiState.update { it.copy(errorMessage = "密码不能为空") }
                 return
             }
 
-            cleanPassword.length < 6 -> {
+            password.length < 6 -> {
                 _uiState.update { it.copy(errorMessage = "密码长度至少6位") }
                 return
             }
 
-            cleanPassword != cleanConfirmPassword -> {
+            password != confirmPassword -> {
                 _uiState.update { it.copy(errorMessage = "两次密码输入不一致") }
                 return
             }
@@ -122,7 +127,7 @@ class RegisterViewModel(
                 studentId = cleanStudentId,
                 name = cleanRealName,
                 username = cleanUserName,
-                password = cleanPassword,
+                password = password,
                 email = email
             )
 
@@ -148,5 +153,9 @@ class RegisterViewModel(
 
     fun clearError() {
         _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    companion object {
+        private val EMAIL_REGEX = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
     }
 }

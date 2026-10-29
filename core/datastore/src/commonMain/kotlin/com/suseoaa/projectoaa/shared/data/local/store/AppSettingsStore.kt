@@ -64,6 +64,17 @@ class AppSettingsStore(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { it[Keys.UPDATE_DIALOG_SHOWN_VERSION] = version }
     }
 
+    // ---------- 游客模式 ----------
+    /**
+     * 用户在登录页选了「暂不登录」。之后没有登录态时直接进主页，不再停在登录页；
+     * 登录成功会把它清掉，这样退出登录后仍回到登录页。
+     */
+    val guestModeFlow: Flow<Boolean> = dataStore.data.map { it[Keys.GUEST_MODE] ?: false }
+
+    suspend fun saveGuestMode(enabled: Boolean) {
+        dataStore.edit { it[Keys.GUEST_MODE] = enabled }
+    }
+
     // ---------- 物品价值列表排序 ----------
     val assetSortTypeFlow: Flow<String?> = dataStore.data.map { it[Keys.ASSET_SORT_TYPE] }
 
@@ -78,6 +89,7 @@ class AppSettingsStore(private val dataStore: DataStore<Preferences>) {
         val LIQUID_GLASS_TABBAR_ENABLED = booleanPreferencesKey("liquid_glass_tabbar_enabled")
         val LIQUID_GLASS_TABBAR_STYLE = intPreferencesKey("liquid_glass_tabbar_style")
         val UPDATE_DIALOG_SHOWN_VERSION = stringPreferencesKey("update_dialog_shown_version")
+        val GUEST_MODE = booleanPreferencesKey("guest_mode")
         val ASSET_SORT_TYPE = stringPreferencesKey("asset_sort_type")
     }
 }

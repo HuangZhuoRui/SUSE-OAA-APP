@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.suseoaa.projectoaa.shared.domain.model.person.UserListItem
 import com.suseoaa.projectoaa.shared.domain.model.person.UserQuery
+import com.suseoaa.projectoaa.shared.domain.model.recruitment.Interviewer
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.InterviewerEntry
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.Period
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.Term
@@ -44,13 +45,19 @@ data class TermManagementUiState(
     val isSaving: Boolean = false,
     val message: String? = null,
     val terms: List<Term> = emptyList(),
+    /** 周期列表筛选条件（空串表示不限） */
+    val filterYear: String = "",
+    val filterType: String = "",
+    /** 当前选中周期下已指派的面试官列表（GET /interviewer/list） */
+    val interviewers: List<Interviewer> = emptyList(),
+    val isLoadingInterviewers: Boolean = false,
     /** 添加面试官时的成员搜索结果 */
     val userResults: List<UserListItem> = emptyList(),
     val isSearchingUsers: Boolean = false
 )
 
 /**
- * 招新换届 —— 管理员视角：维护周期、指定面试官。后端要求 level >= 80。
+ * 招新换届 —— 管理员视角：维护周期、指定 / 修改 / 移除面试官。后端要求 level >= 80。
  */
 class TermManagementViewModel(
     private val recruitmentRepository: RecruitmentRepository,
@@ -61,6 +68,8 @@ class TermManagementViewModel(
     val uiState: StateFlow<TermManagementUiState> = _uiState.asStateFlow()
 
     private var initialized = false
+    /** 通过 is_all=true 预拉取的全部可见成员缓存，用于快速筛选面试官候选人 */
+    private var allMembersCache: List<UserListItem> = emptyList()
 
     fun ensureLoaded() {
         if (initialized) return
@@ -68,10 +77,28 @@ class TermManagementViewModel(
         reload()
     }
 
+    fun updateFilters(year: String? = null, type: String? = null, autoReload: Boolean = false) {
+        _uiState.update {
+            it.copy(
+                filterYear = year ?: it.filterYear,
+                filterType = type ?: it.filterType
+            )
+        }
+        if (autoReload) reload()
+    }
+
     fun reload() {
+        val state = _uiState.value
+        val yearFilter = state.filterYear.trim().let { raw ->
+            if (raw.isEmpty()) null else raw.toIntOrNull() ?: run {
+                _uiState.update { it.copy(message = "请输入有效的四位年份") }
+                return
+            }
+        }
+        val typeFilter = state.filterType.ifBlank { null }
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            recruitmentRepository.getTerms()
+            recruitmentRepository.getTerms(year = yearFilter, type = typeFilter)
                 .onSuccess { terms ->
                     _uiState.update {
                         it.copy(isLoading = false, terms = terms.sortedByDescending { t -> t.editPeriod.startAt })
@@ -110,14 +137,72 @@ class TermManagementViewModel(
         recruitmentRepository.deleteTerm(term.resolvedId)
     }
 
+    /** 打开某周期的面试官管理弹窗时加载当前面试官列表，并利用 is_all=true 预加载可选成员。 */
+    fun openInterviewerManager(term: Term) {
+        loadInterviewers(term.resolvedId)
+        if (allMembersCache.isEmpty()) {
+            viewModelScope.launch {
+                _uiState.update { it.copy(isSearchingUsers = true) }
+                val result = userManagementRepository.listUsers(UserQuery(isAll = true))
+                val members = result.getOrNull()?.list?.distinctBy { it.userId }.orEmpty()
+                allMembersCache = members
+                _uiState.update {
+                    it.copy(
+                        isSearchingUsers = false,
+                        userResults = members
+                    )
+                }
+            }
+        } else {
+            _uiState.update { it.copy(userResults = allMembersCache) }
+        }
+    }
+
+    fun loadInterviewers(termId: Int) {
+        if (termId <= 0) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingInterviewers = true) }
+            recruitmentRepository.getInterviewers(termId)
+                .onSuccess { list ->
+                    _uiState.update { it.copy(isLoadingInterviewers = false, interviewers = list) }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            isLoadingInterviewers = false,
+                            interviewers = emptyList(),
+                            message = error.message ?: "获取面试官列表失败"
+                        )
+                    }
+                }
+        }
+    }
+
     fun searchUsers(keyword: String) {
-        if (keyword.isBlank()) {
-            _uiState.update { it.copy(userResults = emptyList()) }
+        val clean = keyword.trim()
+        if (allMembersCache.isNotEmpty()) {
+            val filtered = if (clean.isEmpty()) {
+                allMembersCache
+            } else {
+                allMembersCache.filter { user ->
+                    user.name.contains(clean, ignoreCase = true) ||
+                        user.username.contains(clean, ignoreCase = true) ||
+                        user.studentId.contains(clean, ignoreCase = true) ||
+                        user.department.contains(clean, ignoreCase = true) ||
+                        user.role.contains(clean, ignoreCase = true) ||
+                        user.resolvedGrade?.toString()?.contains(clean) == true
+                }
+            }
+            _uiState.update { it.copy(userResults = filtered) }
+            if (filtered.isNotEmpty() || clean.isEmpty()) return
+        }
+        if (clean.isEmpty()) {
+            _uiState.update { it.copy(userResults = allMembersCache) }
             return
         }
         viewModelScope.launch {
             _uiState.update { it.copy(isSearchingUsers = true) }
-            val result = userManagementRepository.listUsers(UserQuery(keyword = keyword.trim(), pageSize = 20))
+            val result = userManagementRepository.listUsers(UserQuery(keyword = clean, isAll = true))
             _uiState.update {
                 it.copy(
                     isSearchingUsers = false,
@@ -133,11 +218,55 @@ class TermManagementViewModel(
             _uiState.update { it.copy(message = "请至少选择一名面试官") }
             return
         }
-        runAction("已添加 ${users.size} 名面试官") {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true) }
             recruitmentRepository.createInterviewers(
                 termId = term.resolvedId,
                 interviewers = users.map { InterviewerEntry(userId = it.userId, remark = remark.ifBlank { it.name }) }
-            )
+            ).onSuccess {
+                _uiState.update { it.copy(isSaving = false, message = "已添加 ${users.size} 名面试官") }
+                loadInterviewers(term.resolvedId)
+            }.onFailure { error ->
+                _uiState.update { it.copy(isSaving = false, message = error.message ?: "添加面试官失败") }
+            }
+        }
+    }
+
+    fun updateInterviewerRemark(term: Term, interviewer: Interviewer, remark: String) {
+        val id = interviewer.resolvedId
+        if (id == 0) {
+            _uiState.update { it.copy(message = "后端未返回面试官编号，无法修改") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true) }
+            recruitmentRepository.updateInterviewer(interviewerId = id, remark = remark.trim())
+                .onSuccess {
+                    _uiState.update { it.copy(isSaving = false, message = "已更新「${interviewer.displayName}」备注") }
+                    loadInterviewers(term.resolvedId)
+                }
+                .onFailure { error ->
+                    _uiState.update { it.copy(isSaving = false, message = error.message ?: "更新面试官失败") }
+                }
+        }
+    }
+
+    fun removeInterviewer(term: Term, interviewer: Interviewer) {
+        val id = interviewer.resolvedId
+        if (id == 0) {
+            _uiState.update { it.copy(message = "后端未返回面试官编号，无法移除") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true) }
+            recruitmentRepository.deleteInterviewer(interviewerId = id)
+                .onSuccess {
+                    _uiState.update { it.copy(isSaving = false, message = "已移除面试官「${interviewer.displayName}」") }
+                    loadInterviewers(term.resolvedId)
+                }
+                .onFailure { error ->
+                    _uiState.update { it.copy(isSaving = false, message = error.message ?: "移除面试官失败") }
+                }
         }
     }
 

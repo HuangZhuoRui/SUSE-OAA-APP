@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -96,11 +97,18 @@ fun RecruitmentScreen(
     ) { modifier ->
         Column(modifier = modifier.fillMaxSize()) {
             if (tabs.size > 1) {
-                PrimaryTabRow(selectedTabIndex = tabs.indexOf(selectedTab)) {
+                PrimaryTabRow(
+                    selectedTabIndex = tabs.indexOf(selectedTab),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary
+                ) {
                     tabs.forEachIndexed { index, tab ->
+                        val selected = tab == selectedTab
                         Tab(
-                            selected = tab == selectedTab,
+                            selected = selected,
                             onClick = { selectedIndex = index },
+                            selectedContentColor = MaterialTheme.colorScheme.primary,
+                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             text = { Text(tab.title) }
                         )
                     }
@@ -115,8 +123,10 @@ fun RecruitmentScreen(
                         onRefresh = viewModel::loadInitialData,
                         onSelectTerm = viewModel::selectTerm,
                         onUpdateForm = viewModel::updateForm,
+                        onUploadAvatar = viewModel::uploadAvatar,
                         onSelectDepartment = viewModel::selectDepartment,
                         onSelectRole = viewModel::selectRole,
+                        onClearChoice = viewModel::clearChoice,
                         onSubmit = viewModel::submitApplication,
                         onWithdraw = viewModel::deleteApplication,
                         modifier = contentModifier
@@ -131,10 +141,15 @@ fun RecruitmentScreen(
                     )
                     RecruitmentTab.Terms -> TermManagementTab(
                         uiState = termState,
+                        onUpdateFilters = termViewModel::updateFilters,
+                        onRefresh = termViewModel::reload,
                         onSaveTerm = termViewModel::saveTerm,
                         onDeleteTerm = termViewModel::deleteTerm,
+                        onOpenInterviewerManager = termViewModel::openInterviewerManager,
                         onSearchUsers = termViewModel::searchUsers,
                         onAddInterviewers = termViewModel::addInterviewers,
+                        onUpdateInterviewerRemark = termViewModel::updateInterviewerRemark,
+                        onRemoveInterviewer = termViewModel::removeInterviewer,
                         modifier = contentModifier
                     )
                 }

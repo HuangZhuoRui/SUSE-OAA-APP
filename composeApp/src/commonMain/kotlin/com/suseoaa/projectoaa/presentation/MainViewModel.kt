@@ -86,13 +86,18 @@ class MainViewModel(
     /**
      * 启动目标页面 - 根据软件账号 Token 是否存在决定
      * 使用 tokenFlow (JWT Token) 而不是 currentStudentId (教务系统学号)
+     * 没登录但选过「暂不登录」的直接进主页：课表、教务、计算器等功能不需要协会账号
      * 初始值为 null，表示正在加载，防止登录页闪烁
      */
-    val startDestination: StateFlow<String?> = combine(sessionStore.tokenFlow, sessionMigrated) { token, migrated ->
+    val startDestination: StateFlow<String?> = combine(
+        sessionStore.tokenFlow,
+        sessionMigrated,
+        appSettingsStore.guestModeFlow
+    ) { token, migrated, guestMode ->
             when {
                 !migrated -> null
-                token.isNullOrEmpty() -> Screen.Login.route
-                else -> Screen.Main.route
+                !token.isNullOrEmpty() || guestMode -> Screen.Main.route
+                else -> Screen.Login.route
             }
         }
         .stateIn(

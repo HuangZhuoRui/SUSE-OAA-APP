@@ -20,6 +20,8 @@ data class ForgetPasswordUiState(
     val confirmPassword: String = "",
     val emailCode: String = "",
     val isLoading: Boolean = false,
+    val isSendingCode: Boolean = false,
+    val codeSentCount: Int = 0,
     val errorMessage: String? = null,
     val successMessage: String? = null,
     val isSuccess: Boolean = false
@@ -87,6 +89,7 @@ class ForgetPasswordViewModel(
 
     /** 获取邮箱验证码 */
     fun getEmailCode() {
+        if (_uiState.value.isSendingCode) return
         val account = _uiState.value.account.trim()
         if (account.isBlank()) {
             _uiState.update { it.copy(errorMessage = "请输入账号") }
@@ -94,10 +97,25 @@ class ForgetPasswordViewModel(
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(errorMessage = null) }
+            _uiState.update { it.copy(isSendingCode = true, errorMessage = null) }
             authRepository.sendResetPasswordCode(account)
-                .onSuccess { msg -> _uiState.update { it.copy(successMessage = msg) } }
-                .onFailure { e -> _uiState.update { it.copy(errorMessage = e.message ?: "发送失败") } }
+                .onSuccess { msg ->
+                    _uiState.update {
+                        it.copy(
+                            isSendingCode = false,
+                            codeSentCount = it.codeSentCount + 1,
+                            successMessage = msg
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            isSendingCode = false,
+                            errorMessage = e.message ?: "发送失败"
+                        )
+                    }
+                }
         }
     }
 }

@@ -339,7 +339,7 @@ fun CheckinScreen(
     // Session过期重新登录对话框
     if (uiState.showReloginDialog && uiState.accountNeedRelogin != null) {
         AlertDialog(
-            containerColor = MaterialTheme.colorScheme.background,
+            containerColor = MaterialTheme.colorScheme.surface,
             onDismissRequest = { viewModel.hideReloginDialog() },
             icon = {
                 Icon(
@@ -432,6 +432,23 @@ private fun AccountFilterBar(
         modifier = Modifier.fillMaxWidth(),
         tonalElevation = 1.dp
     ) {
+        val filterChipColors = FilterChipDefaults.filterChipColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            iconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            selectedLeadingIconColor = MaterialTheme.colorScheme.primary
+        )
+
+        @Composable
+        fun filterBorder(selected: Boolean) = FilterChipDefaults.filterChipBorder(
+            enabled = true,
+            selected = selected,
+            borderColor = MaterialTheme.colorScheme.outlineVariant,
+            selectedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+        )
+
         Column(modifier = Modifier.fillMaxWidth()) {
             // 第一行：按登录类型筛选
             Row(
@@ -445,6 +462,8 @@ private fun AccountFilterBar(
                     selected = currentFilter == AccountFilterType.ALL,
                     onClick = { onFilterChange(AccountFilterType.ALL) },
                     label = { Text("全部 (${passwordCount + qrCodeCount})") },
+                    colors = filterChipColors,
+                    border = filterBorder(currentFilter == AccountFilterType.ALL),
                     leadingIcon = if (currentFilter == AccountFilterType.ALL) {
                         { Icon(Icons.Default.Check, null, modifier = Modifier.size(18.dp)) }
                     } else null
@@ -455,6 +474,8 @@ private fun AccountFilterBar(
                     selected = currentFilter == AccountFilterType.PASSWORD,
                     onClick = { onFilterChange(AccountFilterType.PASSWORD) },
                     label = { Text("密码 ($passwordCount)") },
+                    colors = filterChipColors,
+                    border = filterBorder(currentFilter == AccountFilterType.PASSWORD),
                     leadingIcon = if (currentFilter == AccountFilterType.PASSWORD) {
                         { Icon(Icons.Default.Check, null, modifier = Modifier.size(18.dp)) }
                     } else {
@@ -467,6 +488,8 @@ private fun AccountFilterBar(
                     selected = currentFilter == AccountFilterType.QRCODE,
                     onClick = { onFilterChange(AccountFilterType.QRCODE) },
                     label = { Text("扫码 ($qrCodeCount)") },
+                    colors = filterChipColors,
+                    border = filterBorder(currentFilter == AccountFilterType.QRCODE),
                     leadingIcon = if (currentFilter == AccountFilterType.QRCODE) {
                         { Icon(Icons.Default.Check, null, modifier = Modifier.size(18.dp)) }
                     } else {
@@ -487,6 +510,8 @@ private fun AccountFilterBar(
                     selected = currentFilter == AccountFilterType.CAMPUS_YIBIN,
                     onClick = { onFilterChange(AccountFilterType.CAMPUS_YIBIN) },
                     label = { Text("宜宾 ($yibinCount)") },
+                    colors = filterChipColors,
+                    border = filterBorder(currentFilter == AccountFilterType.CAMPUS_YIBIN),
                     leadingIcon = if (currentFilter == AccountFilterType.CAMPUS_YIBIN) {
                         { Icon(Icons.Default.Check, null, modifier = Modifier.size(18.dp)) }
                     } else {
@@ -499,6 +524,8 @@ private fun AccountFilterBar(
                     selected = currentFilter == AccountFilterType.CAMPUS_LIBAIHE,
                     onClick = { onFilterChange(AccountFilterType.CAMPUS_LIBAIHE) },
                     label = { Text("李白河 ($libaiheCount)") },
+                    colors = filterChipColors,
+                    border = filterBorder(currentFilter == AccountFilterType.CAMPUS_LIBAIHE),
                     leadingIcon = if (currentFilter == AccountFilterType.CAMPUS_LIBAIHE) {
                         { Icon(Icons.Default.Check, null, modifier = Modifier.size(18.dp)) }
                     } else {
@@ -511,6 +538,8 @@ private fun AccountFilterBar(
                     selected = currentFilter == AccountFilterType.CAMPUS_HUIDONG,
                     onClick = { onFilterChange(AccountFilterType.CAMPUS_HUIDONG) },
                     label = { Text("汇东 ($huidongCount)") },
+                    colors = filterChipColors,
+                    border = filterBorder(currentFilter == AccountFilterType.CAMPUS_HUIDONG),
                     leadingIcon = if (currentFilter == AccountFilterType.CAMPUS_HUIDONG) {
                         { Icon(Icons.Default.Check, null, modifier = Modifier.size(18.dp)) }
                     } else {

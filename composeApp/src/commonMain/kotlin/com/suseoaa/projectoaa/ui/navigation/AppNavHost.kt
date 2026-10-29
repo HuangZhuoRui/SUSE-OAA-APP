@@ -88,18 +88,22 @@ fun AppNavHost(
         startDestination = startDestination
     ) {
         composable(Screen.Login.route) {
+            // 游客也可能从主页进到这里登录，所以两种出口都清空整个返回栈、重建主页，
+            // 让主页各 Tab 按新的登录态重新加载
+            val enterMain = {
+                navController.navigate(Screen.Main.route) {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
             LoginScreen(
-                onLoginSuccess = {
-                    navController.navigate(Screen.Main.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
-                    }
-                },
+                onLoginSuccess = enterMain,
                 onNavigateToRegister = {
                     navController.navigate(Screen.Register.route)
                 },
                 onNavigateToForgetPassword = {
                     navController.navigate(Screen.ForgetPassword.route)
-                }
+                },
+                onContinueAsGuest = enterMain
             )
         }
 

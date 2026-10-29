@@ -168,7 +168,7 @@ val sharedModule = module {
     single<PersonRepository> { PersonRepositoryImpl(get(), get(), get(), get()) }
     single<UserManagementRepository> { UserManagementRepositoryImpl(get()) }
     single<AnnouncementRepository> { AnnouncementRepositoryImpl(get(), get()) }
-    single<RecruitmentRepository> { RecruitmentRepositoryImpl(get(), get()) }
+    single<RecruitmentRepository> { RecruitmentRepositoryImpl(get(), get(), get()) }
 
     // ==================== 教务系统 API ====================
     // 教务系统专用 HttpClient

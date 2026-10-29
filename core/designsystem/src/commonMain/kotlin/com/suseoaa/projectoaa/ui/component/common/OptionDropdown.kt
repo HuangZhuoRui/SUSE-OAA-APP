@@ -55,7 +55,14 @@ fun <T> OptionDropdown(
             shape = RoundedCornerShape(10.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                focusedLabelColor = MaterialTheme.colorScheme.primary,
+                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                focusedTrailingIconColor = MaterialTheme.colorScheme.primary,
+                unfocusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
             ),
             modifier = Modifier
                 .fillMaxWidth()
@@ -64,11 +71,22 @@ fun <T> OptionDropdown(
 
         ExposedDropdownMenu(
             expanded = expanded && canOpen,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = { expanded = false },
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             options.forEach { option ->
+                val isSelected = option == selected
                 DropdownMenuItem(
-                    text = { Text(optionLabel(option)) },
+                    text = {
+                        Text(
+                            text = optionLabel(option),
+                            color = if (isSelected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            }
+                        )
+                    },
                     onClick = {
                         onSelect(option)
                         expanded = false

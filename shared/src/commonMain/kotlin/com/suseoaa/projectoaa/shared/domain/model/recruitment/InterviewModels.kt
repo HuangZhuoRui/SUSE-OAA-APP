@@ -1,7 +1,34 @@
 package com.suseoaa.projectoaa.shared.domain.model.recruitment
 
+import com.suseoaa.projectoaa.shared.domain.model.person.StoredFile
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+
+/**
+ * GET /interviewer/list 的单条面试官记录。
+ *
+ * 兼容后端可能返回 `interviewer_id` 或 `id` 作为主键，其余成员信息字段均设为可选。
+ */
+@Serializable
+data class Interviewer(
+    @SerialName("interviewer_id") val interviewerId: Int = 0,
+    @SerialName("id") val id: Int = 0,
+    @SerialName("term_id") val termId: Int = 0,
+    @SerialName("user_id") val userId: Int = 0,
+    @SerialName("student_id") val studentId: String = "",
+    @SerialName("username") val username: String = "",
+    @SerialName("name") val name: String = "",
+    @SerialName("department") val department: String = "",
+    @SerialName("role") val role: String = "",
+    @SerialName("grade") val grade: Int? = null,
+    @SerialName("remark") val remark: String = "",
+    @SerialName("avatar") val avatar: StoredFile = StoredFile(),
+    @SerialName("created_at") val createdAt: String = "",
+    @SerialName("updated_at") val updatedAt: String = ""
+) {
+    val resolvedId: Int get() = if (interviewerId != 0) interviewerId else id
+    val displayName: String get() = name.ifBlank { username }.ifBlank { remark }.ifBlank { "成员 #$userId" }
+}
 
 @Serializable
 data class InterviewerEntry(
@@ -30,7 +57,7 @@ data class InterviewerIdRequest(
 /**
  * 面试结果。
  *
- * GET /interviewer/result/list 文档没给响应结构，字段按创建 / 更新接口的请求体推测，
+ * GET /interviewer/result/list 文档没给响应结构，字段按创建 / 更新接口请求体及线上真实返回结构声明，
  * 全部可选。
  */
 @Serializable
@@ -38,11 +65,18 @@ data class InterviewResult(
     @SerialName("interview_result_id") val interviewResultId: Int = 0,
     @SerialName("id") val id: Int = 0,
     @SerialName("application_id") val applicationId: Int = 0,
+    @SerialName("term_id") val termId: Int = 0,
+    @SerialName("user_id") val userId: Int = 0,
+    @SerialName("name") val name: String = "",
     @SerialName("decision") val decision: String = "",
     @SerialName("result_department_id") val resultDepartmentId: Int = 0,
     @SerialName("result_role_id") val resultRoleId: Int = 0,
     @SerialName("remark") val remark: String = "",
     @SerialName("interviewer_id") val interviewerId: Int = 0,
+    @SerialName("operator_user_id") val operatorUserId: Int = 0,
+    @SerialName("operator_name") val operatorName: String = "",
+    @SerialName("executed_at") val executedAt: String? = null,
+    @SerialName("created_at") val createdAt: String = "",
     @SerialName("updated_at") val updatedAt: String = ""
 ) {
     val resolvedId: Int get() = if (interviewResultId != 0) interviewResultId else id

@@ -33,7 +33,7 @@ internal fun getCategoryColor(categoryName: String): Color {
         categoryName.contains("必修") -> MaterialTheme.colorScheme.primary
         categoryName.contains("选修") -> MaterialTheme.colorScheme.tertiary
         categoryName.contains("实践") -> MaterialTheme.colorScheme.secondary
-        categoryName.contains("通识") -> Color(0xFF9C27B0)
+        categoryName.contains("通识") -> Color(0xFF5856D6)
         else -> MaterialTheme.colorScheme.primary
     }
 }

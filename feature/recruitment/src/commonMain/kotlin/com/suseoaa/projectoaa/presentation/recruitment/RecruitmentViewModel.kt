@@ -32,6 +32,7 @@ enum class ChoiceSlot { First, Second }
 data class RecruitmentUiState(
     val isLoading: Boolean = false,
     val isSubmitting: Boolean = false,
+    val isUploadingAvatar: Boolean = false,
     val errorMessage: String? = null,
     val successMessage: String? = null,
     val currentUser: CurrentUser? = null,
@@ -43,13 +44,30 @@ data class RecruitmentUiState(
     /** 当前周期里我已提交的申请，没有则为 null */
     val myApplication: Application? = null,
     val form: ApplicationForm = ApplicationForm(),
-    /** 两个志愿各自所选部门下可申请的职位 */
-    val firstChoiceRoles: List<Role> = emptyList(),
-    val secondChoiceRoles: List<Role> = emptyList()
+    /** 本次新选并上传成功的本地图片字节，用于界面即时无闪烁预览 */
+    val localAvatarBytes: ByteArray? = null,
+    /** 按已选职位过滤出的可申请部门；null 表示未按职位过滤，展示全部启用部门 */
+    val firstChoiceDepartments: List<Department>? = null,
+    val secondChoiceDepartments: List<Department>? = null,
+    /** 按已选部门过滤出的可申请职位；null 表示未按部门过滤，展示全部启用职位 */
+    val firstChoiceRoles: List<Role>? = null,
+    val secondChoiceRoles: List<Role>? = null
 ) {
     val canEdit: Boolean get() = phase == TermPhase.Editing
     val canReview: Boolean get() = OaaPermission.canReviewApplications(currentUser)
     val canManageTerms: Boolean get() = OaaPermission.canManageTerms(currentUser)
+
+    fun departmentsFor(slot: ChoiceSlot): List<Department> =
+        when (slot) {
+            ChoiceSlot.First -> firstChoiceDepartments
+            ChoiceSlot.Second -> secondChoiceDepartments
+        } ?: departments.filter { it.isActive }
+
+    fun rolesFor(slot: ChoiceSlot): List<Role> =
+        when (slot) {
+            ChoiceSlot.First -> firstChoiceRoles
+            ChoiceSlot.Second -> secondChoiceRoles
+        } ?: roles.filter { it.isActive }
 
     fun departmentName(id: Int): String = departments.firstOrNull { it.id == id }?.name ?: "未知部门"
     fun roleName(id: Int): String = roles.firstOrNull { it.id == id }?.name ?: "未知职位"
@@ -69,6 +87,8 @@ class RecruitmentViewModel(
 
     /** 部门 ID -> 可申请的职位，避免来回切换时重复请求 */
     private val fillableRolesCache = mutableMapOf<Int, List<Role>>()
+    /** 职位 ID -> 可申请的部门，避免来回切换时重复请求 */
+    private val fillableDepartmentsCache = mutableMapOf<Int, List<Department>>()
     private var myApplications: List<Application> = emptyList()
 
     init {
@@ -106,13 +126,18 @@ class RecruitmentViewModel(
                 phase = term?.phaseOn(today()),
                 myApplication = application,
                 form = application?.toForm() ?: ApplicationForm(),
-                firstChoiceRoles = emptyList(),
-                secondChoiceRoles = emptyList()
+                localAvatarBytes = null,
+                firstChoiceDepartments = null,
+                secondChoiceDepartments = null,
+                firstChoiceRoles = null,
+                secondChoiceRoles = null
             )
         }
         application?.let {
-            loadRolesFor(ChoiceSlot.First, it.firstChoice.departmentId)
-            loadRolesFor(ChoiceSlot.Second, it.secondChoice.departmentId)
+            loadRolesFor(ChoiceSlot.First, it.firstChoice.departmentId, keepValidSelection = true)
+            loadDepartmentsFor(ChoiceSlot.First, it.firstChoice.roleId, keepValidSelection = true)
+            loadRolesFor(ChoiceSlot.Second, it.secondChoice.departmentId, keepValidSelection = true)
+            loadDepartmentsFor(ChoiceSlot.Second, it.secondChoice.roleId, keepValidSelection = true)
         }
     }
 
@@ -120,14 +145,60 @@ class RecruitmentViewModel(
         _uiState.update { it.copy(form = updater(it.form)) }
     }
 
-    /** 换部门时清空已选职位，因为不同部门可申请的职位不一样。 */
-    fun selectDepartment(slot: ChoiceSlot, department: Department) {
-        updateChoice(slot) { Choice(departmentId = department.id, roleId = 0) }
-        loadRolesFor(slot, department.id)
+    /** 上传申请表个人照片（POST /upload/image，scene = application），成功后回填 URI 与预览地址。 */
+    fun uploadAvatar(imageData: ByteArray) {
+        if (!_uiState.value.canEdit) {
+            _uiState.update { it.copy(errorMessage = "当前不在填写时间内，无法上传照片") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isUploadingAvatar = true, errorMessage = null) }
+            recruitmentRepository.uploadApplicationAvatar(imageData)
+                .onSuccess { stored ->
+                    _uiState.update {
+                        it.copy(
+                            isUploadingAvatar = false,
+                            localAvatarBytes = imageData,
+                            form = it.form.copy(
+                                avatarUri = stored.uri,
+                                avatarUrl = stored.url
+                            ),
+                            successMessage = "照片上传成功"
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            isUploadingAvatar = false,
+                            errorMessage = "照片上传失败：${error.message ?: "请稍后重试"}"
+                        )
+                    }
+                }
+        }
     }
 
+    /** 选部门后联动拉取该部门可申请的职位（GET /application/role）；若原已选职位不兼容则自动清空职位。 */
+    fun selectDepartment(slot: ChoiceSlot, department: Department) {
+        updateChoice(slot) { it.copy(departmentId = department.id) }
+        loadRolesFor(slot, department.id, keepValidSelection = true)
+    }
+
+    /** 选职位后联动拉取该职位可申请的部门（GET /application/department）；若原已选部门不兼容则自动清空部门。 */
     fun selectRole(slot: ChoiceSlot, role: Role) {
         updateChoice(slot) { it.copy(roleId = role.id) }
+        loadDepartmentsFor(slot, role.id, keepValidSelection = true)
+    }
+
+    /** 清空某个志愿的已选项与双向过滤条件，方便重新按部门或职位任意顺序选择。 */
+    fun clearChoice(slot: ChoiceSlot) {
+        updateChoice(slot) { Choice() }
+        _uiState.update {
+            when (slot) {
+                ChoiceSlot.First -> it.copy(firstChoiceDepartments = null, firstChoiceRoles = null)
+                ChoiceSlot.Second -> it.copy(secondChoiceDepartments = null, secondChoiceRoles = null)
+            }
+        }
     }
 
     fun submitApplication() {
@@ -135,6 +206,10 @@ class RecruitmentViewModel(
         val term = state.selectedTerm
         if (term == null || !state.canEdit) {
             _uiState.update { it.copy(errorMessage = "当前不在填写时间内，无法提交或修改") }
+            return
+        }
+        if (state.isUploadingAvatar) {
+            _uiState.update { it.copy(errorMessage = "照片正在上传中，请稍候") }
             return
         }
         validate(state.form)?.let { error ->
@@ -195,7 +270,7 @@ class RecruitmentViewModel(
         }
     }
 
-    private fun loadRolesFor(slot: ChoiceSlot, departmentId: Int) {
+    private fun loadRolesFor(slot: ChoiceSlot, departmentId: Int, keepValidSelection: Boolean = false) {
         if (departmentId <= 0) return
         viewModelScope.launch {
             val roles = fillableRolesCache[departmentId]
@@ -204,16 +279,62 @@ class RecruitmentViewModel(
                     ?.also { fillableRolesCache[departmentId] = it }
                 // 接口拿不到时退回全部启用的职位，由后端在提交时校验
                 ?: _uiState.value.roles.filter { it.isActive }
-            _uiState.update {
-                when (slot) {
-                    ChoiceSlot.First -> it.copy(firstChoiceRoles = roles)
-                    ChoiceSlot.Second -> it.copy(secondChoiceRoles = roles)
+            _uiState.update { state ->
+                val updatedState = when (slot) {
+                    ChoiceSlot.First -> state.copy(firstChoiceRoles = roles)
+                    ChoiceSlot.Second -> state.copy(secondChoiceRoles = roles)
+                }
+                val currentChoice = when (slot) {
+                    ChoiceSlot.First -> updatedState.form.firstChoice
+                    ChoiceSlot.Second -> updatedState.form.secondChoice
+                }
+                if (currentChoice.roleId > 0 && (!keepValidSelection || roles.none { r -> r.id == currentChoice.roleId })) {
+                    val resetChoice = currentChoice.copy(roleId = 0)
+                    val newForm = when (slot) {
+                        ChoiceSlot.First -> updatedState.form.copy(firstChoice = resetChoice)
+                        ChoiceSlot.Second -> updatedState.form.copy(secondChoice = resetChoice)
+                    }
+                    updatedState.copy(form = newForm)
+                } else {
+                    updatedState
+                }
+            }
+        }
+    }
+
+    private fun loadDepartmentsFor(slot: ChoiceSlot, roleId: Int, keepValidSelection: Boolean = false) {
+        if (roleId <= 0) return
+        viewModelScope.launch {
+            val departments = fillableDepartmentsCache[roleId]
+                ?: recruitmentRepository.getFillableDepartments(roleId).getOrNull()
+                    ?.takeIf { it.isNotEmpty() }
+                    ?.also { fillableDepartmentsCache[roleId] = it }
+                ?: _uiState.value.departments.filter { it.isActive }
+            _uiState.update { state ->
+                val updatedState = when (slot) {
+                    ChoiceSlot.First -> state.copy(firstChoiceDepartments = departments)
+                    ChoiceSlot.Second -> state.copy(secondChoiceDepartments = departments)
+                }
+                val currentChoice = when (slot) {
+                    ChoiceSlot.First -> updatedState.form.firstChoice
+                    ChoiceSlot.Second -> updatedState.form.secondChoice
+                }
+                if (currentChoice.departmentId > 0 && (!keepValidSelection || departments.none { d -> d.id == currentChoice.departmentId })) {
+                    val resetChoice = currentChoice.copy(departmentId = 0)
+                    val newForm = when (slot) {
+                        ChoiceSlot.First -> updatedState.form.copy(firstChoice = resetChoice)
+                        ChoiceSlot.Second -> updatedState.form.copy(secondChoice = resetChoice)
+                    }
+                    updatedState.copy(form = newForm)
+                } else {
+                    updatedState
                 }
             }
         }
     }
 
     private fun validate(form: ApplicationForm): String? {
+        if (form.avatarUri.isBlank()) return "请上传申请表个人照片"
         val required = listOf(
             "学院" to form.college,
             "专业班级" to form.majorClass,

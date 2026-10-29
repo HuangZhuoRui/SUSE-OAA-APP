@@ -37,7 +37,7 @@ internal fun AccountSelectionDialog(
     onDismiss: () -> Unit
 ) {
     AlertDialog(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 6.dp,
         onDismissRequest = onDismiss,
         title = {
@@ -161,7 +161,7 @@ internal fun OverlapAccountSelectionDialog(
     }
 
     AlertDialog(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = onDismiss,
         title = {
             Text(

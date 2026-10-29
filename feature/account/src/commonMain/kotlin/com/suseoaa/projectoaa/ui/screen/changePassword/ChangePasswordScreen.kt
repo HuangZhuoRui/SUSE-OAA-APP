@@ -2,10 +2,13 @@ package com.suseoaa.projectoaa.ui.screen.changepassword
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -59,6 +62,8 @@ fun ChangePasswordScreen(
     ) { contentModifier ->
         Column(
             modifier = contentModifier
+                .verticalScroll(rememberScrollState())
+                .imePadding()
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top
@@ -81,10 +86,9 @@ fun ChangePasswordScreen(
                 trailingIcon = {
                     IconButton(onClick = { isOldPasswordVisible = !isOldPasswordVisible }) {
                         Icon(
-                            imageVector = Icons.Filled.Lock,
+                            imageVector = if (isOldPasswordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
                             contentDescription = if (isOldPasswordVisible) "隐藏密码" else "显示密码",
-                            tint = if (isOldPasswordVisible) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 })
@@ -106,10 +110,9 @@ fun ChangePasswordScreen(
                 trailingIcon = {
                     IconButton(onClick = { isNewPasswordVisible = !isNewPasswordVisible }) {
                         Icon(
-                            imageVector = Icons.Filled.Lock,
+                            imageVector = if (isNewPasswordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
                             contentDescription = if (isNewPasswordVisible) "隐藏密码" else "显示密码",
-                            tint = if (isNewPasswordVisible) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 })
@@ -134,10 +137,9 @@ fun ChangePasswordScreen(
                         isConfirmPasswordVisible = !isConfirmPasswordVisible
                     }) {
                         Icon(
-                            imageVector = Icons.Filled.Lock,
+                            imageVector = if (isConfirmPasswordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
                             contentDescription = if (isConfirmPasswordVisible) "隐藏密码" else "显示密码",
-                            tint = if (isConfirmPasswordVisible) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 })

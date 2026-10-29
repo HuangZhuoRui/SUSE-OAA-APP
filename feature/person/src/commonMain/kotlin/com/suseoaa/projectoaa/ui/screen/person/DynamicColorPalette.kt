@@ -191,15 +191,23 @@ internal fun DynamicColorPaletteDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                PrimaryTabRow(selectedTabIndex = selectedMode) {
+                PrimaryTabRow(
+                    selectedTabIndex = selectedMode,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary
+                ) {
                     Tab(
                         selected = selectedMode == 0,
                         onClick = { selectedMode = 0 },
+                        selectedContentColor = MaterialTheme.colorScheme.primary,
+                        unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         text = { Text("亮色模式") }
                     )
                     Tab(
                         selected = selectedMode == 1,
                         onClick = { selectedMode = 1 },
+                        selectedContentColor = MaterialTheme.colorScheme.primary,
+                        unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         text = { Text("暗色模式") }
                     )
                 }

@@ -442,16 +442,36 @@ private fun GpaFilterControls(
         verticalAlignment = Alignment.CenterVertically
     ) {
         // 筛选分类
+        val chipColors = FilterChipDefaults.filterChipColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(
                 selected = filterType == FilterType.ALL,
                 onClick = { onFilterTypeChange(FilterType.ALL) },
                 label = { Text("全部") },
+                colors = chipColors,
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = filterType == FilterType.ALL,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    selectedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                )
             )
             FilterChip(
                 selected = filterType == FilterType.DEGREE_ONLY,
                 onClick = { onFilterTypeChange(FilterType.DEGREE_ONLY) },
                 label = { Text("学位课") },
+                colors = chipColors,
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = filterType == FilterType.DEGREE_ONLY,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    selectedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                )
             )
         }
 
@@ -638,7 +658,7 @@ fun EditScoreDialog(
     )
 
     AlertDialog(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = onDismiss,
         title = { Text("修改模拟成绩") },
         text = {
@@ -654,7 +674,10 @@ fun EditScoreDialog(
                         checked = includedState,
                         onCheckedChange = { includedState = it },
                         colors = SwitchDefaults.colors(
-                            uncheckedTrackColor = MaterialTheme.colorScheme.surface,
+                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                            uncheckedThumbColor = MaterialTheme.colorScheme.outline,
                             uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant
                         )
                     )
@@ -664,7 +687,7 @@ fun EditScoreDialog(
                 Text(
                     "等级制成绩 (点击选择):",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
                 Row(
@@ -679,6 +702,18 @@ fun EditScoreDialog(
                                 text = score
                             },
                             label = { Text(grade, fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = selectedGrade == grade,
+                                borderColor = MaterialTheme.colorScheme.outlineVariant,
+                                selectedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                            ),
                             modifier = Modifier.weight(1f)
                         )
                     }

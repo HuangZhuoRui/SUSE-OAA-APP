@@ -22,5 +22,5 @@ class UserManagementRepositoryImpl(
         userApi.batchUpdate(items).map { it.orEmpty() }
 
     override suspend fun deleteUser(userId: Int): Result<Unit> =
-        userApi.delete(DeleteUserRequest(userId))
+        userApi.delete(DeleteUserRequest(userId = userId))
 }

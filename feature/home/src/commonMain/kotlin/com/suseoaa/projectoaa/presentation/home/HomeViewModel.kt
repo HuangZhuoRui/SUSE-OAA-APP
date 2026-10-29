@@ -2,6 +2,7 @@ package com.suseoaa.projectoaa.presentation.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.suseoaa.projectoaa.shared.data.local.store.SessionStore
 import com.suseoaa.projectoaa.shared.domain.model.announcement.Announcement
 import com.suseoaa.projectoaa.shared.domain.model.announcement.AnnouncementStatus
 import com.suseoaa.projectoaa.shared.domain.model.org.Department
@@ -14,6 +15,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -21,6 +24,11 @@ import kotlinx.coroutines.launch
  * 首页界面状态
  */
 data class HomeUiState(
+    /**
+     * 是否登录了协会账号；null 表示还没读到登录态。
+     * 游客（false）只显示登录引导，不请求部门和公告。
+     */
+    val isSignedIn: Boolean? = null,
     val currentUser: CurrentUser? = null,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
@@ -40,17 +48,27 @@ data class HomeUiState(
 class HomeViewModel(
     private val announcementRepository: AnnouncementRepository,
     private val personRepository: PersonRepository,
-    private val organizationRepository: OrganizationRepository
+    private val organizationRepository: OrganizationRepository,
+    private val sessionStore: SessionStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     init {
-        refreshHomeSummary(showLoading = false)
+        viewModelScope.launch {
+            sessionStore.tokenFlow
+                .map { !it.isNullOrEmpty() }
+                .distinctUntilChanged()
+                .collect { signedIn ->
+                    _uiState.update { if (signedIn) it.copy(isSignedIn = true) else HomeUiState(isSignedIn = false) }
+                    if (signedIn) refreshHomeSummary(showLoading = false)
+                }
+        }
     }
 
     fun refreshHomeSummary(showLoading: Boolean = true) {
+        if (_uiState.value.isSignedIn != true) return
         viewModelScope.launch {
             personRepository.getCurrentUser().onSuccess { user ->
                 _uiState.update { it.copy(currentUser = user) }

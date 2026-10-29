@@ -32,6 +32,7 @@ fun HostTaskDialog(
     var durationMinutes by remember { mutableStateOf(30f) }
 
     AlertDialog(
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = onDismiss,
         title = { Text(if (isBroadcasting) "正在发布中" else if (initialActivityName.isNotEmpty()) "重新开启签到" else "创建签到任务") },
         text = {
