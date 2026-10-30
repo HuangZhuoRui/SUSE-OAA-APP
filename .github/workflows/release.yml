@@ -1,6 +1,8 @@
 name: Release on Version Update
 
 on:
+  # 构建失败后可在修复提交上重新发布，无需为了重试修改版本号。
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -134,8 +136,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.check_version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           name: 青蟹 ${{ steps.check_version.outputs.tag }}
           body_path: changelog.txt
           files: androidApp/build/outputs/apk/release/青蟹-*.apk
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
