@@ -54,6 +54,7 @@ import com.suseoaa.projectoaa.presentation.recruitment.RecruitmentReviewUiState
 import com.suseoaa.projectoaa.shared.domain.model.org.Department
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.Application
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.InterviewDecision
+import com.suseoaa.projectoaa.shared.domain.model.recruitment.InterviewDecisionRules
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.Term
 import com.suseoaa.projectoaa.ui.component.common.OptionDropdown
 
@@ -328,8 +329,7 @@ private fun DetailLine(label: String, value: String) {
 }
 
 private fun isNonAdmissionDecision(decision: String): Boolean {
-    if (decision.isBlank()) return false
-    return listOf("未通过", "不通过", "淘汰", "拒绝", "不录取", "待定").any { it in decision }
+    return InterviewDecisionRules.isNonAdmission(decision)
 }
 
 @Composable
@@ -340,11 +340,16 @@ private fun DecisionDialog(
     onConfirm: (InterviewDecision) -> Unit
 ) {
     val existing = uiState.results[application.resolvedId]
-    var decision by remember { mutableStateOf(existing?.decision.orEmpty()) }
+    val graduated = application.isGraduated == true
+    val allowedDecisions = uiState.decisions.filter { InterviewDecisionRules.isAllowed(application.isGraduated, it) }
+    var decision by remember(application, existing) {
+        mutableStateOf(existing?.decision?.takeIf { InterviewDecisionRules.isAllowed(application.isGraduated, it) }.orEmpty())
+    }
     // 默认去向为第一志愿；若已有结论为未通过/待定则保持 0
     var departmentId by remember {
         mutableStateOf(
             when {
+                graduated -> 0
                 existing != null && isNonAdmissionDecision(existing.decision) -> 0
                 existing != null && existing.resultDepartmentId > 0 -> existing.resultDepartmentId
                 else -> application.firstChoice.departmentId
@@ -354,6 +359,7 @@ private fun DecisionDialog(
     var roleId by remember {
         mutableStateOf(
             when {
+                graduated -> 0
                 existing != null && isNonAdmissionDecision(existing.decision) -> 0
                 existing != null && existing.resultRoleId > 0 -> existing.resultRoleId
                 else -> application.firstChoice.roleId
@@ -372,10 +378,13 @@ private fun DecisionDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(application.applicantTitle(), style = MaterialTheme.typography.bodyMedium)
-                if (uiState.decisions.isNotEmpty()) {
+                if (graduated) {
+                    Text("该申请人已毕业，仅可标记为淘汰。", style = MaterialTheme.typography.bodySmall)
+                }
+                if (allowedDecisions.isNotEmpty()) {
                     OptionDropdown(
                         label = "结论",
-                        options = uiState.decisions,
+                        options = allowedDecisions,
                         selected = decision.ifBlank { null },
                         onSelect = {
                             decision = it
@@ -398,6 +407,8 @@ private fun DecisionDialog(
                         },
                         optionLabel = { it }
                     )
+                } else if (graduated) {
+                    Text("暂无可用的淘汰选项，请刷新后重试。", color = MaterialTheme.colorScheme.error)
                 } else {
                     // 取不到标准取值时退回手动输入，后端会校验
                     OutlinedTextField(
@@ -408,7 +419,7 @@ private fun DecisionDialog(
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
-                if (!nonAdmission) {
+                if (!graduated && !nonAdmission) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(
                             onClick = {
@@ -451,7 +462,9 @@ private fun DecisionDialog(
         },
         confirmButton = {
             Button(
-                enabled = decision.isNotBlank() && (nonAdmission || (departmentId > 0 && roleId > 0)),
+                enabled = InterviewDecisionRules.isAllowed(application.isGraduated, decision) &&
+                    (!graduated || decision in allowedDecisions) &&
+                    (nonAdmission || (departmentId > 0 && roleId > 0)),
                 onClick = {
                     onConfirm(
                         InterviewDecision(

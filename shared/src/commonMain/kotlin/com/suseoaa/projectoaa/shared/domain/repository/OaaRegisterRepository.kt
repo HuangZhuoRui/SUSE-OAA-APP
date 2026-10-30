@@ -15,6 +15,7 @@ interface OaaRegisterRepository {
         name: String,
         username: String,
         password: String,
-        email: String
-        ): Result<String>
+        email: String,
+        grade: Int
+    ): Result<String>
 }

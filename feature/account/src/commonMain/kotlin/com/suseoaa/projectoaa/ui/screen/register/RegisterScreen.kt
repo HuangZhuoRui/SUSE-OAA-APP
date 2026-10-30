@@ -117,6 +117,22 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            OutlinedTextField(
+                value = uiState.grade,
+                onValueChange = viewModel::updateGrade,
+                label = { Text("入学年份") },
+                placeholder = { Text("如 2024") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number,
+                    imeAction = ImeAction.Next
+                )
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // 姓名输入框
             OutlinedTextField(
                 value = uiState.realName,

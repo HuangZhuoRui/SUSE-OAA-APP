@@ -9,6 +9,8 @@ import com.suseoaa.projectoaa.shared.domain.error.appFailure
 import com.suseoaa.projectoaa.shared.domain.model.org.Department
 import com.suseoaa.projectoaa.shared.domain.model.org.Role
 import com.suseoaa.projectoaa.shared.domain.model.person.StoredFile
+import com.suseoaa.projectoaa.shared.domain.model.person.OssObjectKey
+import com.suseoaa.projectoaa.shared.domain.model.person.UserQuery
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.Application
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.ApplicationForm
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.ApplicationIdRequest
@@ -31,6 +33,7 @@ import com.suseoaa.projectoaa.shared.domain.model.recruitment.UpdateInterviewerR
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.UpdateTermRequest
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.toRequest
 import com.suseoaa.projectoaa.shared.domain.repository.RecruitmentRepository
+import com.suseoaa.projectoaa.shared.util.AppLog
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 
@@ -97,14 +100,17 @@ class RecruitmentRepositoryImpl(
     override suspend fun getMyApplications(): Result<List<Application>> =
         api.myApplications().decodeList("获取我的申请失败")
 
-    override suspend fun createApplication(termId: Int, form: ApplicationForm): Result<Unit> =
-        api.createApplication(
+    override suspend fun createApplication(termId: Int, form: ApplicationForm): Result<Unit> {
+        val avatarKey = OssObjectKey.parse(form.avatarUri)
+            ?: return appFailure(AppError.Business(userMessage = "申请表照片信息无效，请重新上传"))
+        AppLog.d("Create application: termId=$termId, avatar=$avatarKey", tag = "OaaPhoto")
+        return api.createApplication(
             CreateApplicationRequest(
                 termId = termId,
                 college = form.college,
                 majorClass = form.majorClass,
                 gender = form.gender,
-                avatar = form.avatarUri,
+                avatar = avatarKey,
                 phone = form.phone,
                 qq = form.qq,
                 politicalStatus = form.politicalStatus,
@@ -115,17 +121,21 @@ class RecruitmentRepositoryImpl(
                 resume = form.resume,
                 reason = form.reason
             )
-        )
+        ).onFailure { AppLog.d("Create application failed: ${it.message}", tag = "OaaPhoto") }
+    }
 
-    override suspend fun updateApplication(termId: Int, existing: Application, form: ApplicationForm): Result<Unit> =
-        api.updateApplication(
+    override suspend fun updateApplication(termId: Int, existing: Application, form: ApplicationForm): Result<Unit> {
+        val avatarKey = OssObjectKey.parse(form.avatarUri.ifBlank { existing.avatar.uri })
+            ?: return appFailure(AppError.Business(userMessage = "申请表照片信息无效，请重新上传"))
+        AppLog.d("Update application: termId=$termId, avatar=$avatarKey", tag = "OaaPhoto")
+        return api.updateApplication(
             UpdateApplicationRequest(
                 applicationId = existing.resolvedId.takeIf { it != 0 },
                 termId = termId,
                 college = form.college,
                 majorClass = form.majorClass,
                 gender = form.gender,
-                avatar = form.avatarUri.ifBlank { existing.avatar.uri },
+                avatar = avatarKey,
                 phone = form.phone,
                 qq = form.qq,
                 politicalStatus = form.politicalStatus,
@@ -136,13 +146,28 @@ class RecruitmentRepositoryImpl(
                 resume = form.resume,
                 reason = form.reason
             )
-        )
+        ).onFailure { AppLog.d("Update application failed: ${it.message}", tag = "OaaPhoto") }
+    }
 
     override suspend fun deleteApplication(applicationId: Int): Result<Unit> =
         api.deleteApplication(ApplicationIdRequest(applicationId))
 
-    override suspend fun getApplications(termId: Int, departmentId: Int?): Result<List<Application>> =
-        api.applications(termId = termId, departmentId = departmentId).decodeList("获取申请列表失败")
+    override suspend fun getApplications(termId: Int, departmentId: Int?): Result<List<Application>> {
+        val applications = api.applications(termId = termId, departmentId = departmentId)
+            .decodeList<Application>("获取申请列表失败").getOrElse { return Result.failure(it) }
+        if (applications.none { it.isGraduated == null }) return Result.success(applications)
+
+        // 申请列表的毕业字段尚未写入所有版本的接口文档，优先使用列表返回值，缺失时关联成员信息。
+        // 查询无权限或失败时保留未知状态，由后端在保存决定时继续校验。
+        val members = userApi?.list(UserQuery(isAll = true))?.getOrNull()?.list
+            ?: return Result.success(applications)
+        val byId = members.filter { it.userId > 0 }.associateBy { it.userId }
+        val byStudentId = members.filter { it.studentId.isNotBlank() }.associateBy { it.studentId }
+        return Result.success(applications.map { application ->
+            val member = if (application.userId > 0) byId[application.userId] else byStudentId[application.studentId]
+            if (application.isGraduated == null) application.copy(isGraduated = member?.isGraduated) else application
+        })
+    }
 
     override suspend fun getFillableRoles(departmentId: Int): Result<List<Role>> =
         api.fillableRoles(departmentId).decodeList("获取可申请职位失败")

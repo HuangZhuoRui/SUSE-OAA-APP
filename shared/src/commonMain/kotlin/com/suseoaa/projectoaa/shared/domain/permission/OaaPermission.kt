@@ -1,6 +1,8 @@
 package com.suseoaa.projectoaa.shared.domain.permission
 
 import com.suseoaa.projectoaa.shared.domain.model.person.CurrentUser
+import com.suseoaa.projectoaa.shared.domain.model.person.UserListItem
+import com.suseoaa.projectoaa.shared.domain.model.org.Role
 
 /**
  * 按职位等级（level）判断界面上要不要露出某个入口。
@@ -39,11 +41,20 @@ object OaaPermission {
 
     fun canManageOrganization(user: CurrentUser?): Boolean = isAdmin(user)
 
-    fun canManageTerms(user: CurrentUser?): Boolean = isAdmin(user)
+    fun canManageTerms(user: CurrentUser?): Boolean =
+        isAdmin(user) && user?.person?.isGraduated != true
+
+    fun canEditGrades(user: CurrentUser?): Boolean = isAdmin(user)
+
+    /** 毕业成员只能任命普通会员；已有开发者可保留其角色及开发权限。 */
+    fun canAssignRole(target: UserListItem, role: Role): Boolean =
+        target.isGraduated != true || role.level <= 10 ||
+            (target.role == "开发者" && role.name == target.role)
 
     /**
      * 面试官是按周期单独指定的，客户端没有接口判断「我是不是面试官」，
      * 所以对部门负责人及以上都开放审核页，不是面试官时由后端返回无权限。
      */
-    fun canReviewApplications(user: CurrentUser?): Boolean = isDepartmentManager(user)
+    fun canReviewApplications(user: CurrentUser?): Boolean =
+        isDepartmentManager(user) && user?.person?.isGraduated != true
 }

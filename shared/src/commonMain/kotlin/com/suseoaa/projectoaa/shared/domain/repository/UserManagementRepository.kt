@@ -14,7 +14,7 @@ import com.suseoaa.projectoaa.shared.domain.model.person.UserQuery
 interface UserManagementRepository {
     suspend fun listUsers(query: UserQuery): Result<UserPage>
 
-    /** 批量调整部门与职位；返回未能修改的条目，全部成功时为空。 */
+    /** 批量调整部门与职位，管理员可选传入年级；返回未能修改的条目，全部成功时为空。 */
     suspend fun batchUpdate(items: List<UserBatchItem>): Result<List<UserBatchFailure>>
 
     suspend fun deleteUser(userId: Int): Result<Unit>

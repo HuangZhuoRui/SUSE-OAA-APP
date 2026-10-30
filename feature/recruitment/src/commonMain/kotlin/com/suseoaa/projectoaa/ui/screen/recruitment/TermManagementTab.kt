@@ -477,7 +477,8 @@ private fun InterviewerManagementDialog(
                         CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
                     }
                     LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 220.dp)) {
-                        val shown = (selected.values + uiState.userResults).distinctBy { it.userId }
+                        val shown = (selected.values + uiState.userResults)
+                            .filter { it.isGraduated != true }.distinctBy { it.userId }
                         items(shown, key = { it.userId }) { user ->
                             val alreadyAssigned = user.userId in existingUserIds
                             val checked = user.userId in selected

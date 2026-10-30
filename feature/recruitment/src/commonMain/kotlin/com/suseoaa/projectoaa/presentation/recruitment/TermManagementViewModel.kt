@@ -137,24 +137,21 @@ class TermManagementViewModel(
         recruitmentRepository.deleteTerm(term.resolvedId)
     }
 
-    /** 打开某周期的面试官管理弹窗时加载当前面试官列表，并利用 is_all=true 预加载可选成员。 */
+    /** 每次打开时刷新在校候选人，避免缓存跨越毕业时间后继续展示过期成员。 */
     fun openInterviewerManager(term: Term) {
         loadInterviewers(term.resolvedId)
-        if (allMembersCache.isEmpty()) {
-            viewModelScope.launch {
-                _uiState.update { it.copy(isSearchingUsers = true) }
-                val result = userManagementRepository.listUsers(UserQuery(isAll = true))
-                val members = result.getOrNull()?.list?.distinctBy { it.userId }.orEmpty()
-                allMembersCache = members
-                _uiState.update {
-                    it.copy(
-                        isSearchingUsers = false,
-                        userResults = members
-                    )
-                }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSearchingUsers = true, userResults = emptyList()) }
+            val result = userManagementRepository.listUsers(UserQuery(isAll = true, isGraduated = false))
+            val members = result.getOrNull()?.list?.filter { it.isGraduated != true }?.distinctBy { it.userId }.orEmpty()
+            allMembersCache = members
+            _uiState.update {
+                it.copy(
+                    isSearchingUsers = false,
+                    userResults = members,
+                    message = result.exceptionOrNull()?.message
+                )
             }
-        } else {
-            _uiState.update { it.copy(userResults = allMembersCache) }
         }
     }
 
@@ -202,11 +199,11 @@ class TermManagementViewModel(
         }
         viewModelScope.launch {
             _uiState.update { it.copy(isSearchingUsers = true) }
-            val result = userManagementRepository.listUsers(UserQuery(keyword = clean, isAll = true))
+            val result = userManagementRepository.listUsers(UserQuery(keyword = clean, isAll = true, isGraduated = false))
             _uiState.update {
                 it.copy(
                     isSearchingUsers = false,
-                    userResults = result.getOrNull()?.list.orEmpty(),
+                    userResults = result.getOrNull()?.list.orEmpty().filter { user -> user.isGraduated != true },
                     message = result.exceptionOrNull()?.message
                 )
             }
@@ -214,6 +211,11 @@ class TermManagementViewModel(
     }
 
     fun addInterviewers(term: Term, users: List<UserListItem>, remark: String) {
+        if (_uiState.value.isSaving) return
+        if (users.any { it.isGraduated == true }) {
+            _uiState.update { it.copy(message = "存在已毕业成员，不可设置为面试官") }
+            return
+        }
         if (users.isEmpty()) {
             _uiState.update { it.copy(message = "请至少选择一名面试官") }
             return

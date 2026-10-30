@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.suseoaa.projectoaa.shared.domain.repository.OaaRegisterRepository
+import com.suseoaa.projectoaa.shared.domain.model.person.EnrollmentGrade
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,6 +21,7 @@ data class RegisterUiState(
     val userName: String = "",       // 用户名
     val password: String = "",
     val email: String = "",
+    val grade: String = "",
     val confirmPassword: String = "",
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
@@ -60,6 +62,10 @@ class RegisterViewModel(
         }
     }
 
+    fun updateGrade(grade: String) {
+        _uiState.update { it.copy(grade = grade.filter { c -> c in '0'..'9' }.take(4), errorMessage = null) }
+    }
+
     fun updatePassword(password: String) {
         _uiState.update { it.copy(password = password, errorMessage = null) }
     }
@@ -70,12 +76,17 @@ class RegisterViewModel(
 
     fun register() {
         val currentState = _uiState.value
+        if (currentState.isLoading) return
         val cleanStudentId = currentState.studentId.trim()
         val cleanRealName = currentState.realName.trim()
         val cleanUserName = currentState.userName.trim()
         val email = currentState.email.trim()
         val password = currentState.password
         val confirmPassword = currentState.confirmPassword
+        val grade = EnrollmentGrade.parse(currentState.grade) ?: run {
+            _uiState.update { it.copy(errorMessage = EnrollmentGrade.ERROR_MESSAGE) }
+            return
+        }
 
         // 验证
         when {
@@ -128,7 +139,8 @@ class RegisterViewModel(
                 name = cleanRealName,
                 username = cleanUserName,
                 password = password,
-                email = email
+                email = email,
+                grade = grade
             )
 
             result.onSuccess {

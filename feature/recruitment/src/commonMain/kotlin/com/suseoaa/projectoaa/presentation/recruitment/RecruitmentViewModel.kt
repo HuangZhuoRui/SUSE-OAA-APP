@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.suseoaa.projectoaa.shared.domain.model.org.Department
 import com.suseoaa.projectoaa.shared.domain.model.org.Role
 import com.suseoaa.projectoaa.shared.domain.model.person.CurrentUser
+import com.suseoaa.projectoaa.shared.domain.model.person.OssObjectKey
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.Application
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.ApplicationForm
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.Choice
@@ -53,7 +54,8 @@ data class RecruitmentUiState(
     val firstChoiceRoles: List<Role>? = null,
     val secondChoiceRoles: List<Role>? = null
 ) {
-    val canEdit: Boolean get() = phase == TermPhase.Editing
+    val isGraduated: Boolean get() = currentUser?.person?.isGraduated == true
+    val canEdit: Boolean get() = phase == TermPhase.Editing && !isGraduated
     val canReview: Boolean get() = OaaPermission.canReviewApplications(currentUser)
     val canManageTerms: Boolean get() = OaaPermission.canManageTerms(currentUser)
 
@@ -142,11 +144,16 @@ class RecruitmentViewModel(
     }
 
     fun updateForm(updater: (ApplicationForm) -> ApplicationForm) {
+        if (!_uiState.value.canEdit) return
         _uiState.update { it.copy(form = updater(it.form)) }
     }
 
     /** 上传申请表个人照片（POST /upload/image，scene = application），成功后回填 URI 与预览地址。 */
     fun uploadAvatar(imageData: ByteArray) {
+        if (_uiState.value.isGraduated) {
+            _uiState.update { it.copy(errorMessage = "已毕业成员不可填报或修改申请表") }
+            return
+        }
         if (!_uiState.value.canEdit) {
             _uiState.update { it.copy(errorMessage = "当前不在填写时间内，无法上传照片") }
             return
@@ -180,18 +187,21 @@ class RecruitmentViewModel(
 
     /** 选部门后联动拉取该部门可申请的职位（GET /application/role）；若原已选职位不兼容则自动清空职位。 */
     fun selectDepartment(slot: ChoiceSlot, department: Department) {
+        if (!_uiState.value.canEdit) return
         updateChoice(slot) { it.copy(departmentId = department.id) }
         loadRolesFor(slot, department.id, keepValidSelection = true)
     }
 
     /** 选职位后联动拉取该职位可申请的部门（GET /application/department）；若原已选部门不兼容则自动清空部门。 */
     fun selectRole(slot: ChoiceSlot, role: Role) {
+        if (!_uiState.value.canEdit) return
         updateChoice(slot) { it.copy(roleId = role.id) }
         loadDepartmentsFor(slot, role.id, keepValidSelection = true)
     }
 
     /** 清空某个志愿的已选项与双向过滤条件，方便重新按部门或职位任意顺序选择。 */
     fun clearChoice(slot: ChoiceSlot) {
+        if (!_uiState.value.canEdit) return
         updateChoice(slot) { Choice() }
         _uiState.update {
             when (slot) {
@@ -203,6 +213,13 @@ class RecruitmentViewModel(
 
     fun submitApplication() {
         val state = _uiState.value
+        if (state.isSubmitting) return
+        if (state.isGraduated) {
+            _uiState.update {
+                it.copy(errorMessage = if (state.myApplication == null) "已毕业成员不可填报申请表" else "已毕业成员不可修改申请表")
+            }
+            return
+        }
         val term = state.selectedTerm
         if (term == null || !state.canEdit) {
             _uiState.update { it.copy(errorMessage = "当前不在填写时间内，无法提交或修改") }
@@ -334,7 +351,7 @@ class RecruitmentViewModel(
     }
 
     private fun validate(form: ApplicationForm): String? {
-        if (form.avatarUri.isBlank()) return "请上传申请表个人照片"
+        if (OssObjectKey.parse(form.avatarUri) == null) return "申请表照片信息无效，请重新上传个人照片"
         val required = listOf(
             "学院" to form.college,
             "专业班级" to form.majorClass,

@@ -10,5 +10,6 @@ data class RegisterRequest(
     @SerialName("password") val password: String,
     @SerialName("student_id") val studentId: String,
     @SerialName("username") val username: String,
-    @SerialName("email") val email: String
+    @SerialName("email") val email: String,
+    @SerialName("grade") val grade: Int
 )

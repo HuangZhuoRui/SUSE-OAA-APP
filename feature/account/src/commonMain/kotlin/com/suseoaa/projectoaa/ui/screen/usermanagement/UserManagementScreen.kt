@@ -30,6 +30,7 @@ import com.suseoaa.projectoaa.presentation.usermanagement.UserManagementViewMode
 import com.suseoaa.projectoaa.shared.domain.model.org.Department
 import com.suseoaa.projectoaa.shared.domain.model.org.Role
 import com.suseoaa.projectoaa.shared.domain.model.person.UserListItem
+import com.suseoaa.projectoaa.shared.domain.model.person.EnrollmentGrade
 import com.suseoaa.projectoaa.ui.component.common.AdaptivePageScaffold
 import com.suseoaa.projectoaa.ui.component.common.OptionDropdown
 import com.suseoaa.projectoaa.util.ToastManager
@@ -155,10 +156,11 @@ fun UserManagementScreen(
         EditUserDialog(
             user = user,
             departments = uiState.departments.filter { it.isActive },
-            roles = viewModel.assignableRoles(),
+            roles = viewModel.assignableRoles(listOf(user)),
+            canEditGrade = viewModel.canEditGrade,
             onDismiss = { editingUser = null },
-            onConfirm = { departmentId, roleId ->
-                viewModel.updateUser(user, departmentId, roleId)
+            onConfirm = { departmentId, roleId, grade ->
+                viewModel.updateUser(user, departmentId, roleId, grade)
                 editingUser = null
             }
         )
@@ -168,10 +170,11 @@ fun UserManagementScreen(
         BatchEditUsersDialog(
             selectedCount = uiState.selectedUserIds.size,
             departments = uiState.departments.filter { it.isActive },
-            roles = viewModel.assignableRoles(),
+            roles = viewModel.assignableRoles(uiState.users.filter { it.userId in uiState.selectedUserIds }),
+            canEditGrade = viewModel.canEditGrade,
             onDismiss = { showBatchEditDialog = false },
-            onConfirm = { departmentId, roleId ->
-                viewModel.batchUpdateSelected(departmentId, roleId)
+            onConfirm = { departmentId, roleId, grade ->
+                viewModel.batchUpdateSelected(departmentId, roleId, grade)
                 showBatchEditDialog = false
             }
         )
@@ -241,6 +244,20 @@ private fun FilterFields(
             ),
             keyboardActions = KeyboardActions(onSearch = { viewModel.search() }),
             modifier = Modifier.fillMaxWidth()
+        )
+        OptionDropdown(
+            label = "在校状态",
+            options = listOf<Boolean?>(null, false, true),
+            selected = uiState.filterGraduated,
+            onSelect = viewModel::updateGraduationFilter,
+            optionLabel = {
+                when (it) {
+                    true -> "已毕业"
+                    false -> "在校"
+                    null -> "全部状态"
+                }
+            },
+            placeholder = "全部状态"
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -428,6 +445,13 @@ fun UserCard(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
+                user.isGraduated?.let { graduated ->
+                    Text(
+                        text = if (graduated) "已毕业" else "在校",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             if (!isBatchMode) {
                 if (canEdit) {
@@ -450,11 +474,15 @@ private fun EditUserDialog(
     user: UserListItem,
     departments: List<Department>,
     roles: List<Role>,
+    canEditGrade: Boolean,
     onDismiss: () -> Unit,
-    onConfirm: (departmentId: Int, roleId: Int) -> Unit
+    onConfirm: (departmentId: Int, roleId: Int, grade: Int?) -> Unit
 ) {
     var department by remember(user) { mutableStateOf(departments.firstOrNull { it.name == user.department }) }
     var role by remember(user) { mutableStateOf(roles.firstOrNull { it.name == user.role }) }
+    var gradeText by remember(user) { mutableStateOf(user.resolvedGrade?.toString().orEmpty()) }
+    val grade = EnrollmentGrade.parse(gradeText)
+    val gradeValid = !canEditGrade || gradeText.isBlank() || grade != null
 
     AlertDialog(
         containerColor = MaterialTheme.colorScheme.surface,
@@ -476,6 +504,12 @@ private fun EditUserDialog(
                     onSelect = { role = it },
                     optionLabel = { "${it.name}（等级 ${it.level}）" }
                 )
+                if (user.isGraduated == true) {
+                    Text("已毕业成员不可任命在任职务", style = MaterialTheme.typography.bodySmall)
+                }
+                if (canEditGrade) {
+                    MemberGradeField(gradeText) { gradeText = it }
+                }
                 if (roles.isEmpty()) {
                     Text(
                         "没有可分配的职位：只能分配比自己等级低的职位",
@@ -489,10 +523,10 @@ private fun EditUserDialog(
             val selectedDepartment = department
             val selectedRole = role
             Button(
-                enabled = selectedDepartment != null && selectedRole != null,
+                enabled = selectedDepartment != null && selectedRole != null && gradeValid,
                 onClick = {
                     if (selectedDepartment != null && selectedRole != null) {
-                        onConfirm(selectedDepartment.id, selectedRole.id)
+                        onConfirm(selectedDepartment.id, selectedRole.id, grade?.takeIf { canEditGrade && it != user.resolvedGrade })
                     }
                 }
             ) { Text("保存") }
@@ -508,11 +542,15 @@ private fun BatchEditUsersDialog(
     selectedCount: Int,
     departments: List<Department>,
     roles: List<Role>,
+    canEditGrade: Boolean,
     onDismiss: () -> Unit,
-    onConfirm: (departmentId: Int, roleId: Int) -> Unit
+    onConfirm: (departmentId: Int, roleId: Int, grade: Int?) -> Unit
 ) {
     var department by remember { mutableStateOf<Department?>(null) }
     var role by remember { mutableStateOf<Role?>(null) }
+    var gradeText by remember { mutableStateOf("") }
+    val grade = EnrollmentGrade.parse(gradeText)
+    val gradeValid = !canEditGrade || gradeText.isBlank() || grade != null
 
     AlertDialog(
         containerColor = MaterialTheme.colorScheme.surface,
@@ -539,6 +577,9 @@ private fun BatchEditUsersDialog(
                     onSelect = { role = it },
                     optionLabel = { "${it.name}（等级 ${it.level}）" }
                 )
+                if (canEditGrade) {
+                    MemberGradeField(gradeText) { gradeText = it }
+                }
                 if (roles.isEmpty()) {
                     Text(
                         "没有可分配的职位：只能分配比自己等级低的职位",
@@ -552,10 +593,10 @@ private fun BatchEditUsersDialog(
             val selectedDepartment = department
             val selectedRole = role
             Button(
-                enabled = selectedDepartment != null && selectedRole != null,
+                enabled = selectedDepartment != null && selectedRole != null && gradeValid,
                 onClick = {
                     if (selectedDepartment != null && selectedRole != null) {
-                        onConfirm(selectedDepartment.id, selectedRole.id)
+                        onConfirm(selectedDepartment.id, selectedRole.id, grade.takeIf { canEditGrade })
                     }
                 }
             ) { Text("确认调整") }
@@ -563,5 +604,19 @@ private fun BatchEditUsersDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("取消") }
         }
+    )
+}
+
+@Composable
+private fun MemberGradeField(value: String, onChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = { input -> onChange(input.filter { it in '0'..'9' }.take(4)) },
+        label = { Text("入学年份（选填）") },
+        supportingText = { Text("留空保留原年级；填写大于 2000 的四位年份") },
+        isError = value.isNotBlank() && EnrollmentGrade.parse(value) == null,
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        modifier = Modifier.fillMaxWidth()
     )
 }

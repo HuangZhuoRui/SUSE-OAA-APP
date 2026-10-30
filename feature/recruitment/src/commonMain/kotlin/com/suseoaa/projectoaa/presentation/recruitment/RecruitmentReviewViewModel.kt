@@ -6,6 +6,7 @@ import com.suseoaa.projectoaa.shared.domain.model.org.Department
 import com.suseoaa.projectoaa.shared.domain.model.org.Role
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.Application
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.InterviewDecision
+import com.suseoaa.projectoaa.shared.domain.model.recruitment.InterviewDecisionRules
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.InterviewResult
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.Term
 import com.suseoaa.projectoaa.shared.domain.model.recruitment.pickCurrent
@@ -116,6 +117,7 @@ class RecruitmentReviewViewModel(
     }
 
     fun saveDecision(application: Application, decision: InterviewDecision) {
+        if (_uiState.value.isSaving) return
         if (decision.decision.isBlank()) {
             _uiState.update { it.copy(message = "请选择面试结论") }
             return
@@ -124,13 +126,21 @@ class RecruitmentReviewViewModel(
             _uiState.update { it.copy(message = "后端未返回申请编号，无法录入结论") }
             return
         }
+        val currentApplication = _uiState.value.applications.firstOrNull { it.resolvedId == application.resolvedId } ?: application
+        if (!InterviewDecisionRules.isAllowed(currentApplication.isGraduated, decision.decision)) {
+            _uiState.update { it.copy(message = "该申请人已毕业，仅可标记为淘汰") }
+            return
+        }
+        val normalized = if (InterviewDecisionRules.isNonAdmission(decision.decision)) {
+            decision.copy(resultDepartmentId = 0, resultRoleId = 0)
+        } else decision
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
             val existing = _uiState.value.results[application.resolvedId]
             recruitmentRepository.saveInterviewResult(
                 applicationId = application.resolvedId,
                 existingResultId = existing?.resolvedId,
-                decision = decision
+                decision = normalized
             ).onSuccess {
                 _uiState.update { it.copy(isSaving = false, message = "已保存面试结论") }
                 reload()

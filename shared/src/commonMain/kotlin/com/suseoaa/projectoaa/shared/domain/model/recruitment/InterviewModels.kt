@@ -21,6 +21,7 @@ data class Interviewer(
     @SerialName("department") val department: String = "",
     @SerialName("role") val role: String = "",
     @SerialName("grade") val grade: Int? = null,
+    @SerialName("is_graduated") val isGraduated: Boolean? = null,
     @SerialName("remark") val remark: String = "",
     @SerialName("avatar") val avatar: StoredFile = StoredFile(),
     @SerialName("created_at") val createdAt: String = "",
@@ -89,6 +90,17 @@ data class InterviewDecision(
     val resultRoleId: Int,
     val remark: String
 )
+
+/** 毕业申请人只允许淘汰类结论，待定不等同于淘汰。 */
+object InterviewDecisionRules {
+    fun isRejection(decision: String): Boolean =
+        listOf("未通过", "不通过", "淘汰", "拒绝", "不录取", "未录取").any { it in decision }
+
+    fun isNonAdmission(decision: String): Boolean = isRejection(decision) || "待定" in decision
+
+    fun isAllowed(isGraduated: Boolean?, decision: String): Boolean =
+        decision.isNotBlank() && (isGraduated != true || isRejection(decision))
+}
 
 @Serializable
 data class CreateInterviewResultRequest(

@@ -25,6 +25,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.suseoaa.projectoaa.presentation.update.getAppVersionName
+import com.suseoaa.projectoaa.shared.domain.model.person.EnrollmentGrade
 import com.suseoaa.projectoaa.ui.theme.*
 
 // 「我的」页面复用的卡片与设置行控件。
@@ -156,7 +157,8 @@ fun UserInfoCard(
                     )
                     val roleAndGrade = listOfNotNull(
                         userInfo?.role?.ifBlank { null },
-                        userInfo?.resolvedGrade?.let { "${it}级" }
+                        userInfo?.resolvedGrade?.let { "${it}级" },
+                        userInfo?.isGraduated?.let { if (it) "已毕业" else "在校" }
                     ).joinToString(" · ").ifBlank { "未加入协会" }
                     Text(
                         text = roleAndGrade,
@@ -493,7 +495,8 @@ fun EditInfoDialog(
     var username by remember { mutableStateOf(initialUsername) }
     var email by remember { mutableStateOf(initialEmail) }
     var gradeText by remember { mutableStateOf(initialGrade?.toString().orEmpty()) }
-    val gradeValid = gradeText.length == 4 || (initialGrade == null && gradeText.isEmpty())
+    val gradeValid = EnrollmentGrade.parse(gradeText) != null ||
+        (initialGrade == null && gradeText.isEmpty())
 
     AlertDialog(
         containerColor = MaterialTheme.colorScheme.surface,
@@ -534,6 +537,8 @@ fun EditInfoDialog(
                     onValueChange = { input -> gradeText = input.filter { it.isDigit() }.take(4) },
                     label = { Text("年级（如 2024）") },
                     placeholder = { Text("四位入学年份") },
+                    isError = gradeText.isNotEmpty() && EnrollmentGrade.parse(gradeText) == null,
+                    supportingText = { Text("填写大于 2000 的四位入学年份") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()

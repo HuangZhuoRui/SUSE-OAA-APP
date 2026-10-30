@@ -21,6 +21,7 @@ import kotlinx.serialization.json.put
  * 对象存储里的文件：[uri] 是存储路径（提交给后端用），[url] 是带签名的临时下载地址（展示用）。
  *
  * 兼容后端返回 `{uri, url}` 对象、单字符串路径/链接或 `null`。
+ * 只有相对路径可写入 [uri]；旧接口仅返回 URL 时只能展示，修改照片前需重新上传。
  */
 @Serializable(with = StoredFileSerializer::class)
 data class StoredFile(
@@ -37,24 +38,31 @@ internal object StoredFileSerializer : KSerializer<StoredFile> {
     override fun deserialize(decoder: Decoder): StoredFile {
         val jsonDecoder = decoder as? JsonDecoder ?: return StoredFile()
         return when (val element = jsonDecoder.decodeJsonElement()) {
-            is JsonObject -> StoredFile(
-                uri = (element["uri"] as? JsonPrimitive)?.contentOrNull.orEmpty(),
-                url = (element["url"] as? JsonPrimitive)?.contentOrNull.orEmpty()
-            )
+            is JsonObject -> {
+                val rawUri = (element["uri"] as? JsonPrimitive)?.contentOrNull.orEmpty().trim()
+                val rawUrl = (element["url"] as? JsonPrimitive)?.contentOrNull.orEmpty().trim()
+                StoredFile(
+                    uri = OssObjectKey.parse(rawUri).orEmpty(),
+                    url = rawUrl.ifBlank { rawUri.takeIf(::isHttpUrl).orEmpty() }
+                )
+            }
             is JsonPrimitive -> {
                 val raw = element.contentOrNull?.trim().orEmpty()
                 if (raw.isEmpty()) {
                     StoredFile()
-                } else if (raw.startsWith("http://") || raw.startsWith("https://")) {
-                    StoredFile(uri = raw, url = raw)
+                } else if (isHttpUrl(raw)) {
+                    StoredFile(url = raw)
                 } else {
-                    StoredFile(uri = raw, url = "")
+                    StoredFile(uri = OssObjectKey.parse(raw).orEmpty())
                 }
             }
             is JsonNull -> StoredFile()
             else -> StoredFile()
         }
     }
+
+    private fun isHttpUrl(value: String): Boolean =
+        value.startsWith("http://", ignoreCase = true) || value.startsWith("https://", ignoreCase = true)
 
     override fun serialize(encoder: Encoder, value: StoredFile) {
         val jsonEncoder = encoder as? JsonEncoder
@@ -87,6 +95,8 @@ data class PersonData(
     @SerialName("role") val role: String = "",
     /** 年级（四位年份整数，如 2024）；未设置或老版本后端未返回时为 null / 0 */
     @SerialName("grade") val grade: Int? = null,
+    /** null 表示旧后端未返回，不能据此推断毕业状态。 */
+    @SerialName("is_graduated") val isGraduated: Boolean? = null,
     // 文档没写，但线上接口返回了职位等级；老版本后端没有时为 null
     @SerialName("role_level") val roleLevel: Int? = null,
     /** 是否正处于注销冷静期；为 false 时后端不返回 [scheduledDeleteAt] */
@@ -95,7 +105,7 @@ data class PersonData(
     @SerialName("scheduled_delete_at") val scheduledDeleteAt: String? = null
 ) {
     val avatarUrl: String get() = avatar.url
-    val resolvedGrade: Int? get() = grade?.takeIf { it > 0 }
+    val resolvedGrade: Int? get() = grade?.takeIf(EnrollmentGrade::isValid)
 }
 
 /**

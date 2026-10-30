@@ -598,7 +598,7 @@ class OaaDataLayerTest {
         val urlApp = testJson.decodeFromString<Application>(
             """{"id":3,"avatar":"https://cdn/only-url.jpg"}"""
         )
-        assertEquals("https://cdn/only-url.jpg", urlApp.avatar.uri)
+        assertEquals("", urlApp.avatar.uri, "展示 URL 不可作为提交的 OSS 相对路径")
         assertEquals("https://cdn/only-url.jpg", urlApp.avatar.url)
 
         val nullApp = testJson.decodeFromString<Application>("""{"id":4,"avatar":null}""")

@@ -22,6 +22,8 @@ kotlin {
         compilerOptions {
             jvmTarget.set(JvmTarget.fromTarget("25"))
         }
+
+        withHostTest { }
     }
 
     iosArm64()
@@ -46,6 +48,11 @@ kotlin {
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.kotlinx.datetime)
+        }
+
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.kotlinx.coroutines.test)
         }
     }
 }

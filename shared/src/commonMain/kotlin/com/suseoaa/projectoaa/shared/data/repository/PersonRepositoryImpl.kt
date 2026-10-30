@@ -10,6 +10,9 @@ import com.suseoaa.projectoaa.shared.domain.model.changePassword.SendCodeRequest
 import com.suseoaa.projectoaa.shared.domain.model.login.LogoutRequest
 import com.suseoaa.projectoaa.shared.domain.model.person.CancelDeleteRequest
 import com.suseoaa.projectoaa.shared.domain.model.person.CurrentUser
+import com.suseoaa.projectoaa.shared.domain.model.person.EnrollmentGrade
+import com.suseoaa.projectoaa.shared.domain.error.AppError
+import com.suseoaa.projectoaa.shared.domain.error.appFailure
 import com.suseoaa.projectoaa.shared.domain.model.person.DeleteUserRequest
 import com.suseoaa.projectoaa.shared.domain.model.person.PersonData
 import com.suseoaa.projectoaa.shared.domain.model.person.ServerHealthStatus
@@ -56,8 +59,14 @@ class PersonRepositoryImpl(
     }
 
     override suspend fun updateProfile(username: String, email: String, grade: Int?): Result<String> {
+        if (grade != null && !EnrollmentGrade.isValid(grade)) {
+            return appFailure(AppError.Business(userMessage = EnrollmentGrade.ERROR_MESSAGE))
+        }
         // 更新接口必填字段不改的也要原样带上，头像和未指定的年级沿用当前的
         val current = userApi.me().getOrElse { return Result.failure(it) }
+        if (current.avatar.uri.isBlank() && current.avatar.url.isNotBlank()) {
+            return appFailure(AppError.Business(userMessage = "头像信息无效，请先重新上传头像"))
+        }
         return userApi.updateMe(
             UpdateMeRequest(
                 username = username,

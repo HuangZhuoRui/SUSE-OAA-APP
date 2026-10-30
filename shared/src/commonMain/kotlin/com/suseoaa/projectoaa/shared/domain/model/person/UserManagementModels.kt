@@ -14,10 +14,11 @@ data class UserListItem(
     @SerialName("department") val department: String = "",
     @SerialName("role") val role: String = "",
     @SerialName("grade") val grade: Int? = null,
+    @SerialName("is_graduated") val isGraduated: Boolean? = null,
     @SerialName("avatar") val avatar: StoredFile = StoredFile(),
     @SerialName("role_level") val roleLevel: Int? = null
 ) {
-    val resolvedGrade: Int? get() = grade?.takeIf { it > 0 }
+    val resolvedGrade: Int? get() = grade?.takeIf(EnrollmentGrade::isValid)
 }
 
 @Serializable
@@ -34,7 +35,8 @@ data class UserQuery(
     val grade: Int? = null,
     val page: Int = 1,
     val pageSize: Int = 20,
-    val isAll: Boolean? = null
+    val isAll: Boolean? = null,
+    val isGraduated: Boolean? = null
 )
 
 /** POST /user/batch 的单条变更。 */
@@ -42,7 +44,9 @@ data class UserQuery(
 data class UserBatchItem(
     @SerialName("user_id") val userId: Int,
     @SerialName("department_id") val departmentId: Int,
-    @SerialName("role_id") val roleId: Int
+    @SerialName("role_id") val roleId: Int,
+    /** 仅管理员修正年级时传递；不支持手动设置毕业状态。 */
+    @SerialName("grade") val grade: Int? = null
 )
 
 /** /user/batch 返回的失败条目，全部成功时为空数组。 */

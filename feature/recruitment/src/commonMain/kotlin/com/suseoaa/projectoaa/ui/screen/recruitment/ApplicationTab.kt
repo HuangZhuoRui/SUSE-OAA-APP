@@ -149,6 +149,14 @@ private fun TermContent(
         )
 
         val application = uiState.myApplication
+        if (uiState.isGraduated) {
+            Text(
+                text = "你已毕业，无法填报或修改招新换届申请。已有申请仍可查看。",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(8.dp)
+            )
+        }
         if (application != null && (application.decision.isNotBlank() || uiState.phase == TermPhase.Querying)) {
             ResultCard(
                 decision = application.decision,
@@ -182,7 +190,11 @@ private fun TermContent(
                 onWithdraw = {}
             )
             else -> Text(
-                text = if (uiState.phase == TermPhase.NotStarted) "填写期尚未开始，请留意开始时间" else "你没有参加本轮${term.type}",
+                text = when {
+                    uiState.isGraduated -> "本轮暂无已提交的申请"
+                    uiState.phase == TermPhase.NotStarted -> "填写期尚未开始，请留意开始时间"
+                    else -> "你没有参加本轮${term.type}"
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(8.dp)

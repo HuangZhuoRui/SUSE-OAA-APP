@@ -35,7 +35,7 @@ private enum class RecruitmentTab(val title: String) {
 }
 
 /**
- * 招新换届：所有人都能按周期提交申请；部门负责人及以上多一个面试审核，
+ * 招新换届：在校成员可按周期提交申请；部门负责人及以上多一个面试审核，
  * 管理员再多一个周期与面试官管理。
  */
 @OptIn(ExperimentalMaterial3Api::class)

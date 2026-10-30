@@ -3,11 +3,12 @@ package com.suseoaa.projectoaa.shared.domain.model.org
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-/** 部门类型：普通部门，或协会本身这样的顶层节点。 */
+/** 部门与职位使用相同的组织类型。 */
 object DepartmentTypes {
     const val DEPARTMENT = "部门"
     const val ASSOCIATION = "协会"
-    val all = listOf(DEPARTMENT, ASSOCIATION)
+    const val COUNCIL = "理事会"
+    val all = listOf(DEPARTMENT, ASSOCIATION, COUNCIL)
 }
 
 /** GET /department/list */

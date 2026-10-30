@@ -39,6 +39,8 @@ data class Application(
     @SerialName("name") val name: String = "",
     @SerialName("student_id") val studentId: String = "",
     @SerialName("username") val username: String = "",
+    /** 部分后端版本直接返回；缺失时可用成员列表补充，不能根据年级自行判断。 */
+    @SerialName("is_graduated") val isGraduated: Boolean? = null,
     @SerialName("avatar") val avatar: StoredFile = StoredFile(),
     @SerialName("college") val college: String = "",
     @SerialName("major_class") val majorClass: String = "",

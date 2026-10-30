@@ -5,6 +5,10 @@ import com.suseoaa.projectoaa.shared.domain.model.person.CancelDeleteRequest
 import com.suseoaa.projectoaa.shared.domain.model.person.DeleteUserRequest
 import com.suseoaa.projectoaa.shared.domain.model.person.PersonData
 import com.suseoaa.projectoaa.shared.domain.model.person.StoredFile
+import com.suseoaa.projectoaa.shared.domain.model.person.OssObjectKey
+import com.suseoaa.projectoaa.shared.domain.error.AppError
+import com.suseoaa.projectoaa.shared.domain.error.appFailure
+import com.suseoaa.projectoaa.shared.util.AppLog
 import com.suseoaa.projectoaa.shared.domain.model.person.UpdateMeRequest
 import com.suseoaa.projectoaa.shared.domain.model.person.UserBatchFailure
 import com.suseoaa.projectoaa.shared.domain.model.person.UserBatchItem
@@ -33,6 +37,7 @@ class OaaUserApi(private val requester: OaaRequester) {
                 "department" to query.department.ifBlank { null },
                 "role" to query.role.ifBlank { null },
                 "grade" to query.grade?.takeIf { it > 0 },
+                "is_graduated" to query.isGraduated,
                 "page" to query.page.takeUnless { query.isAll == true },
                 "page_size" to query.pageSize.takeUnless { query.isAll == true },
                 "is_all" to query.isAll
@@ -73,16 +78,22 @@ class OaaUserApi(private val requester: OaaRequester) {
         fileName: String,
         mimeType: String,
         fallbackMessage: String
-    ): Result<StoredFile> = requester.execute(fallbackMessage, { requester.decode<StoredFile>(it) }) {
-        requester.client.submitFormWithBinaryData(
-            url = ApiConfig.OAA_BASE + path,
-            formData = formData {
-                append("scene", scene)
-                append("file", bytes, Headers.build {
-                    append(HttpHeaders.ContentType, mimeType)
-                    append(HttpHeaders.ContentDisposition, "filename=\"$fileName\"")
-                })
-            }
-        )
+    ): Result<StoredFile> {
+        val stored = requester.execute(fallbackMessage, { requester.decode<StoredFile>(it) }) {
+            requester.client.submitFormWithBinaryData(
+                url = ApiConfig.OAA_BASE + path,
+                formData = formData {
+                    append("scene", scene)
+                    append("file", bytes, Headers.build {
+                        append(HttpHeaders.ContentType, mimeType)
+                        append(HttpHeaders.ContentDisposition, "filename=\"$fileName\"")
+                    })
+                }
+            )
+        }.getOrElse { return Result.failure(it) }
+        val key = OssObjectKey.parse(stored.uri)
+            ?: return appFailure(AppError.Parse("$fallbackMessage：上传返回的文件路径无效，请重新上传"))
+        AppLog.d("Upload completed: scene=$scene, uri=$key, hasPreviewUrl=${stored.url.isNotBlank()}", tag = "OaaPhoto")
+        return Result.success(stored.copy(uri = key))
     }
 }

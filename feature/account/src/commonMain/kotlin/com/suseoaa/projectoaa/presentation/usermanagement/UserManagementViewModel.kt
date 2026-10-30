@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.suseoaa.projectoaa.shared.domain.model.org.Department
 import com.suseoaa.projectoaa.shared.domain.model.org.Role
 import com.suseoaa.projectoaa.shared.domain.model.person.CurrentUser
+import com.suseoaa.projectoaa.shared.domain.model.person.EnrollmentGrade
 import com.suseoaa.projectoaa.shared.domain.model.person.UserBatchItem
 import com.suseoaa.projectoaa.shared.domain.model.person.UserListItem
 import com.suseoaa.projectoaa.shared.domain.model.person.UserQuery
@@ -32,6 +33,8 @@ data class UserManagementUiState(
     val filterDepartment: String = "",
     val filterRole: String = "",
     val filterGrade: String = "",
+    /** null 不限，false 在校，true 已毕业。 */
+    val filterGraduated: Boolean? = null,
     /** 是否启用 is_all=true 不分页拉取全部匹配成员 */
     val showAll: Boolean = false,
     // 批量选择模式（对应 POST /user/batch 一次提交多名成员变更）
@@ -118,8 +121,8 @@ class UserManagementViewModel(
     /** 按当前筛选条件从第一页重新查询。 */
     fun search() {
         val currentGrade = _uiState.value.filterGrade.trim()
-        if (currentGrade.isNotEmpty() && (currentGrade.length != 4 || currentGrade.toIntOrNull() == null)) {
-            _uiState.update { it.copy(message = "请输入有效的四位数字年级（如 2024）") }
+        if (currentGrade.isNotEmpty() && EnrollmentGrade.parse(currentGrade) == null) {
+            _uiState.update { it.copy(message = EnrollmentGrade.ERROR_MESSAGE) }
             return
         }
         viewModelScope.launch {
@@ -180,16 +183,29 @@ class UserManagementViewModel(
         OaaPermission.isAdmin(_uiState.value.currentUser) && canEditUser(user)
 
     /** 可以分配给别人的职位：只能是比自己等级低的。 */
-    fun assignableRoles(): List<Role> {
+    fun assignableRoles(targets: List<UserListItem> = emptyList()): List<Role> {
         val myLevel = _uiState.value.currentUser?.level ?: 0
-        return _uiState.value.roles.filter { it.isActive && it.level < myLevel }
+        return _uiState.value.roles.filter { role ->
+            role.isActive && role.level < myLevel && targets.all { OaaPermission.canAssignRole(it, role) }
+        }
     }
 
-    fun updateUser(user: UserListItem, departmentId: Int, roleId: Int) {
+    val canEditGrade: Boolean get() = OaaPermission.canEditGrades(_uiState.value.currentUser)
+
+    fun updateGraduationFilter(isGraduated: Boolean?) {
+        _uiState.update { it.copy(filterGraduated = isGraduated) }
+    }
+
+    fun updateUser(user: UserListItem, departmentId: Int, roleId: Int, grade: Int? = null) {
+        if (_uiState.value.isUpdating) return
+        validateUpdate(listOf(user), departmentId, roleId, grade)?.let { error ->
+            _uiState.update { it.copy(message = error) }
+            return
+        }
         viewModelScope.launch {
             _uiState.update { it.copy(isUpdating = true) }
             userManagementRepository.batchUpdate(
-                listOf(UserBatchItem(userId = user.userId, departmentId = departmentId, roleId = roleId))
+                listOf(UserBatchItem(userId = user.userId, departmentId = departmentId, roleId = roleId, grade = grade))
             ).onSuccess { failures ->
                 val message = if (failures.isEmpty()) {
                     "已更新 ${user.name.ifBlank { user.username }}"
@@ -205,15 +221,25 @@ class UserManagementViewModel(
     }
 
     /** 一次提交多名已选成员的部门与职位变更（POST /user/batch）。 */
-    fun batchUpdateSelected(departmentId: Int, roleId: Int) {
+    fun batchUpdateSelected(departmentId: Int, roleId: Int, grade: Int? = null) {
+        if (_uiState.value.isUpdating) return
         val ids = _uiState.value.selectedUserIds.toList()
         if (ids.isEmpty()) {
             _uiState.update { it.copy(message = "请先选择要调整的成员") }
             return
         }
+        val targets = _uiState.value.users.filter { it.userId in ids }
+        if (targets.size != ids.size) {
+            _uiState.update { it.copy(message = "成员列表已变化，请重新选择") }
+            return
+        }
+        validateUpdate(targets, departmentId, roleId, grade)?.let { error ->
+            _uiState.update { it.copy(message = error) }
+            return
+        }
         viewModelScope.launch {
             _uiState.update { it.copy(isUpdating = true) }
-            val items = ids.map { UserBatchItem(userId = it, departmentId = departmentId, roleId = roleId) }
+            val items = ids.map { UserBatchItem(userId = it, departmentId = departmentId, roleId = roleId, grade = grade) }
             userManagementRepository.batchUpdate(items)
                 .onSuccess { failures ->
                     if (failures.isEmpty()) {
@@ -274,11 +300,25 @@ class UserManagementViewModel(
         keyword = filterKeyword.trim(),
         department = filterDepartment,
         role = filterRole,
-        grade = filterGrade.trim().takeIf { it.length == 4 }?.toIntOrNull(),
+        grade = EnrollmentGrade.parse(filterGrade),
         page = page,
         pageSize = PAGE_SIZE,
-        isAll = true.takeIf { showAll }
+        isAll = true.takeIf { showAll },
+        isGraduated = filterGraduated
     )
+
+    private fun validateUpdate(targets: List<UserListItem>, departmentId: Int, roleId: Int, grade: Int?): String? {
+        if (targets.any { !canEditUser(it) }) return "权限不足：只能调整等级比自己低的其他成员"
+        if (grade != null) {
+            if (!canEditGrade) return "权限不足：只有副会长及以上管理才可修改年级"
+            if (!EnrollmentGrade.isValid(grade)) return EnrollmentGrade.ERROR_MESSAGE
+        }
+        if (_uiState.value.departments.none { it.id == departmentId && it.isActive }) return "请选择有效的部门"
+        val role = _uiState.value.roles.firstOrNull { it.id == roleId } ?: return "请选择有效的职位"
+        if (targets.any { !OaaPermission.canAssignRole(it, role) }) return "已毕业成员不可任命在任职务"
+        if (role !in assignableRoles(targets)) return "权限不足：只能分配比自己等级低的有效职位"
+        return null
+    }
 
     private fun sortByLevel(users: List<UserListItem>): List<UserListItem> {
         val levels = _uiState.value.roles.associate { it.name to it.level }

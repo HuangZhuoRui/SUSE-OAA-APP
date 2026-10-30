@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.suseoaa.projectoaa.shared.domain.model.person.PersonData
+import com.suseoaa.projectoaa.shared.domain.model.person.EnrollmentGrade
 import com.suseoaa.projectoaa.shared.domain.model.person.ServerHealthStatus
 import com.suseoaa.projectoaa.shared.domain.repository.PersonRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -386,12 +387,10 @@ class PersonViewModel(
         val parsedGrade: Int? = if (cleanGrade.isEmpty()) {
             null
         } else {
-            val g = cleanGrade.toIntOrNull()
-            if (cleanGrade.length != 4 || g == null || g <= 0) {
-                _uiState.update { it.copy(message = "请输入有效的四位数字年级（如 2024）") }
+            EnrollmentGrade.parse(cleanGrade) ?: run {
+                _uiState.update { it.copy(message = EnrollmentGrade.ERROR_MESSAGE) }
                 return
             }
-            g
         }
 
         viewModelScope.launch {
