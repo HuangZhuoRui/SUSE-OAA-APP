@@ -51,7 +51,9 @@ val architectureRules = listOf(
         reason = "所有 baseUrl 收口在 ApiConfig，否则换域名或加代理要全局搜索替换。",
         includePaths = listOf("/src/"),
         forbidden = Regex(""""https?://(?!schemas\.android\.com|www\.w3\.org)[A-Za-z0-9]"""),
-        exemptPaths = listOf("/ApiConfig.kt"),
+        // MockEngine 响应和断言需要固定的示例 URL；它们不会进入生产包。
+        // 只豁免测试源码目录，生产代码仍须通过 ApiConfig 管理远端地址。
+        exemptPaths = listOf("/ApiConfig.kt", "/src/commonTest/", "/src/androidHostTest/"),
     ),
     ArchRule(
         name = "ViewModel 应依赖仓库接口而非实现",
